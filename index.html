@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>vivo</title>
+  <meta name="description" content="vivo – die fehlende Infrastruktur für das reale Sozialleben">
+  <meta name="theme-color" content="#F5A623">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    /* ── RESET ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    button { font-family: inherit; cursor: pointer; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── TOKENS ── */
+    :root {
+      --bg:           #FAF8F4;
+      --amber:        #F5A623;
+      --amber-light:  #FADA8E;
+      --pink:         #EF6B82;
+      --text:         #1A1714;
+      --muted:        #8A847D;
+      --card:         #FFFFFF;
+      --border:       #EDE8E0;
+      --shadow:       0 2px 16px rgba(26,23,20,.07);
+      --shadow-lg:    0 8px 32px rgba(26,23,20,.12);
+      --r:            16px;
+      --r-sm:         10px;
+      --serif:        'Playfair Display', Georgia, serif;
+      --sans:         'DM Sans', system-ui, sans-serif;
+      --max:          480px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; min-height: 100vh; flex-direction: column; background: var(--bg); }
+    .screen.active { display: flex; animation: fadeUp .2s ease; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── LOGO ── */
+    .logo {
+      font-family: var(--serif);
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -.02em;
+      color: var(--text);
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 24px; border-radius: 50px; border: none;
+      font-family: var(--sans); font-size: .9375rem; font-weight: 600;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary  { background: var(--amber); color: var(--text); }
+    .btn-primary:hover  { background: #e8961f; }
+    .btn-outline  { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover  { border-color: var(--muted); }
+    .btn-ghost    { background: transparent; color: var(--muted); padding: 10px 16px; }
+    .btn-google   { background: #fff; border: 1.5px solid var(--border); color: var(--text); font-weight: 500; }
+    .btn-google:hover { background: #f7f7f7; }
+    .btn-full     { width: 100%; }
+    .btn-sm       { padding: 9px 16px; font-size: .875rem; }
+
+    /* ── INPUTS ── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: .875rem; font-weight: 500; color: var(--muted); }
+    input[type=text], input[type=email], input[type=password],
+    input[type=date], input[type=time] {
+      width: 100%; padding: 13px 16px;
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      font-family: var(--sans); font-size: 1rem; color: var(--text);
+      background: #fff; outline: none; transition: border-color .15s;
+    }
+    input:focus { border-color: var(--amber); }
+    input::placeholder { color: var(--muted); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--muted); font-size: .875rem; margin: 20px 0;
+    }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background: var(--border); }
+
+    /* ── AVATAR ── */
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--amber-light); border: none;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .875rem; flex-shrink: 0;
+    }
+
+    /* ── BADGE ── */
+    .badge {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--pink); color: #fff;
+      font-size: .75rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* ── SPINNER ── */
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2.5px solid var(--border); border-top-color: var(--amber);
+      border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 88px; left: 50%; z-index: 9999;
+      transform: translateX(-50%) translateY(12px);
+      background: var(--text); color: #fff;
+      padding: 11px 22px; border-radius: 50px;
+      font-size: .875rem; font-weight: 500;
+      opacity: 0; transition: all .25s ease; white-space: nowrap;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── OVERLAY / SHEET ── */
+    .overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(26,23,20,.45); backdrop-filter: blur(4px);
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .sheet {
+      background: #fff; border-radius: var(--r) var(--r) 0 0;
+      padding: 24px 20px 44px; width: 100%; max-width: var(--max);
+      animation: slideUp .28s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(32px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* ── BACK BTN ── */
+    .back-btn {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      background: #fff; border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text);
+    }
+
+    /* ══════════════════════════════
+       LOADING
+    ══════════════════════════════ */
+    #loading {
+      position: fixed; inset: 0; z-index: 9998;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+    }
+    #loading .logo { font-size: 2.25rem; }
+
+    /* ══════════════════════════════
+       LOGIN SCREEN
+    ══════════════════════════════ */
+    #screen-login {
+      align-items: center; justify-content: center;
+      padding: 32px 24px;
+    }
+    .login-box { width: 100%; max-width: 400px; }
+    .login-head { text-align: center; margin-bottom: 36px; }
+    .login-head .logo { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+    .login-head p { color: var(--muted); font-size: .9375rem; }
+
+    .auth-tabs {
+      display: flex; background: var(--border);
+      border-radius: 50px; padding: 4px; margin-bottom: 26px;
+    }
+    .auth-tab {
+      flex: 1; padding: 10px; border-radius: 50px; border: none;
+      background: transparent; font-family: var(--sans);
+      font-size: .9375rem; font-weight: 500; color: var(--muted);
+      cursor: pointer; transition: all .2s;
+    }
+    .auth-tab.on {
+      background: #fff; color: var(--text); font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,.09);
+    }
+
+    .auth-form { display: flex; flex-direction: column; gap: 14px; }
+    .auth-err {
+      background: #FEF0F2; border: 1px solid #FBCDD5;
+      color: var(--pink); padding: 11px 14px;
+      border-radius: var(--r-sm); font-size: .875rem; display: none;
+    }
+    .auth-err.show { display: block; }
+
+    /* ══════════════════════════════
+       HOME SCREEN
+    ══════════════════════════════ */
+    .home-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 20px 8px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+    .home-body {
+      flex: 1; overflow-y: auto;
+      padding-bottom: 100px;
+    }
+    .section {
+      padding: 20px 20px 4px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+    .section-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .section-head h2 {
+      font-size: .8125rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    }
+    .events-stack { display: flex; flex-direction: column; gap: 12px; }
+
+    /* Event card */
+    .ecard {
+      background: #fff; border-radius: var(--r);
+      border: 1px solid var(--border); box-shadow: var(--shadow);
+      padding: 16px; cursor: pointer; transition: box-shadow .15s;
+    }
+    .ecard:hover { box-shadow: var(--shadow-lg); }
+    .ecard-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+    .ecard-emoji {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; flex-shrink: 0;
+    }
+    .ecard-info { flex: 1; min-width: 0; }
+    .ecard-title {
+      font-size: 1.0625rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .ecard-meta { font-size: .8125rem; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+
+    .attendee-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+    .achip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #F5F3EF; border-radius: 50px;
+      padding: 4px 10px 4px 7px; font-size: .8125rem;
+    }
+    .adot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+    .adot.maybe { background: #c8a84b; }
+
+    /* Inline RSVP on home cards */
+    .inline-rsvp { display: flex; gap: 7px; }
+    .irsvp-btn {
+      flex: 1; padding: 9px 6px; border-radius: 50px;
+      border: 1.5px solid var(--border); background: #fff;
+      font-family: var(--sans); font-size: .8125rem; font-weight: 600;
+      color: var(--muted); transition: all .15s;
+    }
+    .irsvp-btn:hover { border-color: var(--amber); color: var(--text); }
+
+    /* FAB */
+    .fab {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      width: 60px; height: 60px; border-radius: 50%;
+      background: var(--amber); border: none;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 24px rgba(245,166,35,.55);
+      transition: all .15s; z-index: 50;
+    }
+    .fab:hover { background: #e8961f; transform: translateX(-50%) scale(1.05); }
+    .fab:active { transform: translateX(-50%) scale(.95); }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 36px 20px; color: var(--muted); }
+    .empty .ei { font-size: 2rem; margin-bottom: 8px; }
+    .empty p { font-size: .9375rem; }
+
+    /* ══════════════════════════════
+       CREATE SCREEN
+    ══════════════════════════════ */
+    .scr-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 20px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+    .scr-header h1 { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; }
+
+    .create-body {
+      flex: 1; overflow-y: auto;
+      padding: 4px 20px 120px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+
+    /* Emoji grid */
+    .emoji-label { font-size: .875rem; font-weight: 500; color: var(--muted); margin-bottom: 10px; display: block; }
+    .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-bottom: 22px; }
+    .egi {
+      aspect-ratio: 1; border-radius: 10px;
+      border: 2px solid transparent; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.375rem; cursor: pointer; transition: all .12s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .egi:hover { transform: scale(1.1); border-color: var(--amber-light); }
+    .egi.on { border-color: var(--amber); background: #FFF9EE; }
+
+    .form-stack { display: flex; flex-direction: column; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Fixed bottom bar */
+    .create-foot {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 16px 20px 36px;
+      background: linear-gradient(to top, var(--bg) 65%, transparent);
+    }
+    .create-foot .inner { max-width: var(--max); margin: 0 auto; }
+
+    /* Success overlay */
+    #success {
+      position: fixed; inset: 0; z-index: 300;
+      background: var(--bg);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 32px; text-align: center;
+    }
+    #success.open { display: flex; animation: fadeUp .3s ease; }
+    .suc-icon {
+      width: 84px; height: 84px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; margin-bottom: 20px;
+    }
+    .suc-title { font-family: var(--serif); font-size: 1.875rem; font-weight: 600; margin-bottom: 8px; }
+    .suc-sub { color: var(--muted); margin-bottom: 36px; font-size: .9375rem; }
+    .share-stack { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+
+    /* ══════════════════════════════
+       EVENT VIEW SCREEN
+    ══════════════════════════════ */
+    #screen-event { align-items: center; }
+    #screen-event > .ev-inner {
+      max-width: var(--max); width: 100%; margin: 0 auto;
+      display: flex; flex-direction: column; flex: 1;
+    }
+
+    .ev-header { display: flex; align-items: center; padding: 16px 20px; }
+    .ev-body { flex: 1; overflow-y: auto; padding-bottom: 48px; }
+
+    /* Hero */
+    .ev-hero { text-align: center; padding: 20px 20px 28px; }
+    .ev-hero-emoji {
+      width: 76px; height: 76px; border-radius: 22px;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; margin: 0 auto 16px;
+    }
+    .ev-hero-title {
+      font-family: var(--serif); font-size: 1.875rem; font-weight: 700;
+      line-height: 1.2; margin-bottom: 16px;
+    }
+    .ev-details {
+      background: #fff; border-radius: var(--r);
+      border: 1px solid var(--border); padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px; text-align: left;
+    }
+    .ev-row { display: flex; align-items: center; gap: 12px; font-size: .9375rem; }
+    .ev-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: #F5F3EF; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem;
+    }
+
+    /* Section */
+    .ev-sec { padding: 16px 20px 4px; }
+    .ev-sec-title {
+      font-size: .8125rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* Attendees list */
+    .att-list { display: flex; flex-direction: column; gap: 8px; }
+    .att-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: #fff;
+      border-radius: var(--r-sm); border: 1px solid var(--border);
+    }
+    .att-info { display: flex; align-items: center; gap: 10px; }
+    .att-av {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8125rem; font-weight: 700;
+    }
+    .att-name { font-weight: 500; font-size: .9375rem; }
+    .pill {
+      font-size: .75rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 50px;
+    }
+    .pill.dabei      { background: var(--amber-light); color: var(--text); }
+    .pill.vielleicht { background: #FEF9EE; color: #9a6f00; border: 1px solid var(--amber-light); }
+    .pill.nein       { background: #F5F3EF; color: var(--muted); }
+
+    /* RSVP form */
+    .rsvp-box {
+      background: #fff; border-radius: var(--r);
+      border: 1px solid var(--border); padding: 18px;
+    }
+    .rsvp-btns { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+    .rbtn {
+      padding: 14px 6px; border-radius: var(--r-sm);
+      border: 2px solid var(--border); background: #fff;
+      font-family: var(--sans); font-size: .875rem; font-weight: 600;
+      color: var(--muted); transition: all .15s;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .rbtn .ri { font-size: 1.25rem; }
+    .rbtn:hover { border-color: var(--amber); color: var(--text); }
+    .rbtn.on.dabei      { background: var(--amber);       border-color: var(--amber);       color: var(--text); }
+    .rbtn.on.vielleicht { background: var(--amber-light); border-color: var(--amber-light); color: var(--text); }
+    .rbtn.on.nein       { background: #F5F3EF;            border-color: #EDE8E0;            color: var(--muted); }
+
+    .rsvp-name { display: none; }
+    .rsvp-name.open { display: flex; flex-direction: column; gap: 10px; }
+
+    /* Calendar buttons */
+    .cal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cal-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px; background: #fff; border: 1.5px solid var(--border);
+      border-radius: var(--r-sm); font-family: var(--sans);
+      font-size: .875rem; font-weight: 500; color: var(--text);
+      cursor: pointer; transition: border-color .15s;
+    }
+    .cal-btn:hover { border-color: var(--muted); }
+
+    /* Profile sheet */
+    .prof-head { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+    .prof-av {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.375rem; font-weight: 700;
+    }
+    .prof-name  { font-size: 1.125rem; font-weight: 600; }
+    .prof-email { font-size: .875rem; color: var(--muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ LOADING ═══════════════════════════ -->
+<div id="loading">
+  <div class="logo">vivo</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- ═══════════════════════════ LOGIN ═══════════════════════════ -->
+<div id="screen-login" class="screen">
+  <div class="login-box">
+    <div class="login-head">
+      <span class="logo">vivo</span>
+      <p>Die Infrastruktur für dein reales Sozialleben.</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab on" onclick="switchTab('login')">Anmelden</button>
+      <button class="auth-tab"    onclick="switchTab('register')">Registrieren</button>
+    </div>
+
+    <div id="auth-err" class="auth-err"></div>
+
+    <form class="auth-form" onsubmit="handleAuth(event)">
+      <div class="field" id="name-field" style="display:none">
+        <label>Name</label>
+        <input type="text" id="inp-name" placeholder="Dein Name" autocomplete="name">
+      </div>
+      <div class="field">
+        <label>E-Mail</label>
+        <input type="email" id="inp-email" placeholder="du@beispiel.de" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Passwort</label>
+        <input type="password" id="inp-pw" placeholder="Mindestens 6 Zeichen" required minlength="6" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="auth-btn">Anmelden</button>
+    </form>
+
+    <div class="divider">oder</div>
+
+    <button class="btn btn-google btn-full" onclick="googleLogin()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.017 17.64 11.71 17.64 9.2z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+        <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Mit Google anmelden
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ HOME ═══════════════════════════ -->
+<div id="screen-home" class="screen">
+  <div class="home-bar">
+    <span class="logo">vivo</span>
+    <button class="avatar" id="avatar-btn" onclick="openProfile()"></button>
+  </div>
+
+  <div class="home-body">
+    <div class="section">
+      <div class="section-head"><h2>Deine Events</h2></div>
+      <div class="events-stack" id="my-list">
+        <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <div class="section" id="pending-sec" style="display:none">
+      <div class="section-head">
+        <h2>Ausstehend</h2>
+        <div class="badge" id="pending-count">0</div>
+      </div>
+      <div class="events-stack" id="pending-list"></div>
+    </div>
+  </div>
+
+  <button class="fab" onclick="showCreate()" title="Event erstellen">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
+</div>
+
+<!-- ═══════════════════════════ CREATE ═══════════════════════════ -->
+<div id="screen-create" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="showScreen('home')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Event erstellen</h1>
+  </div>
+
+  <div class="create-body">
+    <span class="emoji-label">Emoji</span>
+    <div class="emoji-grid" id="emoji-grid"></div>
+
+    <div class="form-stack">
+      <div class="field">
+        <label>Titel</label>
+        <input type="text" id="ev-title" placeholder="z.B. Grillabend im Park" maxlength="60">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Datum</label>
+          <input type="date" id="ev-date">
+        </div>
+        <div class="field">
+          <label>Uhrzeit</label>
+          <input type="time" id="ev-time">
+        </div>
+      </div>
+      <div class="field">
+        <label>Ort</label>
+        <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin">
+      </div>
+    </div>
+  </div>
+
+  <div class="create-foot">
+    <div class="inner">
+      <button class="btn btn-primary btn-full" onclick="createEvent()" id="create-btn">
+        Event erstellen &amp; teilen ✨
+      </button>
+    </div>
+  </div>
+
+  <!-- Success overlay (inside create screen, fixed) -->
+  <div id="success">
+    <div class="suc-icon" id="suc-emoji">🎉</div>
+    <div class="suc-title">Event erstellt!</div>
+    <p class="suc-sub">Jetzt teilen und Zusagen sammeln</p>
+    <div class="share-stack">
+      <button class="btn btn-primary btn-full" onclick="shareWA()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp teilen
+      </button>
+      <button class="btn btn-outline btn-full" onclick="copyLink()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Link kopieren
+      </button>
+      <button class="btn btn-ghost btn-full" onclick="goHome()">Zur Übersicht</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ EVENT VIEW ═══════════════════════════ -->
+<div id="screen-event" class="screen">
+  <div class="ev-inner">
+    <div class="ev-header">
+      <button class="back-btn" id="ev-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+    <div class="ev-body" id="ev-body">
+      <div style="display:flex;align-items:center;justify-content:center;padding:80px 0">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PROFILE SHEET ═══════════════════════════ -->
+<div class="overlay" id="profile-overlay" onclick="closeProfile(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="prof-head">
+      <div class="prof-av" id="prof-av"></div>
+      <div>
+        <div class="prof-name"  id="prof-name"></div>
+        <div class="prof-email" id="prof-email"></div>
+      </div>
+    </div>
+    <button class="btn btn-outline btn-full" onclick="doSignOut()">Abmelden</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE CONFIG  ← paste your config values here
+// ─────────────────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let me          = null;   // current firebase user
+let createdId   = null;   // last created event ID (for share sheet)
+let pickedEmoji = '🎉';
+let evUnsubscribe = null; // real-time event listener cleanup
+
+const EMOJIS = [
+  '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
+  '🌿','🎮','🎤','🏕','🌊','🚀','🎨','🍣','🥂','🌮',
+  '🧁','🎭','🏖','🎺','🏋','🌺','🎻','🎯','🥳','🎪',
+  '🪩','🌙','☀️','🌈','🍦','🎠','🧩','🛤','🎆','🎑',
+  '🪄','🦋','🌻','🍀','🎐','🛸','🦄','🎋','🎊','🌟'
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTING  (hash-based: #event/<id>)
+// ─────────────────────────────────────────────────────────────────────────────
+function route() {
+  const h = location.hash;
+  if (h.startsWith('#event/')) return { screen: 'event', id: h.slice(7) };
+  return { screen: 'home' };
+}
+
+auth.onAuthStateChanged(user => {
+  me = user;
+  document.getElementById('loading').style.display = 'none';
+  const r = route();
+
+  if (r.screen === 'event') {
+    loadEventScreen(r.id);
+    showScreen('event');
+  } else if (user) {
+    setAvatar(user);
+    showScreen('home');
+    loadHome();
+  } else {
+    showScreen('login');
+  }
+});
+
+window.addEventListener('hashchange', () => {
+  const r = route();
+  if (r.screen === 'event') {
+    loadEventScreen(r.id);
+    showScreen('event');
+  } else if (me) {
+    showScreen('home');
+    loadHome();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────────────────────
+let authMode = 'login';
+
+function switchTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t, i) =>
+    t.classList.toggle('on', (i === 0) === (mode === 'login'))
+  );
+  document.getElementById('name-field').style.display  = mode === 'register' ? 'flex' : 'none';
+  document.getElementById('auth-btn').textContent       = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  authErr('');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('inp-email').value.trim();
+  const pw    = document.getElementById('inp-pw').value;
+  const btn   = document.getElementById('auth-btn');
+  authErr('');
+  btn.disabled = true; btn.textContent = '…';
+
+  try {
+    if (authMode === 'login') {
+      await auth.signInWithEmailAndPassword(email, pw);
+    } else {
+      const name = document.getElementById('inp-name').value.trim() || email.split('@')[0];
+      const c = await auth.createUserWithEmailAndPassword(email, pw);
+      await c.user.updateProfile({ displayName: name });
+    }
+  } catch (err) {
+    authErr(fmtAuthErr(err.code));
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  }
+}
+
+async function googleLogin() {
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch (err) {
+    if (err.code !== 'auth/popup-closed-by-user') toast('Google-Login fehlgeschlagen');
+  }
+}
+
+async function doSignOut() {
+  closeProfile();
+  cleanEv();
+  await auth.signOut();
+  location.hash = '';
+  showScreen('login');
+}
+
+function authErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+function fmtAuthErr(code) {
+  return ({
+    'auth/invalid-email':       'Ungültige E-Mail-Adresse.',
+    'auth/user-not-found':      'Kein Konto mit dieser E-Mail.',
+    'auth/wrong-password':      'Falsches Passwort.',
+    'auth/invalid-credential':  'E-Mail oder Passwort falsch.',
+    'auth/email-already-in-use':'Diese E-Mail ist bereits registriert.',
+    'auth/weak-password':       'Passwort muss mind. 6 Zeichen haben.',
+    'auth/too-many-requests':   'Zu viele Versuche – kurz warten.',
+  })[code] || 'Fehler. Bitte erneut versuchen.';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AVATAR / PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+function setAvatar(user) {
+  const init = (user.displayName || user.email || '?')[0].toUpperCase();
+  document.getElementById('avatar-btn').textContent = init;
+}
+
+function openProfile() {
+  if (!me) return;
+  const init = (me.displayName || me.email || '?')[0].toUpperCase();
+  document.getElementById('prof-av').textContent    = init;
+  document.getElementById('prof-name').textContent  = me.displayName || 'Kein Name';
+  document.getElementById('prof-email').textContent = me.email || '';
+  document.getElementById('profile-overlay').classList.add('open');
+}
+
+function closeProfile(e) {
+  if (!e || e.target.id === 'profile-overlay')
+    document.getElementById('profile-overlay').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCREENS
+// ─────────────────────────────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+function showCreate() {
+  initCreateForm();
+  showScreen('create');
+}
+
+function goHome() {
+  document.getElementById('success').classList.remove('open');
+  location.hash = '';
+  showScreen('home');
+  loadHome();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME
+// ─────────────────────────────────────────────────────────────────────────────
+let homeOff = null;
+
+async function loadHome() {
+  if (!me) return;
+  if (homeOff) { homeOff(); homeOff = null; }
+
+  const myEl  = document.getElementById('my-list');
+  const pEl   = document.getElementById('pending-list');
+  const pSec  = document.getElementById('pending-sec');
+  myEl.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
+
+  const ref = db.ref('userEvents/' + me.uid);
+  const cb = ref.on('value', async snap => {
+    const map = snap.val() || {};
+    const ids = Object.keys(map);
+    if (!ids.length) {
+      myEl.innerHTML = `<div class="empty"><div class="ei">🌱</div><p>Noch keine Events. Erstelle dein erstes!</p></div>`;
+      pSec.style.display = 'none';
+      return;
+    }
+
+    const snaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
+    const myEvs = [], pEvs = [];
+
+    snaps.forEach((s, i) => {
+      if (!s.exists()) return;
+      const ev = { id: s.key, ...s.val(), _st: map[ids[i]] };
+      (ev._st === 'pending' ? pEvs : myEvs).push(ev);
+    });
+
+    const byDate = (a, b) =>
+      new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00'));
+    myEvs.sort(byDate); pEvs.sort(byDate);
+
+    myEl.innerHTML = myEvs.length
+      ? myEvs.map(ev => cardHTML(ev, false)).join('')
+      : '<div class="empty"><div class="ei">🌱</div><p>Noch keine bestätigten Events.</p></div>';
+
+    if (pEvs.length) {
+      pSec.style.display = 'block';
+      document.getElementById('pending-count').textContent = pEvs.length;
+      pEl.innerHTML = pEvs.map(ev => cardHTML(ev, true)).join('');
+    } else {
+      pSec.style.display = 'none';
+    }
+  });
+
+  homeOff = () => ref.off('value', cb);
+}
+
+function cardHTML(ev, showRsvp) {
+  const rsvps   = ev.rsvps ? Object.values(ev.rsvps) : [];
+  const dabei   = rsvps.filter(r => r.status === 'dabei');
+  const vl      = rsvps.filter(r => r.status === 'vielleicht');
+  const chips   = [
+    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${esc(r.name)}</span>`),
+    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${esc(r.name)}</span>`),
+  ].join('') || '<span style="font-size:.8125rem;color:var(--muted)">Noch keine Zusagen</span>';
+
+  const rsvpRow = showRsvp ? `
+    <div class="inline-rsvp" onclick="event.stopPropagation()">
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','dabei')">✓ Dabei</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','vielleicht')">~ Vielleicht</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','nein')">✗ Nein</button>
+    </div>` : '';
+
+  return `
+    <div class="ecard" onclick="openEv('${ev.id}')">
+      <div class="ecard-top">
+        <div class="ecard-emoji">${ev.emoji || '🎉'}</div>
+        <div class="ecard-info">
+          <div class="ecard-title">${esc(ev.title)}</div>
+          <div class="ecard-meta">
+            <span>📅 ${fmtDate(ev.date, ev.time)}</span>
+            ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="attendee-chips">${chips}</div>
+      ${rsvpRow}
+    </div>`;
+}
+
+async function quickRsvp(eventId, status) {
+  if (!me) return;
+  const name = me.displayName || me.email.split('@')[0];
+  const ref  = db.ref('events/' + eventId + '/rsvps');
+  const snap = await ref.orderByChild('userId').equalTo(me.uid).once('value');
+  const upd  = {};
+  snap.forEach(c => { upd[c.key] = null; });
+  if (Object.keys(upd).length) await ref.update(upd);
+  await ref.push({ name, status, userId: me.uid, ts: Date.now() });
+  await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
+  toast({ dabei: '🎉 Du bist dabei!', vielleicht: '~ Als Vielleicht eingetragen', nein: 'Als Nein eingetragen' }[status]);
+}
+
+function openEv(id) { location.hash = 'event/' + id; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE
+// ─────────────────────────────────────────────────────────────────────────────
+function initEmojiGrid() {
+  document.getElementById('emoji-grid').innerHTML = EMOJIS.map((em, i) =>
+    `<button type="button" class="egi${i===0?' on':''}" onclick="pickEmoji('${em}',this)">${em}</button>`
+  ).join('');
+}
+
+function pickEmoji(em, el) {
+  document.querySelectorAll('.egi').forEach(e => e.classList.remove('on'));
+  el.classList.add('on');
+  pickedEmoji = em;
+}
+
+function initCreateForm() {
+  pickedEmoji = '🎉';
+  document.querySelectorAll('.egi').forEach((e, i) => e.classList.toggle('on', i === 0));
+  document.getElementById('ev-title').value    = '';
+  document.getElementById('ev-date').value     = new Date().toISOString().split('T')[0];
+  document.getElementById('ev-time').value     = '18:00';
+  document.getElementById('ev-location').value = '';
+  document.getElementById('success').classList.remove('open');
+}
+
+async function createEvent() {
+  const title    = document.getElementById('ev-title').value.trim();
+  const date     = document.getElementById('ev-date').value;
+  const time     = document.getElementById('ev-time').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const btn      = document.getElementById('create-btn');
+
+  if (!title) { toast('Bitte einen Titel eingeben'); return; }
+  if (!date)  { toast('Bitte ein Datum wählen');     return; }
+
+  btn.disabled = true; btn.textContent = 'Erstelle…';
+
+  try {
+    const data = {
+      emoji:       pickedEmoji,
+      title,
+      date,
+      time:        time || null,
+      location:    location || null,
+      createdBy:   me ? me.uid  : null,
+      creatorName: me ? (me.displayName || me.email.split('@')[0]) : 'Anonym',
+      createdAt:   Date.now()
+    };
+
+    const ref = db.ref('events').push();
+    await ref.set(data);
+    createdId = ref.key;
+
+    if (me) await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
+
+    document.getElementById('suc-emoji').textContent = pickedEmoji;
+    document.getElementById('success').classList.add('open');
+  } catch {
+    toast('Fehler beim Erstellen.');
+  }
+
+  btn.disabled = false; btn.textContent = 'Event erstellen & teilen ✨';
+}
+
+function evLink(id) {
+  return location.origin + location.pathname + '#event/' + (id || createdId);
+}
+
+function shareWA() {
+  const title = document.getElementById('ev-title').value.trim();
+  const text  = encodeURIComponent(`${pickedEmoji} ${title}\n\nBist du dabei? ${evLink()}`);
+  window.open('https://wa.me/?text=' + text, '_blank');
+}
+
+async function copyLink(id) {
+  const link = evLink(id);
+  try { await navigator.clipboard.writeText(link); }
+  catch { fallbackCopy(link); }
+  toast('Link kopiert! 📋');
+}
+
+function fallbackCopy(text) {
+  const el = Object.assign(document.createElement('input'), { value: text });
+  document.body.appendChild(el); el.select(); document.execCommand('copy');
+  document.body.removeChild(el);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function cleanEv() {
+  if (evUnsubscribe) { evUnsubscribe(); evUnsubscribe = null; }
+}
+
+function loadEventScreen(id) {
+  cleanEv();
+  const body   = document.getElementById('ev-body');
+  const backBtn = document.getElementById('ev-back');
+  body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  backBtn.onclick = () => me ? (location.hash = '', showScreen('home'), loadHome()) : history.back();
+
+  const ref = db.ref('events/' + id);
+  const cb  = ref.on('value', snap => {
+    if (!snap.exists()) {
+      body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Event nicht gefunden.</p></div>';
+      return;
+    }
+    const ev = { id: snap.key, ...snap.val() };
+
+    // mark as pending for logged-in users who haven't RSVPd yet
+    if (me) {
+      db.ref('userEvents/' + me.uid + '/' + id).once('value').then(s => {
+        if (!s.exists()) db.ref('userEvents/' + me.uid + '/' + id).set('pending');
+      });
+    }
+
+    renderEv(ev, body);
+  });
+
+  evUnsubscribe = () => ref.off('value', cb);
+}
+
+let _rsvpStatus = null;
+
+function renderEv(ev, body) {
+  window._ev = ev;
+  _rsvpStatus = null;
+
+  const rsvps = ev.rsvps ? Object.values(ev.rsvps) : [];
+  const dabei = rsvps.filter(r => r.status === 'dabei');
+  const vl    = rsvps.filter(r => r.status === 'vielleicht');
+  const nein  = rsvps.filter(r => r.status === 'nein');
+
+  // find my existing RSVP
+  let myStatus = null;
+  if (me && ev.rsvps) {
+    const found = Object.values(ev.rsvps).find(r => r.userId === me.uid);
+    if (found) myStatus = found.status;
+  }
+
+  const attRows = [...dabei, ...vl, ...nein].map(r => `
+    <div class="att-row">
+      <div class="att-info">
+        <div class="att-av">${(r.name||'?')[0].toUpperCase()}</div>
+        <span class="att-name">${esc(r.name)}</span>
+      </div>
+      <span class="pill ${r.status}">${{dabei:'Dabei',vielleicht:'Vielleicht',nein:'Nein'}[r.status]}</span>
+    </div>`).join('') ||
+    '<div style="text-align:center;padding:20px;color:var(--muted);font-size:.9375rem">Noch keine Rückmeldungen</div>';
+
+  const defaultName = me ? (me.displayName || '') : '';
+
+  body.innerHTML = `
+    <div class="ev-hero">
+      <div class="ev-hero-emoji">${ev.emoji||'🎉'}</div>
+      <div class="ev-hero-title">${esc(ev.title)}</div>
+      <div class="ev-details">
+        <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtDate(ev.date, ev.time)}</span></div>
+        ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
+        <div class="ev-row"><div class="ev-icon">👤</div><span>Von ${esc(ev.creatorName||'Jemand')}</span></div>
+      </div>
+    </div>
+
+    <div class="ev-sec">
+      <div class="ev-sec-title">Wer ist dabei (${dabei.length}${vl.length ? ' + '+vl.length+' vielleicht':''})  </div>
+      <div class="att-list">${attRows}</div>
+    </div>
+
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Deine Antwort</div>
+      <div class="rsvp-box">
+        <div class="rsvp-btns">
+          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>Dabei</button>
+          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>Vielleicht</button>
+          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>Nein</button>
+        </div>
+        <div class="rsvp-name ${myStatus?'':'open'}" id="rsvp-name">
+          <div class="field">
+            <label>Dein Name</label>
+            <input type="text" id="rsvp-inp" placeholder="Wie heißt du?" value="${esc(defaultName)}">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">Antwort senden</button>
+        </div>
+        ${myStatus ? '<p style="text-align:center;font-size:.8125rem;color:var(--muted);margin-top:8px">Antwort ändern? Wähle oben.</p>' : ''}
+      </div>
+    </div>
+
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Zum Kalender hinzufügen</div>
+      <div class="cal-grid">
+        <a href="${gcalLink(ev)}" target="_blank" class="cal-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Google
+        </a>
+        <button class="cal-btn" onclick="dlICS()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Apple (.ics)
+        </button>
+      </div>
+    </div>
+
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Teilen</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline" style="flex:1" onclick="shareEvWA()">WhatsApp</button>
+        <button class="btn btn-outline" style="flex:1" onclick="copyLink('${ev.id}')">Link kopieren</button>
+      </div>
+    </div>
+    <div style="height:40px"></div>`;
+
+  if (myStatus) _rsvpStatus = myStatus;
+}
+
+function pickRsvp(status) {
+  _rsvpStatus = status;
+  document.querySelectorAll('.rbtn').forEach(b => {
+    b.classList.remove('on');
+    if (b.classList.contains(status)) b.classList.add('on');
+  });
+  const ns = document.getElementById('rsvp-name');
+  if (ns) ns.classList.add('open');
+}
+
+async function submitRsvp(eventId) {
+  if (!_rsvpStatus) { toast('Bitte wähle eine Antwort'); return; }
+  const inp  = document.getElementById('rsvp-inp');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) { toast('Bitte gib deinen Namen ein'); if(inp) inp.focus(); return; }
+
+  const btn = document.querySelector('.rsvp-box .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    const ref = db.ref('events/' + eventId + '/rsvps');
+
+    // remove old RSVP for this user
+    if (me) {
+      const snap = await ref.orderByChild('userId').equalTo(me.uid).once('value');
+      const upd = {};
+      snap.forEach(c => { upd[c.key] = null; });
+      if (Object.keys(upd).length) await ref.update(upd);
+    }
+
+    const rsvp = { name, status: _rsvpStatus, ts: Date.now() };
+    if (me) rsvp.userId = me.uid;
+    await ref.push(rsvp);
+
+    if (me) await db.ref('userEvents/' + me.uid + '/' + eventId).set(_rsvpStatus);
+
+    toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[_rsvpStatus]);
+    const ns = document.getElementById('rsvp-name');
+    if (ns) ns.classList.remove('open');
+  } catch {
+    toast('Fehler – bitte erneut versuchen.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Antwort senden'; }
+  }
+}
+
+function shareEvWA() {
+  const ev = window._ev; if (!ev) return;
+  window.open('https://wa.me/?text=' + encodeURIComponent(`${ev.emoji||'🎉'} ${ev.title}\n\nBist du dabei? ${evLink(ev.id)}`), '_blank');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALENDAR
+// ─────────────────────────────────────────────────────────────────────────────
+function gcalLink(ev) {
+  const s = toCalDt(ev.date, ev.time,   0);
+  const e = toCalDt(ev.date, ev.time, 120);
+  return 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
+    action:'TEMPLATE', text: ev.title,
+    dates: s+'/'+e,
+    details: 'Event via vivo\n' + evLink(ev.id),
+    location: ev.location || ''
+  });
+}
+
+function dlICS() {
+  const ev = window._ev; if (!ev) return;
+  const s   = toCalDt(ev.date, ev.time,   0);
+  const e   = toCalDt(ev.date, ev.time, 120);
+  const now = new Date().toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//vivo//EN',
+    'BEGIN:VEVENT',
+    'DTSTART:'+s, 'DTEND:'+e,
+    'SUMMARY:'+ev.title,
+    ev.location ? 'LOCATION:'+ev.location : null,
+    'DESCRIPTION:Event via vivo – '+evLink(ev.id),
+    'DTSTAMP:'+now, 'UID:'+ev.id+'@vivo',
+    'END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([ics],{type:'text/calendar'})),
+    download: ev.title.replace(/[^a-z0-9]/gi,'-') + '.ics'
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toCalDt(date, time, addMin) {
+  const d = new Date(date + 'T' + (time || '00:00') + ':00');
+  d.setMinutes(d.getMinutes() + addMin);
+  return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+function fmtDate(date, time) {
+  if (!date) return '';
+  const d = new Date(date + 'T' + (time || '12:00') + ':00');
+  const s = d.toLocaleDateString('de-DE', { weekday:'short', day:'numeric', month:'long' });
+  return time ? s + ', ' + time + ' Uhr' : s;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+initEmojiGrid();
+</script>
+</body>
+</html>
