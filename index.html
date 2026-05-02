@@ -446,6 +446,14 @@
     }
     .cal-btn:hover { border-color: var(--muted); }
 
+    /* Signup upsell sheet */
+    .upsell-head { text-align: center; margin-bottom: 22px; }
+    .upsell-icon { font-size: 2.25rem; margin-bottom: 10px; }
+    .upsell-title { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; margin-bottom: 8px; }
+    .upsell-sub { color: var(--muted); font-size: .9375rem; line-height: 1.55; }
+    .upsell-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+    .upsell-divider { text-align: center; font-size: .8125rem; color: var(--muted); margin: 10px 0 4px; }
+
     /* Profile sheet */
     .prof-head { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
     .prof-av {
@@ -632,6 +640,40 @@
   </div>
 </div>
 
+<!-- Post-RSVP signup upsell sheet -->
+<div class="overlay" id="signup-sheet" onclick="closeSignupSheet(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="upsell-head">
+      <div class="upsell-icon">🗓️</div>
+      <div class="upsell-title">Antwort gespeichert!</div>
+      <p class="upsell-sub">Möchtest du alle deine Events im Überblick behalten? Erstell dir jetzt kostenlos einen Account – das Event ist dann sofort in deinem Dashboard.</p>
+    </div>
+
+    <div id="upsell-err" class="auth-err"></div>
+
+    <div class="upsell-fields">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="upsell-name" placeholder="Dein Name" autocomplete="name">
+      </div>
+      <div class="field">
+        <label>E-Mail</label>
+        <input type="email" id="upsell-email" placeholder="du@beispiel.de" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Passwort</label>
+        <input type="password" id="upsell-pw" placeholder="Mindestens 6 Zeichen" autocomplete="new-password">
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="upsell-btn" onclick="registerFromEvent()">
+      Konto erstellen &amp; Dashboard öffnen
+    </button>
+    <div class="upsell-divider">oder</div>
+    <button class="btn btn-ghost btn-full" onclick="closeSignupSheet()">Nein danke, ohne Account fortfahren</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -656,10 +698,11 @@ const db   = firebase.database();
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────────────────────────────────────
-let me          = null;   // current firebase user
-let createdId   = null;   // last created event ID (for share sheet)
-let pickedEmoji = '🎉';
+let me           = null;  // current firebase user
+let createdId    = null;  // last created event ID (for share sheet)
+let pickedEmoji  = '🎉';
 let evUnsubscribe = null; // real-time event listener cleanup
+let _pendingRsvp = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
 
 const EMOJIS = [
   '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
@@ -1193,16 +1236,81 @@ async function submitRsvp(eventId) {
 
     const rsvp = { name, status: _rsvpStatus, ts: Date.now() };
     if (me) rsvp.userId = me.uid;
-    await ref.push(rsvp);
+    const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
+    const rsvpKey = newRef.key;
 
     if (me) await db.ref('userEvents/' + me.uid + '/' + eventId).set(_rsvpStatus);
 
-    toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[_rsvpStatus]);
     const ns = document.getElementById('rsvp-name');
     if (ns) ns.classList.remove('open');
-  } catch {
+
+    if (!me) {
+      // Guest RSVP – offer account creation after brief toast
+      _pendingRsvp = { eventId, rsvpKey, status: _rsvpStatus, name };
+      toast({ dabei:'🎉 Dabei! Gleich kannst du dein Dashboard anlegen.', vielleicht:'~ Eingetragen! Gleich kannst du dein Dashboard anlegen.', nein:'Eingetragen.' }[_rsvpStatus]);
+      setTimeout(showSignupUpsell, 900);
+    } else {
+      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[_rsvpStatus]);
+    }
+  } catch(err) {
+    console.error('submitRsvp:', err);
     toast('Fehler – bitte erneut versuchen.');
     if (btn) { btn.disabled = false; btn.textContent = 'Antwort senden'; }
+  }
+}
+
+// ─── Post-RSVP account upsell ───────────────────────────────────────────────
+
+function showSignupUpsell() {
+  const name = _pendingRsvp ? _pendingRsvp.name : '';
+  document.getElementById('upsell-name').value  = name;
+  document.getElementById('upsell-email').value = '';
+  document.getElementById('upsell-pw').value    = '';
+  document.getElementById('upsell-err').classList.remove('show');
+  document.getElementById('upsell-btn').disabled = false;
+  document.getElementById('upsell-btn').textContent = 'Konto erstellen & Dashboard öffnen';
+  document.getElementById('signup-sheet').classList.add('open');
+}
+
+function closeSignupSheet(e) {
+  if (!e || e.target.id === 'signup-sheet')
+    document.getElementById('signup-sheet').classList.remove('open');
+}
+
+async function registerFromEvent() {
+  const name  = document.getElementById('upsell-name').value.trim();
+  const email = document.getElementById('upsell-email').value.trim();
+  const pw    = document.getElementById('upsell-pw').value;
+  const btn   = document.getElementById('upsell-btn');
+  const errEl = document.getElementById('upsell-err');
+
+  if (!email) { errEl.textContent = 'Bitte E-Mail eingeben.'; errEl.classList.add('show'); return; }
+  if (pw.length < 6) { errEl.textContent = 'Passwort muss mind. 6 Zeichen haben.'; errEl.classList.add('show'); return; }
+
+  btn.disabled = true; btn.textContent = '…';
+  errEl.classList.remove('show');
+
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pw);
+    await cred.user.updateProfile({ displayName: name || email.split('@')[0] });
+
+    // Link the guest RSVP to the new account
+    if (_pendingRsvp) {
+      const { eventId, rsvpKey, status } = _pendingRsvp;
+      await db.ref('events/' + eventId + '/rsvps/' + rsvpKey).update({ userId: cred.user.uid });
+      await db.ref('userEvents/' + cred.user.uid + '/' + eventId).set(status);
+      _pendingRsvp = null;
+    }
+
+    document.getElementById('signup-sheet').classList.remove('open');
+    toast('🎉 Willkommen! Dein Event ist bereits gespeichert.');
+    location.hash = '';
+    // onAuthStateChanged will fire and redirect to home automatically
+  } catch(err) {
+    errEl.textContent = fmtAuthErr(err.code, err.message);
+    errEl.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Konto erstellen & Dashboard öffnen';
   }
 }
 
