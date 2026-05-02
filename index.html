@@ -56,10 +56,10 @@
 
     /* ── SCREENS ── */
     .screen { display: none; min-height: 100vh; flex-direction: column; background: var(--bg); }
-    .screen.active { display: flex; animation: fadeUp .2s ease; }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+    .screen.active { display: flex; animation: fadeIn .18s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     /* ── LOGO ── */
@@ -333,15 +333,8 @@
 
     .create-foot { padding: 24px 0 40px; }
 
-    /* Success overlay */
-    #success {
-      position: fixed; inset: 0; z-index: 300;
-      background: var(--bg);
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 40px 32px; text-align: center;
-    }
-    #success.open { display: flex; animation: fadeUp .3s ease; }
+    /* Success screen */
+    #screen-success { align-items: center; justify-content: center; padding: 40px 32px; text-align: center; }
     .suc-icon {
       width: 84px; height: 84px; border-radius: 50%;
       background: var(--amber-light);
@@ -584,28 +577,28 @@
     </div>
 
     <div class="create-foot">
-      <button class="btn btn-primary btn-full" onclick="createEvent()" id="create-btn">
+      <button class="btn btn-primary btn-full" id="create-btn">
         Event erstellen &amp; teilen ✨
       </button>
     </div>
   </div>
+</div>
 
-  <!-- Success overlay (inside create screen, fixed) -->
-  <div id="success">
-    <div class="suc-icon" id="suc-emoji">🎉</div>
-    <div class="suc-title">Event erstellt!</div>
-    <p class="suc-sub">Jetzt teilen und Zusagen sammeln</p>
-    <div class="share-stack">
-      <button class="btn btn-primary btn-full" onclick="shareWA()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        WhatsApp teilen
-      </button>
-      <button class="btn btn-outline btn-full" onclick="copyLink()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        Link kopieren
-      </button>
-      <button class="btn btn-ghost btn-full" onclick="goHome()">Zur Übersicht</button>
-    </div>
+<!-- ═══════════════════════════ SUCCESS ═══════════════════════════ -->
+<div id="screen-success" class="screen">
+  <div class="suc-icon" id="suc-emoji">🎉</div>
+  <div class="suc-title">Event erstellt!</div>
+  <p class="suc-sub">Jetzt teilen und Zusagen sammeln</p>
+  <div class="share-stack">
+    <button class="btn btn-primary btn-full" onclick="shareWA()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      WhatsApp teilen
+    </button>
+    <button class="btn btn-outline btn-full" onclick="copyLink()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2v1"/></svg>
+      Link kopieren
+    </button>
+    <button class="btn btn-ghost btn-full" onclick="goHome()">Zur Übersicht</button>
   </div>
 </div>
 
@@ -841,7 +834,6 @@ function showCreate() {
 }
 
 function goHome() {
-  document.getElementById('success').classList.remove('open');
   location.hash = '';
   showScreen('home');
   loadHome();
@@ -970,29 +962,36 @@ function initCreateForm() {
   document.getElementById('ev-date').value     = new Date().toISOString().split('T')[0];
   document.getElementById('ev-time').value     = '18:00';
   document.getElementById('ev-location').value = '';
-  document.getElementById('success').classList.remove('open');
 }
 
 async function createEvent() {
-  const title    = document.getElementById('ev-title').value.trim();
-  const date     = document.getElementById('ev-date').value;
-  const time     = document.getElementById('ev-time').value;
+  const titleEl = document.getElementById('ev-title');
+  const dateEl  = document.getElementById('ev-date');
+  const title   = titleEl.value.trim();
+  const date    = dateEl.value;
+  const time    = document.getElementById('ev-time').value;
   const location = document.getElementById('ev-location').value.trim();
-  const btn      = document.getElementById('create-btn');
+  const btn     = document.getElementById('create-btn');
 
-  if (!title) { toast('Bitte einen Titel eingeben'); return; }
-  if (!date)  { toast('Bitte ein Datum wählen');     return; }
+  if (!title) {
+    titleEl.style.borderColor = 'var(--pink)';
+    titleEl.focus();
+    toast('Bitte einen Titel eingeben');
+    return;
+  }
+  titleEl.style.borderColor = '';
 
-  btn.disabled = true; btn.textContent = 'Erstelle…';
+  btn.disabled = true;
+  btn.textContent = 'Erstelle…';
 
   try {
     const data = {
       emoji:       pickedEmoji,
       title,
-      date,
+      date:        date || new Date().toISOString().split('T')[0],
       time:        time || null,
       location:    location || null,
-      createdBy:   me ? me.uid  : null,
+      createdBy:   me ? me.uid : null,
       creatorName: me ? (me.displayName || me.email.split('@')[0]) : 'Anonym',
       createdAt:   Date.now()
     };
@@ -1004,11 +1003,12 @@ async function createEvent() {
     if (me) await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
-    document.getElementById('success').classList.add('open');
+    showScreen('success');
   } catch(err) {
-    console.error('createEvent:', err);
-    toast('Fehler: ' + (err.message || err.code || 'Unbekannt'));
-    btn.disabled = false; btn.textContent = 'Event erstellen & teilen ✨';
+    console.error('createEvent error:', err);
+    toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
+    btn.disabled = false;
+    btn.textContent = 'Event erstellen & teilen ✨';
   }
 }
 
@@ -1280,6 +1280,9 @@ function toast(msg) {
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
 initEmojiGrid();
+
+// Wire up create button via addEventListener (more reliable than inline onclick)
+document.getElementById('create-btn').addEventListener('click', createEvent);
 </script>
 </body>
 </html>
