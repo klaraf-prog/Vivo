@@ -331,13 +331,7 @@
     .form-stack { display: flex; flex-direction: column; gap: 14px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-    /* Fixed bottom bar */
-    .create-foot {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      padding: 16px 20px 36px;
-      background: linear-gradient(to top, var(--bg) 65%, transparent);
-    }
-    .create-foot .inner { max-width: var(--max); margin: 0 auto; }
+    .create-foot { padding: 24px 0 40px; }
 
     /* Success overlay */
     #success {
@@ -588,10 +582,8 @@
         <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin">
       </div>
     </div>
-  </div>
 
-  <div class="create-foot">
-    <div class="inner">
+    <div class="create-foot">
       <button class="btn btn-primary btn-full" onclick="createEvent()" id="create-btn">
         Event erstellen &amp; teilen ✨
       </button>
@@ -1013,11 +1005,11 @@ async function createEvent() {
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
     document.getElementById('success').classList.add('open');
-  } catch {
-    toast('Fehler beim Erstellen.');
+  } catch(err) {
+    console.error('createEvent:', err);
+    toast('Fehler: ' + (err.message || err.code || 'Unbekannt'));
+    btn.disabled = false; btn.textContent = 'Event erstellen & teilen ✨';
   }
-
-  btn.disabled = false; btn.textContent = 'Event erstellen & teilen ✨';
 }
 
 function evLink(id) {
