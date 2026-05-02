@@ -693,6 +693,15 @@ function route() {
   return { screen: 'home' };
 }
 
+// Handle Google redirect result before onAuthStateChanged fires
+auth.getRedirectResult().catch(err => {
+  if (err.code && err.code !== 'auth/popup-closed-by-user') {
+    document.getElementById('loading').style.display = 'none';
+    showScreen('login');
+    authErr(fmtAuthErr(err.code, err.message));
+  }
+});
+
 auth.onAuthStateChanged(user => {
   me = user;
   document.getElementById('loading').style.display = 'none';
@@ -753,7 +762,7 @@ async function handleAuth(e) {
       await c.user.updateProfile({ displayName: name });
     }
   } catch (err) {
-    authErr(fmtAuthErr(err.code));
+    authErr(fmtAuthErr(err.code, err.message));
     btn.disabled = false;
     btn.textContent = authMode === 'login' ? 'Anmelden' : 'Konto erstellen';
   }
@@ -761,9 +770,13 @@ async function handleAuth(e) {
 
 async function googleLogin() {
   try {
-    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    // signInWithRedirect works reliably on all deployed environments;
+    // signInWithPopup is blocked by browsers on many Netlify/CDN setups
+    await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
   } catch (err) {
-    if (err.code !== 'auth/popup-closed-by-user') toast('Google-Login fehlgeschlagen');
+    if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      authErr(fmtAuthErr(err.code, err.message));
+    }
   }
 }
 
@@ -781,16 +794,23 @@ function authErr(msg) {
   el.classList.toggle('show', !!msg);
 }
 
-function fmtAuthErr(code) {
-  return ({
-    'auth/invalid-email':       'Ungültige E-Mail-Adresse.',
-    'auth/user-not-found':      'Kein Konto mit dieser E-Mail.',
-    'auth/wrong-password':      'Falsches Passwort.',
-    'auth/invalid-credential':  'E-Mail oder Passwort falsch.',
-    'auth/email-already-in-use':'Diese E-Mail ist bereits registriert.',
-    'auth/weak-password':       'Passwort muss mind. 6 Zeichen haben.',
-    'auth/too-many-requests':   'Zu viele Versuche – kurz warten.',
-  })[code] || 'Fehler. Bitte erneut versuchen.';
+function fmtAuthErr(code, message) {
+  const known = {
+    'auth/invalid-email':          'Ungültige E-Mail-Adresse.',
+    'auth/user-not-found':         'Kein Konto mit dieser E-Mail.',
+    'auth/wrong-password':         'Falsches Passwort.',
+    'auth/invalid-credential':     'E-Mail oder Passwort falsch.',
+    'auth/email-already-in-use':   'Diese E-Mail ist bereits registriert.',
+    'auth/weak-password':          'Passwort muss mind. 6 Zeichen haben.',
+    'auth/too-many-requests':      'Zu viele Versuche – bitte warte kurz.',
+    'auth/operation-not-allowed':  'Login-Methode nicht aktiviert. Bitte in der Firebase Console unter Authentication → Sign-in methods aktivieren.',
+    'auth/network-request-failed': 'Netzwerkfehler – bitte Verbindung prüfen.',
+    'auth/popup-blocked':          'Popup wurde blockiert – bitte Blocker deaktivieren.',
+    'auth/unauthorized-domain':    'Diese Domain ist in Firebase nicht autorisiert.',
+    'auth/internal-error':         'Interner Firebase-Fehler. Bitte erneut versuchen.',
+    'auth/missing-password':       'Bitte ein Passwort eingeben.',
+  };
+  return known[code] || `Fehler (${code || message || 'unbekannt'}) – bitte erneut versuchen.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
