@@ -149,6 +149,20 @@
     .username-hint.err { color:var(--pink); }
     .username-hint.ok  { color:#5CB87A; }
 
+    /* ── CONNECT BANNER (on login screen) ── */
+    .connect-banner {
+      display:flex; align-items:center; gap:12px;
+      background:#FFF8EC; border:1.5px solid var(--amber-light);
+      border-radius:var(--r-sm); padding:12px 14px; margin-bottom:4px;
+    }
+    .connect-banner-av {
+      width:40px; height:40px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:1rem; color:#fff;
+    }
+    .connect-banner-text { font-size:.875rem; line-height:1.4; }
+    .connect-banner-text strong { display:block; font-size:.9375rem; }
+
     /* ── FRIENDS ── */
     .friend-list { display:flex; flex-direction:column; gap:10px; }
     .friend-item {
@@ -557,6 +571,14 @@
       <p>Die Infrastruktur für dein reales Sozialleben.</p>
     </div>
 
+    <div id="connect-banner" style="display:none" class="connect-banner">
+      <div class="connect-banner-av" id="connect-banner-av"></div>
+      <div class="connect-banner-text">
+        <strong id="connect-banner-name"></strong>
+        Melde dich an oder registriere dich um zu connecten.
+      </div>
+    </div>
+
     <div class="auth-tabs">
       <button class="auth-tab on" onclick="switchTab('login')">Anmelden</button>
       <button class="auth-tab"    onclick="switchTab('register')">Registrieren</button>
@@ -814,8 +836,9 @@ let me           = null;  // current firebase user
 let createdId    = null;  // last created event ID (for share sheet)
 let pickedEmoji  = '🎉';
 let evUnsubscribe = null; // real-time event listener cleanup
-let _pendingRsvp = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
-let _myUsername  = null;  // cached username from DB
+let _pendingRsvp     = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
+let _pendingConnect  = null;  // { theirUid, theirUsername, theirName } – set before login
+let _myUsername      = null;  // cached username from DB
 
 const EMOJIS = [
   '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
@@ -857,6 +880,20 @@ auth.onAuthStateChanged(async user => {
       await db.ref('userEvents/' + user.uid + '/' + eventId).set(status);
       toast('🎉 Event ist jetzt in deinem Dashboard!');
     } catch(e) { console.error('RSVP link error:', e); }
+  }
+
+  // Auto-connect a pending profile connection after login/register
+  if (user && _pendingConnect) {
+    const { theirUid, theirName } = _pendingConnect;
+    _pendingConnect = null;
+    hidePendingConnectBanner();
+    try {
+      const batch = {};
+      batch['friends/' + user.uid + '/' + theirUid] = true;
+      batch['friends/' + theirUid + '/' + user.uid] = true;
+      await db.ref().update(batch);
+      toast('🤝 Verbunden mit ' + theirName + '!');
+    } catch(e) { console.error('pendingConnect error:', e); }
   }
 
   const r = route();
@@ -1121,47 +1158,62 @@ async function loadPubProfile(username) {
   body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
   backBtn.onclick = () => { location.hash = ''; if (me) { showScreen('home'); loadHome(); } else showScreen('login'); };
 
-  try {
-    const uidSnap = await db.ref('usernames/' + username).once('value');
-    if (!uidSnap.exists()) {
-      body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Nutzer nicht gefunden.</p></div>';
-      return;
-    }
-    const theirUid  = uidSnap.val();
-    const userSnap  = await db.ref('users/' + theirUid).once('value');
-    const userData  = userSnap.val() || {};
-    const displayName = userData.displayName || username;
+  // usernames/ is public; users/ may require auth — fetch defensively
+  let uidSnap;
+  try { uidSnap = await db.ref('usernames/' + username).once('value'); }
+  catch(err) {
+    body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Fehler beim Laden.</p></div>';
+    return;
+  }
 
-    let isSelf = false, isConnected = false;
-    if (me) {
-      isSelf = me.uid === theirUid;
-      if (!isSelf) {
+  if (!uidSnap.exists()) {
+    body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Nutzer nicht gefunden.</p></div>';
+    return;
+  }
+
+  const theirUid = uidSnap.val();
+
+  // users/ might be restricted for guests — fall back to username as display name
+  let displayName = username;
+  try {
+    const userSnap = await db.ref('users/' + theirUid).once('value');
+    displayName = (userSnap.val() || {}).displayName || username;
+  } catch(_) { /* permission denied for guests — username used as label */ }
+
+  let isSelf = false, isConnected = false;
+  if (me) {
+    isSelf = me.uid === theirUid;
+    if (!isSelf) {
+      try {
         const fSnap = await db.ref('friends/' + me.uid + '/' + theirUid).once('value');
         isConnected = fSnap.exists();
-      }
+      } catch(_) {}
     }
-
-    let actionHTML;
-    if (isSelf) {
-      actionHTML = `<p style="text-align:center;color:var(--muted);font-size:.9375rem">Das bist du 👋</p>`;
-    } else if (!me) {
-      actionHTML = `<button class="btn btn-primary btn-full" onclick="goToRegister()">Anmelden um zu connecten</button>`;
-    } else if (isConnected) {
-      actionHTML = `<button class="btn btn-outline btn-full" disabled>Bereits verbunden ✓</button>`;
-    } else {
-      actionHTML = `<button class="btn btn-primary btn-full" onclick="connectUser('${theirUid}','${esc(username)}','${esc(displayName)}')">Connecten 🤝</button>`;
-    }
-
-    body.innerHTML = `
-      <div class="pubprof-av" id="pubprof-av-el"></div>
-      <div class="pubprof-name">${esc(displayName)}</div>
-      <div class="pubprof-user">@${esc(username)}</div>
-      <div class="pubprof-actions">${actionHTML}</div>`;
-    applyAvatar(document.getElementById('pubprof-av-el'), { displayName, email: username }, '2.25rem');
-  } catch(err) {
-    console.error('loadPubProfile:', err);
-    body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Fehler beim Laden.</p></div>';
   }
+
+  let actionHTML;
+  if (isSelf) {
+    actionHTML = `<p style="text-align:center;color:var(--muted);font-size:.9375rem">Das bist du 👋</p>`;
+  } else if (!me) {
+    actionHTML = `<button class="btn btn-primary btn-full"
+      onclick="pendingConnectLogin('${theirUid}','${esc(username)}','${esc(displayName)}')">
+      Connecten 🤝
+    </button>`;
+  } else if (isConnected) {
+    actionHTML = `<button class="btn btn-outline btn-full" disabled>Bereits verbunden ✓</button>`;
+  } else {
+    actionHTML = `<button class="btn btn-primary btn-full"
+      onclick="connectUser('${theirUid}','${esc(username)}','${esc(displayName)}')">
+      Connecten 🤝
+    </button>`;
+  }
+
+  body.innerHTML = `
+    <div class="pubprof-av" id="pubprof-av-el"></div>
+    <div class="pubprof-name">${esc(displayName)}</div>
+    <div class="pubprof-user">@${esc(username)}</div>
+    <div class="pubprof-actions">${actionHTML}</div>`;
+  applyAvatar(document.getElementById('pubprof-av-el'), { displayName, email: username }, '2.25rem');
 }
 
 async function connectUser(theirUid, theirUsername, theirName) {
@@ -1177,6 +1229,26 @@ async function connectUser(theirUid, theirUsername, theirName) {
     console.error('connectUser:', err);
     toast('Fehler beim Verbinden');
   }
+}
+
+function pendingConnectLogin(theirUid, theirUsername, theirName) {
+  _pendingConnect = { theirUid, theirUsername, theirName };
+
+  // Show banner on login screen
+  const banner   = document.getElementById('connect-banner');
+  const bannerAv = document.getElementById('connect-banner-av');
+  const bannerNm = document.getElementById('connect-banner-name');
+  bannerNm.textContent = theirName + ' (@' + theirUsername + ')';
+  applyAvatar(bannerAv, { displayName: theirName, email: theirUsername }, '1rem');
+  banner.style.display = 'flex';
+
+  showScreen('login');
+  switchTab('login');
+}
+
+function hidePendingConnectBanner() {
+  const el = document.getElementById('connect-banner');
+  if (el) el.style.display = 'none';
 }
 
 let friendsOff = null;
