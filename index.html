@@ -144,6 +144,42 @@
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
 
+    /* ── USERNAME HINT ── */
+    .username-hint { font-size:.75rem; color:var(--muted); min-height:1em; }
+    .username-hint.err { color:var(--pink); }
+    .username-hint.ok  { color:#5CB87A; }
+
+    /* ── FRIENDS ── */
+    .friend-list { display:flex; flex-direction:column; gap:10px; }
+    .friend-item {
+      display:flex; align-items:center; gap:12px;
+      padding:12px 16px; background:var(--card);
+      border-radius:var(--r); box-shadow:var(--shadow);
+    }
+    .friend-av {
+      width:44px; height:44px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:1.125rem; color:#fff;
+    }
+    .friend-info { flex:1; min-width:0; }
+    .friend-name { font-weight:600; font-size:.9375rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .friend-user { font-size:.8125rem; color:var(--muted); }
+
+    /* ── PUBLIC PROFILE ── */
+    #screen-pub-profile { align-items: stretch; }
+    .pubprof-body {
+      flex:1; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:40px 24px; gap:14px;
+    }
+    .pubprof-av {
+      width:96px; height:96px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:2.25rem; font-weight:700; color:#fff;
+    }
+    .pubprof-name { font-size:1.375rem; font-weight:700; text-align:center; }
+    .pubprof-user { font-size:.9375rem; color:var(--muted); }
+    .pubprof-actions { display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px; margin-top:8px; }
+
     /* ── BADGE ── */
     .badge {
       width: 20px; height: 20px; border-radius: 50%;
@@ -585,6 +621,11 @@
       <div class="section-head"><h2>Abgesagt</h2></div>
       <div class="events-stack" id="nein-list"></div>
     </div>
+
+    <div class="section" id="friends-sec" style="display:none">
+      <div class="section-head"><h2>Freunde</h2></div>
+      <div class="friend-list" id="friends-list"></div>
+    </div>
   </div>
 
   <button class="fab" onclick="showCreate()" title="Event erstellen">
@@ -692,6 +733,15 @@
       <input type="text" id="prof-name-inp" placeholder="Dein Name" autocomplete="name">
     </div>
 
+    <!-- Username -->
+    <div class="field">
+      <label>Benutzername</label>
+      <input type="text" id="prof-user-inp" placeholder="@benutzername"
+        autocomplete="username" autocapitalize="none" spellcheck="false"
+        oninput="validateUsernameInput(this)">
+      <span class="username-hint" id="user-hint"></span>
+    </div>
+
     <!-- Email (read-only) -->
     <div class="field">
       <label>E-Mail</label>
@@ -702,8 +752,22 @@
   <div class="prof-foot">
     <div class="inner">
       <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()">Änderungen speichern</button>
+      <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none">Profil teilen 🔗</button>
       <button class="btn btn-outline btn-full" onclick="doSignOut()">Abmelden</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PUBLIC PROFILE ═══════════════════════════ -->
+<div id="screen-pub-profile" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="pubprof-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 id="pubprof-title"></h1>
+  </div>
+  <div class="pubprof-body" id="pubprof-body">
+    <div class="spinner"></div>
   </div>
 </div>
 
@@ -751,6 +815,7 @@ let createdId    = null;  // last created event ID (for share sheet)
 let pickedEmoji  = '🎉';
 let evUnsubscribe = null; // real-time event listener cleanup
 let _pendingRsvp = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
+let _myUsername  = null;  // cached username from DB
 
 const EMOJIS = [
   '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
@@ -765,7 +830,8 @@ const EMOJIS = [
 // ─────────────────────────────────────────────────────────────────────────────
 function route() {
   const h = location.hash;
-  if (h.startsWith('#event/')) return { screen: 'event', id: h.slice(7) };
+  if (h.startsWith('#event/')) return { screen: 'event',       id: h.slice(7) };
+  if (h.startsWith('#u/'))     return { screen: 'pub-profile', username: h.slice(3) };
   return { screen: 'home' };
 }
 
@@ -797,6 +863,9 @@ auth.onAuthStateChanged(async user => {
   if (r.screen === 'event') {
     loadEventScreen(r.id);
     showScreen('event');
+  } else if (r.screen === 'pub-profile') {
+    loadPubProfile(r.username);
+    showScreen('pub-profile');
   } else if (user) {
     setAvatar(user);
     showScreen('home');
@@ -811,6 +880,9 @@ window.addEventListener('hashchange', () => {
   if (r.screen === 'event') {
     loadEventScreen(r.id);
     showScreen('event');
+  } else if (r.screen === 'pub-profile') {
+    loadPubProfile(r.username);
+    showScreen('pub-profile');
   } else if (me) {
     showScreen('home');
     loadHome();
@@ -926,27 +998,88 @@ function setAvatar(user) {
   applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
 }
 
-function openProfileScreen() {
+async function openProfileScreen() {
   if (!me) return;
   applyAvatar(document.getElementById('prof-av-xl'), me, '2.25rem');
   document.getElementById('prof-name-inp').value  = me.displayName || '';
   document.getElementById('prof-email-inp').value = me.email || '';
   document.getElementById('save-prof-btn').disabled    = false;
   document.getElementById('save-prof-btn').textContent = 'Änderungen speichern';
+  showUsernameHint('', '');
+
+  // Load current username from DB
+  const snap = await db.ref('users/' + me.uid + '/username').once('value');
+  _myUsername = snap.val() || null;
+  document.getElementById('prof-user-inp').value = _myUsername || '';
+  const shareBtn = document.getElementById('share-prof-btn');
+  shareBtn.style.display = _myUsername ? '' : 'none';
+
   showScreen('profile');
 }
 
+function validateUsernameInput(el) {
+  const raw = el.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  el.value = raw;
+  if (!raw)         { showUsernameHint('', ''); return; }
+  if (raw.length < 3) { showUsernameHint('Mindestens 3 Zeichen', 'err'); return; }
+  showUsernameHint('@' + raw, 'ok');
+}
+
+function showUsernameHint(msg, type) {
+  const el = document.getElementById('user-hint');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'username-hint' + (type ? ' ' + type : '');
+}
+
+function shareProfile() {
+  if (!_myUsername) { toast('Bitte zuerst einen Benutzernamen speichern'); return; }
+  const link = location.origin + location.pathname + '#u/' + _myUsername;
+  try { navigator.clipboard.writeText(link); } catch { fallbackCopy(link); }
+  toast('Profil-Link kopiert! 🔗');
+}
+
 async function saveProfile() {
-  const name = document.getElementById('prof-name-inp').value.trim();
-  const btn  = document.getElementById('save-prof-btn');
+  const name    = document.getElementById('prof-name-inp').value.trim();
+  const rawUser = document.getElementById('prof-user-inp').value.trim();
+  const btn     = document.getElementById('save-prof-btn');
+
+  if (rawUser && rawUser.length < 3) {
+    showUsernameHint('Mindestens 3 Zeichen', 'err'); return;
+  }
+
   btn.disabled = true; btn.textContent = 'Speichern…';
 
   try {
-    await auth.currentUser.updateProfile({
-      displayName: name || me.email.split('@')[0]
-    });
+    // Username uniqueness check if changed
+    if (rawUser && rawUser !== _myUsername) {
+      const snap = await db.ref('usernames/' + rawUser).once('value');
+      if (snap.exists() && snap.val() !== me.uid) {
+        showUsernameHint('@' + rawUser + ' ist bereits vergeben', 'err');
+        btn.disabled = false; btn.textContent = 'Änderungen speichern';
+        return;
+      }
+    }
+
+    const displayName = name || me.email.split('@')[0];
+    await auth.currentUser.updateProfile({ displayName });
     me = auth.currentUser;
+
+    // Atomic batch: username index + user record
+    const batch = {};
+    batch['users/' + me.uid + '/displayName'] = displayName;
+    if (rawUser) {
+      if (_myUsername && _myUsername !== rawUser) {
+        batch['usernames/' + _myUsername] = null; // free old username
+      }
+      batch['usernames/' + rawUser]              = me.uid;
+      batch['users/'    + me.uid + '/username']  = rawUser;
+      _myUsername = rawUser;
+    }
+    await db.ref().update(batch);
+
     setAvatar(me);
+    document.getElementById('share-prof-btn').style.display = _myUsername ? '' : 'none';
     toast('Profil gespeichert ✓');
     showScreen('home');
     loadHome();
@@ -979,11 +1112,114 @@ function goHome() {
 // ─────────────────────────────────────────────────────────────────────────────
 // HOME
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC PROFILE + FRIENDS
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadPubProfile(username) {
+  const body    = document.getElementById('pubprof-body');
+  const backBtn = document.getElementById('pubprof-back');
+  body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  backBtn.onclick = () => { location.hash = ''; if (me) { showScreen('home'); loadHome(); } else showScreen('login'); };
+
+  try {
+    const uidSnap = await db.ref('usernames/' + username).once('value');
+    if (!uidSnap.exists()) {
+      body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Nutzer nicht gefunden.</p></div>';
+      return;
+    }
+    const theirUid  = uidSnap.val();
+    const userSnap  = await db.ref('users/' + theirUid).once('value');
+    const userData  = userSnap.val() || {};
+    const displayName = userData.displayName || username;
+
+    let isSelf = false, isConnected = false;
+    if (me) {
+      isSelf = me.uid === theirUid;
+      if (!isSelf) {
+        const fSnap = await db.ref('friends/' + me.uid + '/' + theirUid).once('value');
+        isConnected = fSnap.exists();
+      }
+    }
+
+    let actionHTML;
+    if (isSelf) {
+      actionHTML = `<p style="text-align:center;color:var(--muted);font-size:.9375rem">Das bist du 👋</p>`;
+    } else if (!me) {
+      actionHTML = `<button class="btn btn-primary btn-full" onclick="goToRegister()">Anmelden um zu connecten</button>`;
+    } else if (isConnected) {
+      actionHTML = `<button class="btn btn-outline btn-full" disabled>Bereits verbunden ✓</button>`;
+    } else {
+      actionHTML = `<button class="btn btn-primary btn-full" onclick="connectUser('${theirUid}','${esc(username)}','${esc(displayName)}')">Connecten 🤝</button>`;
+    }
+
+    body.innerHTML = `
+      <div class="pubprof-av" id="pubprof-av-el"></div>
+      <div class="pubprof-name">${esc(displayName)}</div>
+      <div class="pubprof-user">@${esc(username)}</div>
+      <div class="pubprof-actions">${actionHTML}</div>`;
+    applyAvatar(document.getElementById('pubprof-av-el'), { displayName, email: username }, '2.25rem');
+  } catch(err) {
+    console.error('loadPubProfile:', err);
+    body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Fehler beim Laden.</p></div>';
+  }
+}
+
+async function connectUser(theirUid, theirUsername, theirName) {
+  if (!me) return;
+  try {
+    const batch = {};
+    batch['friends/' + me.uid  + '/' + theirUid] = true;
+    batch['friends/' + theirUid + '/' + me.uid]  = true;
+    await db.ref().update(batch);
+    toast('🤝 Verbunden mit ' + theirName + '!');
+    loadPubProfile(theirUsername);
+  } catch(err) {
+    console.error('connectUser:', err);
+    toast('Fehler beim Verbinden');
+  }
+}
+
+let friendsOff = null;
+
+function loadFriends() {
+  if (!me) return;
+  if (friendsOff) { friendsOff(); friendsOff = null; }
+  const sec  = document.getElementById('friends-sec');
+  const list = document.getElementById('friends-list');
+
+  const ref = db.ref('friends/' + me.uid);
+  const cb  = ref.on('value', async snap => {
+    const uids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!uids.length) { sec.style.display = 'none'; return; }
+    sec.style.display = 'block';
+
+    const snaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value')));
+    list.innerHTML = snaps.map((s, i) => {
+      const d     = s.val() || {};
+      const label = d.displayName || d.username || uids[i].slice(0, 8);
+      const user  = d.username ? '@' + d.username : '';
+      return `
+        <div class="friend-item">
+          <div class="friend-av" style="background:${avatarColor(label)}">${esc(label[0].toUpperCase())}</div>
+          <div class="friend-info">
+            <div class="friend-name">${esc(label)}</div>
+            ${user ? `<div class="friend-user">${esc(user)}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  });
+  friendsOff = () => ref.off('value', cb);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME
+// ─────────────────────────────────────────────────────────────────────────────
 let homeOff = null;
 
 async function loadHome() {
   if (!me) return;
   if (homeOff) { homeOff(); homeOff = null; }
+  loadFriends();
 
   const myEl   = document.getElementById('my-list');
   const pEl    = document.getElementById('pending-list');
