@@ -404,7 +404,70 @@
     .tab-create:hover  { background: #e8961f; }
     .tab-create:active { transform: scale(.93); }
 
-    /* Empty state */
+    /* Space cards */
+    .space-list { display: flex; flex-direction: column; gap: 10px; }
+    .space-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; background: var(--card);
+      border-radius: var(--r); box-shadow: var(--shadow);
+      cursor: pointer; transition: box-shadow .15s;
+    }
+    .space-card:active { box-shadow: none; }
+    .space-icon {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.375rem;
+    }
+    .space-info { flex: 1; min-width: 0; }
+    .space-name { font-weight: 600; font-size: .9375rem; }
+    .space-meta { font-size: .8125rem; color: var(--muted); }
+
+    /* Member selection (space creation) */
+    .member-sel-list { display: flex; flex-direction: column; gap: 8px; }
+    .member-sel-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; background: var(--card);
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      cursor: pointer; transition: border-color .15s;
+    }
+    .member-sel-item.on { border-color: var(--amber); background: #FFF8EC; }
+    .member-sel-check {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-left: auto;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; color: transparent; transition: all .15s;
+    }
+    .member-sel-item.on .member-sel-check {
+      background: var(--amber); border-color: var(--amber); color: #fff;
+    }
+
+    /* Space chips in event create form */
+    .space-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .space-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 50px;
+      border: 1.5px solid var(--border); background: #fff;
+      font-family: var(--sans); font-size: .875rem; font-weight: 500;
+      color: var(--muted); cursor: pointer; transition: all .15s;
+    }
+    .space-chip.on { border-color: var(--amber); background: #FFF8EC; color: var(--text); }
+
+    /* Space view */
+    #screen-space { align-items: stretch; }
+    .space-member-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 16px; max-width: var(--max); margin: 0 auto; width: 100%; }
+    .smc {
+      display: flex; align-items: center; gap: 6px;
+      background: #F5F3EF; border-radius: 50px;
+      padding: 4px 10px 4px 5px; font-size: .8125rem;
+    }
+    .smc-av {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .625rem; color: #fff;
+    }
+
+
     .empty { text-align: center; padding: 36px 20px; color: var(--muted); }
     .empty .ei { font-size: 2rem; margin-bottom: 8px; }
     .empty p { font-size: .9375rem; }
@@ -668,9 +731,19 @@
 
     <!-- Friends tab -->
     <div class="tab-panel" id="tab-friends">
+      <div class="section" style="padding-bottom:8px">
+        <button class="btn btn-outline btn-full" onclick="openCreateSpace()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Space erstellen
+        </button>
+      </div>
       <div class="section">
         <div class="section-head"><h2>Freunde</h2></div>
         <div id="friends-list"></div>
+      </div>
+      <div class="section" id="spaces-sec" style="display:none">
+        <div class="section-head"><h2>Spaces</h2></div>
+        <div class="space-list" id="spaces-list"></div>
       </div>
     </div>
   </div>
@@ -729,6 +802,10 @@
       <div class="field">
         <label>Ort</label>
         <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin">
+      </div>
+      <div class="field" id="space-sel-wrap" style="display:none">
+        <label>In Space teilen (optional)</label>
+        <div class="space-chips" id="space-chips"></div>
       </div>
     </div>
 
@@ -821,6 +898,49 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ CREATE SPACE ═══════════════════════════ -->
+<div id="screen-create-space" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="showScreen('home'); switchHomeTab('friends')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Space erstellen</h1>
+  </div>
+  <div class="create-body">
+    <div class="form-stack">
+      <div class="field">
+        <label>Name des Spaces</label>
+        <input type="text" id="space-name-inp" placeholder="z.B. Weekenders" maxlength="40">
+      </div>
+    </div>
+    <div class="section-head" style="padding:20px 0 10px">
+      <h2>Freunde hinzufügen</h2>
+    </div>
+    <div class="member-sel-list" id="member-sel-list"></div>
+    <div class="create-foot">
+      <button class="btn btn-primary btn-full" id="save-space-btn" onclick="saveSpace()">
+        Space erstellen ✨
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SPACE VIEW ═══════════════════════════ -->
+<div id="screen-space" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="space-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 id="space-title"></h1>
+  </div>
+  <div class="ev-inner" style="overflow-y:auto;flex:1">
+    <div class="space-member-chips" id="space-member-chips"></div>
+    <div id="space-ev-body" style="padding:0 20px 60px">
+      <div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ PUBLIC PROFILE ═══════════════════════════ -->
 <div id="screen-pub-profile" class="screen">
   <div class="scr-header">
@@ -880,6 +1000,10 @@ let evUnsubscribe = null; // real-time event listener cleanup
 let _pendingRsvp     = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
 let _pendingConnect  = null;  // { theirUid, theirUsername, theirName } – set before login
 let _myUsername      = null;  // cached username from DB
+let _selectedMembers = new Set(); // uids selected during space creation
+let _selectedSpaces  = new Set(); // space IDs selected during event creation
+let _spacesOff       = null;  // real-time spaces listener cleanup
+let _spaceEvOff      = null;  // space events view listener cleanup
 
 const EMOJIS = [
   '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
@@ -1179,6 +1303,7 @@ function showScreen(name) {
 function showCreate() {
   initCreateForm();
   showScreen('create');
+  loadUserSpacesForCreate();
 }
 
 function goHome() {
@@ -1351,6 +1476,189 @@ function shareProfOrPrompt() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SPACES
+// ─────────────────────────────────────────────────────────────────────────────
+async function openCreateSpace() {
+  if (!me) return;
+  _selectedMembers = new Set();
+  document.getElementById('space-name-inp').value = '';
+  const btn = document.getElementById('save-space-btn');
+  btn.disabled = false; btn.textContent = 'Space erstellen ✨';
+
+  const listEl = document.getElementById('member-sel-list');
+  listEl.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+  showScreen('create-space');
+
+  const snap = await db.ref('friends/' + me.uid).once('value');
+  const uids = snap.val() ? Object.keys(snap.val()) : [];
+  if (!uids.length) {
+    listEl.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px 0">Noch keine Freunde. Teile deinen Profil-Link um Freunde einzuladen!</p>';
+    return;
+  }
+
+  const userSnaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
+  listEl.innerHTML = userSnaps.map((s, i) => {
+    const d     = (s && s.val()) || {};
+    const label = d.displayName || d.username || uids[i].slice(0, 8);
+    const sub   = d.username ? '@' + d.username : '';
+    return `
+      <div class="member-sel-item" id="msel-${uids[i]}" onclick="toggleSpaceMember('${uids[i]}', this)">
+        <div class="friend-av" style="background:${avatarColor(label)};width:36px;height:36px;font-size:.875rem">${esc(label[0].toUpperCase())}</div>
+        <div class="friend-info">
+          <div class="friend-name">${esc(label)}</div>
+          ${sub ? `<div class="friend-user">${esc(sub)}</div>` : ''}
+        </div>
+        <div class="member-sel-check">✓</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleSpaceMember(uid, el) {
+  if (_selectedMembers.has(uid)) { _selectedMembers.delete(uid); el.classList.remove('on'); }
+  else                           { _selectedMembers.add(uid);    el.classList.add('on'); }
+}
+
+async function saveSpace() {
+  const name = document.getElementById('space-name-inp').value.trim();
+  if (!name) { toast('Bitte einen Space-Namen eingeben'); return; }
+  const btn = document.getElementById('save-space-btn');
+  btn.disabled = true; btn.textContent = 'Erstelle…';
+
+  try {
+    const spaceRef = db.ref('spaces').push();
+    const spaceId  = spaceRef.key;
+    const members  = [me.uid, ..._selectedMembers];
+    const batch    = {};
+    batch['spaces/' + spaceId] = {
+      name, createdBy: me.uid, createdAt: Date.now(),
+      members: Object.fromEntries(members.map(u => [u, true]))
+    };
+    members.forEach(uid => { batch['userSpaces/' + uid + '/' + spaceId] = true; });
+    await db.ref().update(batch);
+    toast('Space "' + name + '" erstellt! 🎉');
+    showScreen('home');
+    switchHomeTab('friends');
+  } catch(err) {
+    console.error('saveSpace:', err);
+    toast('Fehler beim Erstellen');
+    btn.disabled = false; btn.textContent = 'Space erstellen ✨';
+  }
+}
+
+function loadSpaces() {
+  if (!me) return;
+  if (_spacesOff) { _spacesOff(); _spacesOff = null; }
+  const listEl = document.getElementById('spaces-list');
+  const secEl  = document.getElementById('spaces-sec');
+
+  const ref = db.ref('userSpaces/' + me.uid);
+  const cb  = ref.on('value', async snap => {
+    const ids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!ids.length) { secEl.style.display = 'none'; return; }
+    secEl.style.display = 'block';
+
+    const spaceSnaps = await Promise.all(ids.map(id => db.ref('spaces/' + id).once('value')));
+    listEl.innerHTML = spaceSnaps.map((s, i) => {
+      if (!s.exists()) return '';
+      const sp  = s.val();
+      const cnt = sp.members ? Object.keys(sp.members).length : 1;
+      return `
+        <div class="space-card" onclick="openSpaceView('${ids[i]}')">
+          <div class="space-icon">🏠</div>
+          <div class="space-info">
+            <div class="space-name">${esc(sp.name)}</div>
+            <div class="space-meta">${cnt} Mitglied${cnt !== 1 ? 'er' : ''}</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>`;
+    }).join('');
+  });
+  _spacesOff = () => ref.off('value', cb);
+}
+
+async function openSpaceView(spaceId) {
+  if (_spaceEvOff) { _spaceEvOff(); _spaceEvOff = null; }
+  const titleEl = document.getElementById('space-title');
+  const chipsEl = document.getElementById('space-member-chips');
+  const bodyEl  = document.getElementById('space-ev-body');
+  document.getElementById('space-back').onclick = () => { showScreen('home'); switchHomeTab('friends'); };
+  bodyEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  chipsEl.innerHTML = '';
+  showScreen('space');
+
+  const spaceSnap = await db.ref('spaces/' + spaceId).once('value');
+  if (!spaceSnap.exists()) {
+    titleEl.textContent = 'Space';
+    bodyEl.innerHTML = '<div class="empty"><div class="ei">😕</div><p>Space nicht gefunden.</p></div>';
+    return;
+  }
+  const space      = spaceSnap.val();
+  titleEl.textContent = space.name;
+
+  const memberUids  = space.members ? Object.keys(space.members) : [];
+  const memberSnaps = await Promise.all(memberUids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
+  chipsEl.innerHTML = memberSnaps.map((s, i) => {
+    const d = (s && s.val()) || {};
+    const lbl = d.displayName || d.username || memberUids[i].slice(0, 8);
+    return `<div class="smc"><div class="smc-av" style="background:${avatarColor(lbl)}">${esc(lbl[0].toUpperCase())}</div><span>${esc(lbl)}</span></div>`;
+  }).join('');
+
+  const ref = db.ref('spaceEvents/' + spaceId);
+  const cb  = ref.on('value', async snap => {
+    const ids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!ids.length) {
+      bodyEl.innerHTML = '<div class="empty"><div class="ei">📅</div><p>Noch keine Events in diesem Space.</p></div>';
+      return;
+    }
+    const evSnaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
+    const evs = evSnaps.filter(s => s.exists()).map(s => ({ id: s.key, ...s.val() }));
+    evs.sort((a, b) => new Date(a.date + 'T' + (a.time||'12:00')) - new Date(b.date + 'T' + (b.time||'12:00')));
+    bodyEl.innerHTML = `<div class="events-stack">${evs.map(ev => cardHTML(ev, false)).join('')}</div>`;
+  });
+  _spaceEvOff = () => ref.off('value', cb);
+}
+
+async function loadUserSpacesForCreate() {
+  _selectedSpaces = new Set();
+  const wrap = document.getElementById('space-sel-wrap');
+  if (!me) { wrap.style.display = 'none'; return; }
+
+  const snap = await db.ref('userSpaces/' + me.uid).once('value');
+  const ids  = snap.val() ? Object.keys(snap.val()) : [];
+  if (!ids.length) { wrap.style.display = 'none'; return; }
+
+  const spaceSnaps = await Promise.all(ids.map(id => db.ref('spaces/' + id).once('value')));
+  const spaces = spaceSnaps.filter(s => s.exists()).map(s => ({ id: s.key, name: s.val().name }));
+  if (!spaces.length) { wrap.style.display = 'none'; return; }
+
+  wrap.style.display = 'block';
+  document.getElementById('space-chips').innerHTML = spaces.map(sp => `
+    <button type="button" class="space-chip" onclick="toggleEventSpace('${sp.id}', this)">
+      🏠 ${esc(sp.name)}
+    </button>`).join('');
+}
+
+function toggleEventSpace(spaceId, el) {
+  if (_selectedSpaces.has(spaceId)) { _selectedSpaces.delete(spaceId); el.classList.remove('on'); }
+  else                              { _selectedSpaces.add(spaceId);    el.classList.add('on'); }
+}
+
+async function shareEventToSpaces(eventId, spaceIds) {
+  const batch = {};
+  await Promise.all(spaceIds.map(async spaceId => {
+    batch['spaceEvents/' + spaceId + '/' + eventId] = true;
+    const membersSnap = await db.ref('spaces/' + spaceId + '/members').once('value');
+    const members = membersSnap.val() || {};
+    await Promise.all(Object.keys(members).map(async uid => {
+      if (uid === me.uid) return;
+      const ex = await db.ref('userEvents/' + uid + '/' + eventId).once('value');
+      if (!ex.exists()) batch['userEvents/' + uid + '/' + eventId] = 'space';
+    }));
+  }));
+  if (Object.keys(batch).length) await db.ref().update(batch);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HOME
 // ─────────────────────────────────────────────────────────────────────────────
 let homeOff = null;
@@ -1359,6 +1667,7 @@ async function loadHome() {
   if (!me) return;
   if (homeOff) { homeOff(); homeOff = null; }
   loadFriends();
+  loadSpaces();
 
   const myEl   = document.getElementById('my-list');
   const pEl    = document.getElementById('pending-list');
@@ -1384,7 +1693,7 @@ async function loadHome() {
     snaps.forEach((s, i) => {
       if (!s.exists()) return;
       const ev = { id: s.key, ...s.val(), _st: map[ids[i]] };
-      if      (ev._st === 'pending') pEvs.push(ev);
+      if      (ev._st === 'pending' || ev._st === 'space') pEvs.push(ev);
       else if (ev._st === 'nein')    neinEvs.push(ev);
       else                           myEvs.push(ev);
     });
@@ -1521,11 +1830,13 @@ function pickEmoji(em, el) {
 
 function initCreateForm() {
   pickedEmoji = '🎉';
+  _selectedSpaces = new Set();
   document.querySelectorAll('.egi').forEach((e, i) => e.classList.toggle('on', i === 0));
   document.getElementById('ev-title').value    = '';
   document.getElementById('ev-date').value     = new Date().toISOString().split('T')[0];
   document.getElementById('ev-time').value     = '18:00';
   document.getElementById('ev-location').value = '';
+  document.getElementById('space-sel-wrap').style.display = 'none';
 }
 
 async function createEvent() {
@@ -1565,6 +1876,7 @@ async function createEvent() {
     createdId = ref.key;
 
     if (me) await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
+    if (me && _selectedSpaces.size > 0) await shareEventToSpaces(createdId, [..._selectedSpaces]);
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
     showScreen('success');
