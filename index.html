@@ -17,7 +17,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
   <style>
     /* ── RESET ── */
@@ -113,11 +112,9 @@
     /* ── AVATAR ── */
     .avatar {
       width: 36px; height: 36px; border-radius: 50%;
-      background: var(--amber-light); border: none;
+      background: var(--amber-light); border: none; color: #fff;
       display: flex; align-items: center; justify-content: center;
       font-weight: 700; font-size: .875rem; flex-shrink: 0;
-      background-size: cover; background-position: center;
-      overflow: hidden;
     }
 
     /* ── PROFILE SCREEN ── */
@@ -134,26 +131,9 @@
     }
     .prof-av-xl {
       width: 96px; height: 96px; border-radius: 50%;
-      background: var(--amber-light);
       display: flex; align-items: center; justify-content: center;
-      font-size: 2.25rem; font-weight: 700;
-      position: relative; cursor: pointer; overflow: hidden;
-      margin-bottom: 12px;
-    }
-    .prof-av-xl img {
-      width: 100%; height: 100%; object-fit: cover;
-      position: absolute; inset: 0;
-    }
-    .prof-av-overlay {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,.38);
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0; transition: opacity .2s;
-    }
-    .prof-av-xl:hover .prof-av-overlay,
-    .prof-av-xl:focus .prof-av-overlay { opacity: 1; }
-    .prof-change-label {
-      font-size: .875rem; color: var(--amber); font-weight: 600; cursor: pointer;
+      font-size: 2.25rem; font-weight: 700; color: #fff;
+      margin-bottom: 12px; flex-shrink: 0;
     }
     .prof-foot {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -703,18 +683,7 @@
   <div class="prof-body">
     <!-- Avatar -->
     <div class="prof-av-wrap">
-      <div class="prof-av-xl" id="prof-av-xl" onclick="document.getElementById('photo-input').click()">
-        <span id="prof-av-init"></span>
-        <img id="prof-av-img" alt="" style="display:none">
-        <div class="prof-av-overlay">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
-            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
-        </div>
-      </div>
-      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelect(event)">
-      <label class="prof-change-label" onclick="document.getElementById('photo-input').click()">Foto ändern</label>
+      <div class="prof-av-xl" id="prof-av-xl"></div>
     </div>
 
     <!-- Name -->
@@ -771,9 +740,8 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth    = firebase.auth();
-const db      = firebase.database();
-const storage = firebase.storage();
+const auth = firebase.auth();
+const db   = firebase.database();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
@@ -934,70 +902,38 @@ function fmtAuthErr(code, message) {
 // ─────────────────────────────────────────────────────────────────────────────
 // AVATAR / PROFILE
 // ─────────────────────────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  '#E05C5C','#E07A5C','#E0A45C','#5C9CE0','#5C7AE0',
+  '#7A5CE0','#A45CE0','#5CC0A4','#5CB87A','#C05C7A'
+];
+
+function avatarColor(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function applyAvatar(el, user, size) {
+  const label = user.displayName || user.email || '?';
+  const init  = label[0].toUpperCase();
+  el.textContent       = init;
+  el.style.background  = avatarColor(label);
+  el.style.color       = '#fff';
+  if (size) el.style.fontSize = size;
+}
+
 function setAvatar(user) {
-  const btn  = document.getElementById('avatar-btn');
-  const init = (user.displayName || user.email || '?')[0].toUpperCase();
-  if (user.photoURL) {
-    btn.style.backgroundImage = `url(${user.photoURL})`;
-    btn.textContent = '';
-  } else {
-    btn.style.backgroundImage = '';
-    btn.textContent = init;
-  }
+  applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
 }
 
 function openProfileScreen() {
   if (!me) return;
-  const init = (me.displayName || me.email || '?')[0].toUpperCase();
-  const initEl = document.getElementById('prof-av-init');
-  const imgEl  = document.getElementById('prof-av-img');
-
-  initEl.textContent = init;
-  if (me.photoURL) {
-    imgEl.src = me.photoURL;
-    imgEl.style.display = 'block';
-    initEl.style.display = 'none';
-  } else {
-    imgEl.style.display = 'none';
-    imgEl.src = '';
-    initEl.style.display = '';
-  }
-
+  applyAvatar(document.getElementById('prof-av-xl'), me, '2.25rem');
   document.getElementById('prof-name-inp').value  = me.displayName || '';
   document.getElementById('prof-email-inp').value = me.email || '';
-  document.getElementById('save-prof-btn').disabled = false;
+  document.getElementById('save-prof-btn').disabled    = false;
   document.getElementById('save-prof-btn').textContent = 'Änderungen speichern';
-  document.getElementById('photo-input').value = '';
   showScreen('profile');
-}
-
-async function handlePhotoSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const compressed = await compressImage(file);
-  const url = URL.createObjectURL(compressed);
-  const imgEl = document.getElementById('prof-av-img');
-  imgEl.src = url;
-  imgEl.style.display = 'block';
-  document.getElementById('prof-av-init').style.display = 'none';
-}
-
-function compressImage(file, maxPx = 400) {
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      let w = img.width, h = img.height;
-      if (w > h) { if (w > maxPx) { h = Math.round(h * maxPx / w); w = maxPx; } }
-      else        { if (h > maxPx) { w = Math.round(w * maxPx / h); h = maxPx; } }
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      c.toBlob(resolve, 'image/jpeg', 0.82);
-    };
-    img.src = url;
-  });
 }
 
 async function saveProfile() {
@@ -1006,23 +942,11 @@ async function saveProfile() {
   btn.disabled = true; btn.textContent = 'Speichern…';
 
   try {
-    let photoURL = me.photoURL || null;
-    const fileInput = document.getElementById('photo-input');
-
-    if (fileInput.files[0]) {
-      const blob = await compressImage(fileInput.files[0]);
-      const ref  = storage.ref('profileImages/' + me.uid);
-      await ref.put(blob, { contentType: 'image/jpeg' });
-      photoURL = await ref.getDownloadURL();
-    }
-
     await auth.currentUser.updateProfile({
-      displayName: name || me.email.split('@')[0],
-      photoURL
+      displayName: name || me.email.split('@')[0]
     });
     me = auth.currentUser;
     setAvatar(me);
-
     toast('Profil gespeichert ✓');
     showScreen('home');
     loadHome();
