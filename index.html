@@ -670,8 +670,8 @@
 
     <form class="auth-form" onsubmit="handleAuth(event)">
       <div class="field" id="name-field" style="display:none">
-        <label>Name</label>
-        <input type="text" id="inp-name" placeholder="Dein Name" autocomplete="name">
+        <label>Anzeigename <span style="color:var(--pink)">*</span></label>
+        <input type="text" id="inp-name" placeholder="z.B. Klara" autocomplete="name">
       </div>
       <div class="field">
         <label>E-Mail</label>
@@ -1101,8 +1101,10 @@ function switchTab(mode) {
   document.querySelectorAll('.auth-tab').forEach((t, i) =>
     t.classList.toggle('on', (i === 0) === (mode === 'login'))
   );
-  document.getElementById('name-field').style.display  = mode === 'register' ? 'flex' : 'none';
-  document.getElementById('auth-btn').textContent       = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  const nameField = document.getElementById('name-field');
+  nameField.style.display = mode === 'register' ? 'flex' : 'none';
+  if (mode === 'login') document.getElementById('inp-name').value = '';
+  document.getElementById('auth-btn').textContent = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
   authErr('');
 }
 
@@ -1118,9 +1120,16 @@ async function handleAuth(e) {
     if (authMode === 'login') {
       await auth.signInWithEmailAndPassword(email, pw);
     } else {
-      const name = document.getElementById('inp-name').value.trim() || email.split('@')[0];
+      const name = document.getElementById('inp-name').value.trim();
+      if (!name) {
+        authErr('Bitte gib einen Anzeigenamen ein.');
+        btn.disabled = false; btn.textContent = 'Konto erstellen';
+        return;
+      }
       const c = await auth.createUserWithEmailAndPassword(email, pw);
       await c.user.updateProfile({ displayName: name });
+      // Mirror name to DB so friends lists and space chips show it immediately
+      await db.ref('users/' + c.user.uid + '/displayName').set(name);
     }
   } catch (err) {
     authErr(fmtAuthErr(err.code, err.message));
