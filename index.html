@@ -1649,11 +1649,9 @@ async function shareEventToSpaces(eventId, spaceIds) {
     batch['spaceEvents/' + spaceId + '/' + eventId] = true;
     const membersSnap = await db.ref('spaces/' + spaceId + '/members').once('value');
     const members = membersSnap.val() || {};
-    await Promise.all(Object.keys(members).map(async uid => {
-      if (uid === me.uid) return;
-      const ex = await db.ref('userEvents/' + uid + '/' + eventId).once('value');
-      if (!ex.exists()) batch['userEvents/' + uid + '/' + eventId] = 'space';
-    }));
+    Object.keys(members).forEach(uid => {
+      if (uid !== me.uid) batch['userEvents/' + uid + '/' + eventId] = 'space';
+    });
   }));
   if (Object.keys(batch).length) await db.ref().update(batch);
 }
@@ -1876,7 +1874,10 @@ async function createEvent() {
     createdId = ref.key;
 
     if (me) await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
-    if (me && _selectedSpaces.size > 0) await shareEventToSpaces(createdId, [..._selectedSpaces]);
+    if (me && _selectedSpaces.size > 0) {
+      try { await shareEventToSpaces(createdId, [..._selectedSpaces]); }
+      catch(e) { console.warn('shareEventToSpaces:', e); }
+    }
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
     showScreen('success');
