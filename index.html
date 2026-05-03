@@ -212,7 +212,7 @@
 
     /* ── TOAST ── */
     #toast {
-      position: fixed; bottom: 88px; left: 50%; z-index: 9999;
+      position: fixed; bottom: 80px; left: 50%; z-index: 9999;
       transform: translateX(-50%) translateY(12px);
       background: var(--text); color: #fff;
       padding: 11px 22px; border-radius: 50px;
@@ -303,8 +303,12 @@
     }
     .home-body {
       flex: 1; overflow-y: auto;
-      padding-bottom: 100px;
+      padding-bottom: 80px;
     }
+
+    /* Tab panel visibility */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
     .section {
       padding: 20px 20px 4px;
       max-width: var(--max); margin: 0 auto; width: 100%;
@@ -373,17 +377,32 @@
     .ecard.declined .ecard-title { color: var(--muted); }
     .ecard.declined .ecard-emoji { opacity: .5; }
 
-    /* FAB */
-    .fab {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
-      width: 60px; height: 60px; border-radius: 50%;
+    /* Bottom tab bar */
+    .tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--card); border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      height: calc(60px + max(0px, env(safe-area-inset-bottom)));
+    }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      background: none; border: none; padding: 8px 0;
+      color: var(--muted); font-size: .6875rem; font-weight: 500; cursor: pointer;
+      transition: color .15s;
+    }
+    .tab-btn svg { transition: color .15s; }
+    .tab-btn.active { color: var(--amber); }
+    .tab-create {
+      width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
       background: var(--amber); border: none;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 24px rgba(245,166,35,.55);
-      transition: all .15s; z-index: 50;
+      box-shadow: 0 4px 16px rgba(245,166,35,.5); cursor: pointer;
+      transition: all .15s;
     }
-    .fab:hover { background: #e8961f; transform: translateX(-50%) scale(1.05); }
-    .fab:active { transform: translateX(-50%) scale(.95); }
+    .tab-create:hover  { background: #e8961f; }
+    .tab-create:active { transform: scale(.93); }
 
     /* Empty state */
     .empty { text-align: center; padding: 36px 20px; color: var(--muted); }
@@ -624,37 +643,59 @@
   </div>
 
   <div class="home-body">
-    <div class="section">
-      <div class="section-head"><h2>Deine Events</h2></div>
-      <div class="events-stack" id="my-list">
-        <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
+    <!-- Events tab -->
+    <div class="tab-panel active" id="tab-events">
+      <div class="section">
+        <div class="section-head"><h2>Deine Events</h2></div>
+        <div class="events-stack" id="my-list">
+          <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="section" id="pending-sec" style="display:none">
+        <div class="section-head">
+          <h2>Ausstehend</h2>
+          <div class="badge" id="pending-count">0</div>
+        </div>
+        <div class="events-stack" id="pending-list"></div>
+      </div>
+
+      <div class="section" id="nein-sec" style="display:none">
+        <div class="section-head"><h2>Abgesagt</h2></div>
+        <div class="events-stack" id="nein-list"></div>
       </div>
     </div>
 
-    <div class="section" id="pending-sec" style="display:none">
-      <div class="section-head">
-        <h2>Ausstehend</h2>
-        <div class="badge" id="pending-count">0</div>
+    <!-- Friends tab -->
+    <div class="tab-panel" id="tab-friends">
+      <div class="section">
+        <div class="section-head"><h2>Freunde</h2></div>
+        <div id="friends-list"></div>
       </div>
-      <div class="events-stack" id="pending-list"></div>
-    </div>
-
-    <div class="section" id="nein-sec" style="display:none">
-      <div class="section-head"><h2>Abgesagt</h2></div>
-      <div class="events-stack" id="nein-list"></div>
-    </div>
-
-    <div class="section" id="friends-sec" style="display:none">
-      <div class="section-head"><h2>Freunde</h2></div>
-      <div class="friend-list" id="friends-list"></div>
     </div>
   </div>
 
-  <button class="fab" onclick="showCreate()" title="Event erstellen">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-  </button>
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-btn-events" onclick="switchHomeTab('events')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      Events
+    </button>
+    <button class="tab-btn" id="tab-btn-friends" onclick="switchHomeTab('friends')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      Freunde
+    </button>
+    <button class="tab-create" onclick="showCreate()" title="Event erstellen">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════ CREATE ═══════════════════════════ -->
@@ -1251,22 +1292,37 @@ function hidePendingConnectBanner() {
   if (el) el.style.display = 'none';
 }
 
+function switchHomeTab(tab) {
+  document.getElementById('tab-events').classList.toggle('active', tab === 'events');
+  document.getElementById('tab-friends').classList.toggle('active', tab === 'friends');
+  document.getElementById('tab-btn-events').classList.toggle('active', tab === 'events');
+  document.getElementById('tab-btn-friends').classList.toggle('active', tab === 'friends');
+}
+
 let friendsOff = null;
 
 function loadFriends() {
   if (!me) return;
   if (friendsOff) { friendsOff(); friendsOff = null; }
-  const sec  = document.getElementById('friends-sec');
   const list = document.getElementById('friends-list');
 
   const ref = db.ref('friends/' + me.uid);
   const cb  = ref.on('value', async snap => {
     const uids = snap.val() ? Object.keys(snap.val()) : [];
-    if (!uids.length) { sec.style.display = 'none'; return; }
-    sec.style.display = 'block';
+    if (!uids.length) {
+      list.innerHTML = `
+        <div class="empty">
+          <div class="ei">👥</div>
+          <p>Noch keine Freunde –<br>teile deinen Profil-Link!</p>
+          <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="shareProfOrPrompt()">
+            Profil-Link teilen 🔗
+          </button>
+        </div>`;
+      return;
+    }
 
     const snaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value')));
-    list.innerHTML = snaps.map((s, i) => {
+    list.innerHTML = `<div class="friend-list">` + snaps.map((s, i) => {
       const d     = s.val() || {};
       const label = d.displayName || d.username || uids[i].slice(0, 8);
       const user  = d.username ? '@' + d.username : '';
@@ -1278,9 +1334,20 @@ function loadFriends() {
             ${user ? `<div class="friend-user">${esc(user)}</div>` : ''}
           </div>
         </div>`;
-    }).join('');
+    }).join('') + `</div>`;
   });
   friendsOff = () => ref.off('value', cb);
+}
+
+function shareProfOrPrompt() {
+  if (_myUsername) {
+    const link = location.origin + location.pathname + '#u/' + _myUsername;
+    try { navigator.clipboard.writeText(link); } catch { fallbackCopy(link); }
+    toast('Profil-Link kopiert! 🔗');
+  } else {
+    openProfileScreen();
+    toast('Bitte zuerst einen Benutzernamen festlegen');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
