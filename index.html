@@ -1614,6 +1614,9 @@ async function openSpaceView(spaceId) {
     const evs = evSnaps.filter(s => s.exists()).map(s => ({ id: s.key, ...s.val() }));
     evs.sort((a, b) => new Date(a.date + 'T' + (a.time||'12:00')) - new Date(b.date + 'T' + (b.time||'12:00')));
     bodyEl.innerHTML = `<div class="events-stack">${evs.map(ev => cardHTML(ev, false)).join('')}</div>`;
+  }, err => {
+    console.error('spaceEvents read error:', err);
+    bodyEl.innerHTML = '<div class="empty"><div class="ei">🔒</div><p>Zugriffsfehler – bitte Firebase-Regeln für spaceEvents prüfen.</p></div>';
   });
   _spaceEvOff = () => ref.off('value', cb);
 }
@@ -1644,16 +1647,28 @@ function toggleEventSpace(spaceId, el) {
 }
 
 async function shareEventToSpaces(eventId, spaceIds) {
-  const batch = {};
-  await Promise.all(spaceIds.map(async spaceId => {
-    batch['spaceEvents/' + spaceId + '/' + eventId] = true;
-    const membersSnap = await db.ref('spaces/' + spaceId + '/members').once('value');
-    const members = membersSnap.val() || {};
-    Object.keys(members).forEach(uid => {
-      if (uid !== me.uid) batch['userEvents/' + uid + '/' + eventId] = 'space';
-    });
-  }));
-  if (Object.keys(batch).length) await db.ref().update(batch);
+  // Write spaceEvents index first — this is what the space view reads.
+  // Must succeed before anything else.
+  const indexBatch = {};
+  spaceIds.forEach(spaceId => {
+    indexBatch['spaceEvents/' + spaceId + '/' + eventId] = true;
+  });
+  await db.ref().update(indexBatch);
+
+  // Fan out to members' home feeds (best-effort; needs spaces/ read permission).
+  try {
+    const fanout = {};
+    await Promise.all(spaceIds.map(async spaceId => {
+      const snap = await db.ref('spaces/' + spaceId + '/members').once('value');
+      const members = snap.val() || {};
+      Object.keys(members).forEach(uid => {
+        if (uid !== me.uid) fanout['userEvents/' + uid + '/' + eventId] = 'space';
+      });
+    }));
+    if (Object.keys(fanout).length) await db.ref().update(fanout);
+  } catch(e) {
+    console.warn('Space member fanout skipped (check Firebase rules for spaces/):', e);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
