@@ -321,6 +321,8 @@
       text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
     }
     .events-stack { display: flex; flex-direction: column; gap: 12px; }
+    #past-chevron { transition: transform .2s ease; }
+    #past-chevron.open { transform: rotate(180deg); }
 
     /* Event card */
     .ecard {
@@ -723,9 +725,14 @@
         <div class="events-stack" id="pending-list"></div>
       </div>
 
-      <div class="section" id="nein-sec" style="display:none">
-        <div class="section-head"><h2>Abgesagt</h2></div>
-        <div class="events-stack" id="nein-list"></div>
+      <div class="section" id="past-sec" style="display:none">
+        <div class="section-head" onclick="togglePastEvents()" style="cursor:pointer;user-select:none">
+          <h2>Vergangene Events</h2>
+          <svg id="past-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);flex-shrink:0">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="events-stack" id="past-list" style="display:none"></div>
       </div>
     </div>
 
@@ -1693,9 +1700,9 @@ async function loadHome() {
 
   const myEl   = document.getElementById('my-list');
   const pEl    = document.getElementById('pending-list');
-  const neinEl = document.getElementById('nein-list');
+  const pastEl = document.getElementById('past-list');
   const pSec   = document.getElementById('pending-sec');
-  const neinSec = document.getElementById('nein-sec');
+  const pastSec = document.getElementById('past-sec');
   myEl.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
 
   const ref = db.ref('userEvents/' + me.uid);
@@ -1705,28 +1712,35 @@ async function loadHome() {
     if (!ids.length) {
       myEl.innerHTML = `<div class="empty"><div class="ei">🌱</div><p>Noch keine Events. Erstelle dein erstes!</p></div>`;
       pSec.style.display = 'none';
-      neinSec.style.display = 'none';
+      pastSec.style.display = 'none';
       return;
     }
 
     const snaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
-    const myEvs = [], pEvs = [], neinEvs = [];
+    const myEvs = [], pEvs = [], pastEvs = [];
 
     snaps.forEach((s, i) => {
       if (!s.exists()) return;
-      const ev = { id: s.key, ...s.val(), _st: map[ids[i]] };
-      if      (ev._st === 'pending' || ev._st === 'space') pEvs.push(ev);
-      else if (ev._st === 'nein')    neinEvs.push(ev);
-      else                           myEvs.push(ev);
+      const ev  = { id: s.key, ...s.val(), _st: map[ids[i]] };
+      const past = isEventPast(ev);
+      if (past) {
+        pastEvs.push(ev);
+      } else if (ev._st === 'pending' || ev._st === 'space') {
+        pEvs.push(ev);
+      } else if (ev._st === 'nein') {
+        // declined future events: not shown
+      } else {
+        myEvs.push(ev); // created / dabei / vielleicht
+      }
     });
 
-    const byDate = (a, b) =>
-      new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00'));
-    myEvs.sort(byDate); pEvs.sort(byDate); neinEvs.sort(byDate);
+    const asc  = (a, b) => new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00'));
+    const desc = (a, b) => -asc(a, b);
+    myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
 
     myEl.innerHTML = myEvs.length
       ? myEvs.map(ev => cardHTML(ev, false)).join('')
-      : '<div class="empty"><div class="ei">🌱</div><p>Noch keine bestätigten Events.</p></div>';
+      : '<div class="empty"><div class="ei">🌱</div><p>Noch keine kommenden Events.</p></div>';
 
     if (pEvs.length) {
       pSec.style.display = 'block';
@@ -1736,15 +1750,28 @@ async function loadHome() {
       pSec.style.display = 'none';
     }
 
-    if (neinEvs.length) {
-      neinSec.style.display = 'block';
-      neinEl.innerHTML = neinEvs.map(ev => cardHTML(ev, false)).join('');
+    if (pastEvs.length) {
+      pastSec.style.display = 'block';
+      pastEl.innerHTML = pastEvs.map(ev => cardHTML(ev, false)).join('');
     } else {
-      neinSec.style.display = 'none';
+      pastSec.style.display = 'none';
     }
   });
 
   homeOff = () => ref.off('value', cb);
+}
+
+function isEventPast(ev) {
+  const d = new Date(ev.date + 'T' + (ev.time || '23:59') + ':00');
+  return d < new Date();
+}
+
+function togglePastEvents() {
+  const list    = document.getElementById('past-list');
+  const chevron = document.getElementById('past-chevron');
+  const nowOpen = list.style.display === 'none';
+  list.style.display = nowOpen ? '' : 'none';
+  chevron.classList.toggle('open', nowOpen);
 }
 
 function cardHTML(ev, showRsvp) {
