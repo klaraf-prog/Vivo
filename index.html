@@ -181,6 +181,7 @@
 
     /* ── PUBLIC PROFILE ── */
     #screen-pub-profile { align-items: stretch; }
+    #screen-pub-space   { align-items: stretch; }
     .pubprof-body {
       flex:1; display:flex; flex-direction:column; align-items:center;
       justify-content:center; padding:40px 24px; gap:14px;
@@ -944,12 +945,29 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <h1 id="space-title"></h1>
+    <button id="space-share-btn" class="btn btn-ghost btn-sm" style="margin-left:auto;color:var(--pink)" onclick="">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Teilen
+    </button>
   </div>
   <div class="ev-inner" style="overflow-y:auto;flex:1">
     <div class="space-member-chips" id="space-member-chips"></div>
     <div id="space-ev-body" style="padding:0 20px 60px">
       <div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ PUBLIC SPACE VIEW ══════════════════════════ -->
+<div id="screen-pub-space" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="pubspace-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 id="pubspace-title"></h1>
+  </div>
+  <div class="pubprof-body" id="pubspace-body">
+    <div class="spinner"></div>
   </div>
 </div>
 
@@ -1009,13 +1027,14 @@ let me           = null;  // current firebase user
 let createdId    = null;  // last created event ID (for share sheet)
 let pickedEmoji  = '🎉';
 let evUnsubscribe = null; // real-time event listener cleanup
-let _pendingRsvp     = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
-let _pendingConnect  = null;  // { theirUid, theirUsername, theirName } – set before login
-let _myUsername      = null;  // cached username from DB
-let _selectedMembers = new Set(); // uids selected during space creation
-let _selectedSpaces  = new Set(); // space IDs selected during event creation
-let _spacesOff       = null;  // real-time spaces listener cleanup
-let _spaceEvOff      = null;  // space events view listener cleanup
+let _pendingRsvp      = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
+let _pendingConnect   = null;  // { theirUid, theirUsername, theirName } – set before login
+let _pendingSpaceJoin = null;  // { spaceId, spaceName } – set before login when joining via link
+let _myUsername       = null;  // cached username from DB
+let _selectedMembers  = new Set(); // uids selected during space creation
+let _selectedSpaces   = new Set(); // space IDs selected during event creation
+let _spacesOff        = null;  // real-time spaces listener cleanup
+let _spaceEvOff       = null;  // space events view listener cleanup
 
 const EMOJIS = [
   '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
@@ -1032,6 +1051,7 @@ function route() {
   const h = location.hash;
   if (h.startsWith('#event/')) return { screen: 'event',       id: h.slice(7) };
   if (h.startsWith('#u/'))     return { screen: 'pub-profile', username: h.slice(3) };
+  if (h.startsWith('#space/')) return { screen: 'pub-space',   id: h.slice(7) };
   return { screen: 'home' };
 }
 
@@ -1073,6 +1093,19 @@ auth.onAuthStateChanged(async user => {
     } catch(e) { console.error('pendingConnect error:', e); }
   }
 
+  // Auto-join a pending space after login/register
+  if (user && _pendingSpaceJoin) {
+    const { spaceId, spaceName } = _pendingSpaceJoin;
+    _pendingSpaceJoin = null;
+    try {
+      const batch = {};
+      batch['spaces/' + spaceId + '/members/' + user.uid] = true;
+      batch['userSpaces/' + user.uid + '/' + spaceId] = true;
+      await db.ref().update(batch);
+      toast('🏠 ' + spaceName + ' beigetreten!');
+    } catch(e) { console.error('pendingSpaceJoin error:', e); }
+  }
+
   const r = route();
   if (r.screen === 'event') {
     loadEventScreen(r.id);
@@ -1080,6 +1113,9 @@ auth.onAuthStateChanged(async user => {
   } else if (r.screen === 'pub-profile') {
     loadPubProfile(r.username);
     showScreen('pub-profile');
+  } else if (r.screen === 'pub-space') {
+    loadPubSpace(r.id);
+    showScreen('pub-space');
   } else if (user) {
     setAvatar(user);
     showScreen('home');
@@ -1097,6 +1133,9 @@ window.addEventListener('hashchange', () => {
   } else if (r.screen === 'pub-profile') {
     loadPubProfile(r.username);
     showScreen('pub-profile');
+  } else if (r.screen === 'pub-space') {
+    loadPubSpace(r.id);
+    showScreen('pub-space');
   } else if (me) {
     showScreen('home');
     loadHome();
@@ -1258,8 +1297,8 @@ function showUsernameHint(msg, type) {
 function shareProfile() {
   if (!_myUsername) { toast('Bitte zuerst einen Benutzernamen speichern'); return; }
   const link = location.origin + location.pathname + '#u/' + _myUsername;
-  try { navigator.clipboard.writeText(link); } catch { fallbackCopy(link); }
-  toast('Profil-Link kopiert! 🔗');
+  const text = 'Lass uns auf vivo befreundet sein! 🧡 Hier ist mein Profil: ' + link;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
 
 async function saveProfile() {
@@ -1488,11 +1527,75 @@ function loadFriends() {
 function shareProfOrPrompt() {
   if (_myUsername) {
     const link = location.origin + location.pathname + '#u/' + _myUsername;
-    try { navigator.clipboard.writeText(link); } catch { fallbackCopy(link); }
-    toast('Profil-Link kopiert! 🔗');
+    const text = 'Lass uns auf vivo befreundet sein! 🧡 Hier ist mein Profil: ' + link;
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   } else {
     openProfileScreen();
     toast('Bitte zuerst einen Benutzernamen festlegen');
+  }
+}
+
+function shareSpace(spaceId, spaceName) {
+  const link = location.origin + location.pathname + '#space/' + spaceId;
+  const text = 'Trete meinem vivo Friendspace ' + spaceName + ' bei! 👥 ' + link;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+async function loadPubSpace(spaceId) {
+  const bodyEl  = document.getElementById('pubspace-body');
+  const titleEl = document.getElementById('pubspace-title');
+  document.getElementById('pubspace-back').onclick = () => {
+    history.replaceState(null, '', location.pathname);
+    if (me) { showScreen('home'); switchHomeTab('friends'); } else { showScreen('login'); }
+  };
+  bodyEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.ref('spaces/' + spaceId).once('value');
+    if (!snap.exists()) {
+      titleEl.textContent = 'Space';
+      bodyEl.innerHTML = '<div class="empty"><div class="ei">😕</div><p>Space nicht gefunden.</p></div>';
+      return;
+    }
+    const sp = snap.val();
+    titleEl.textContent = sp.name;
+    const isMember = me && sp.members && sp.members[me.uid];
+    if (isMember) { openSpaceView(spaceId); return; }
+    const cnt = sp.members ? Object.keys(sp.members).length : 1;
+    bodyEl.innerHTML = `
+      <div style="text-align:center;padding:48px 24px">
+        <div style="font-size:56px;margin-bottom:16px">🏠</div>
+        <h2 style="margin:0 0 6px;font-size:1.4rem">${esc(sp.name)}</h2>
+        <p style="color:var(--muted);margin:0 0 32px">${cnt} Mitglied${cnt !== 1 ? 'er' : ''} · Friend Space auf vivo</p>
+        <button class="btn btn-primary btn-full" onclick="joinSpace('${spaceId}', ${JSON.stringify(sp.name)})">
+          Space beitreten 👥
+        </button>
+      </div>`;
+  } catch(e) {
+    bodyEl.innerHTML = '<div class="empty"><div class="ei">😕</div><p>Space konnte nicht geladen werden.</p></div>';
+  }
+}
+
+async function joinSpace(spaceId, spaceName) {
+  if (!me) {
+    _pendingSpaceJoin = { spaceId, spaceName };
+    showScreen('login');
+    return;
+  }
+  const btn = document.querySelector('#pubspace-body .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Beitreten…'; }
+  try {
+    const batch = {};
+    batch['spaces/' + spaceId + '/members/' + me.uid] = true;
+    batch['userSpaces/' + me.uid + '/' + spaceId] = true;
+    await db.ref().update(batch);
+    toast('🏠 ' + spaceName + ' beigetreten!');
+    history.replaceState(null, '', location.pathname);
+    showScreen('home');
+    switchHomeTab('friends');
+  } catch(e) {
+    console.error('joinSpace error:', e);
+    toast('Fehler beim Beitreten');
+    if (btn) { btn.disabled = false; btn.textContent = 'Space beitreten 👥'; }
   }
 }
 
@@ -1603,6 +1706,7 @@ async function openSpaceView(spaceId) {
   const chipsEl = document.getElementById('space-member-chips');
   const bodyEl  = document.getElementById('space-ev-body');
   document.getElementById('space-back').onclick = () => { showScreen('home'); switchHomeTab('friends'); };
+  document.getElementById('space-share-btn').onclick = () => {}; // will be set after name loads
   bodyEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
   chipsEl.innerHTML = '';
   showScreen('space');
@@ -1615,6 +1719,7 @@ async function openSpaceView(spaceId) {
   }
   const space      = spaceSnap.val();
   titleEl.textContent = space.name;
+  document.getElementById('space-share-btn').onclick = () => shareSpace(spaceId, space.name);
 
   const memberUids  = space.members ? Object.keys(space.members) : [];
   const memberSnaps = await Promise.all(memberUids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
