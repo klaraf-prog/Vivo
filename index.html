@@ -810,6 +810,11 @@
         <label>Ort</label>
         <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin">
       </div>
+      <div class="field">
+        <label>Details <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <textarea id="ev-details" placeholder="z.B. Bitte Getränke mitbringen, Eingang über den Hinterhof …"
+          rows="3" style="resize:vertical;font-family:inherit;font-size:1rem;padding:13px 16px;border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);background:#fff;width:100%;line-height:1.5"></textarea>
+      </div>
       <div class="field" id="space-sel-wrap" style="display:none">
         <label>In Space teilen (optional)</label>
         <div class="space-chips" id="space-chips"></div>
@@ -1885,6 +1890,7 @@ function initCreateForm() {
   document.getElementById('ev-date').value     = new Date().toISOString().split('T')[0];
   document.getElementById('ev-time').value     = '18:00';
   document.getElementById('ev-location').value = '';
+  document.getElementById('ev-details').value  = '';
   document.getElementById('space-sel-wrap').style.display = 'none';
 }
 
@@ -1893,9 +1899,10 @@ async function createEvent() {
   const dateEl  = document.getElementById('ev-date');
   const title   = titleEl.value.trim();
   const date    = dateEl.value;
-  const time    = document.getElementById('ev-time').value;
+  const time     = document.getElementById('ev-time').value;
   const location = document.getElementById('ev-location').value.trim();
-  const btn     = document.getElementById('create-btn');
+  const details  = document.getElementById('ev-details').value.trim();
+  const btn      = document.getElementById('create-btn');
 
   if (!title) {
     titleEl.style.borderColor = 'var(--pink)';
@@ -1915,6 +1922,7 @@ async function createEvent() {
       date:        date || new Date().toISOString().split('T')[0],
       time:        time || null,
       location:    location || null,
+      details:     details  || null,
       createdBy:   me ? me.uid : null,
       creatorName: me ? (me.displayName || me.email.split('@')[0]) : 'Anonym',
       createdAt:   Date.now()
@@ -1945,9 +1953,23 @@ function evLink(id) {
 }
 
 function shareWA() {
-  const title = document.getElementById('ev-title').value.trim();
-  const text  = encodeURIComponent(`${pickedEmoji} ${title}\n\nBist du dabei? ${evLink()}`);
-  window.open('https://wa.me/?text=' + text, '_blank');
+  const title    = document.getElementById('ev-title').value.trim();
+  const date     = document.getElementById('ev-date').value;
+  const time     = document.getElementById('ev-time').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const details  = document.getElementById('ev-details').value.trim();
+
+  const lines = [
+    '👋 Hey!',
+    `${pickedEmoji} ${title}`,
+    `📅 ${fmtDate(date, '')}`,
+  ];
+  if (time) lines.push(`⏰ ${time} Uhr`);
+  if (location) lines.push(`📍 ${location}`);
+  if (details) lines.push(details);
+  lines.push(`\nKomm dazu 👉 ${evLink()}`);
+
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank');
 }
 
 async function copyLink(id) {
@@ -2067,6 +2089,7 @@ function renderEv(ev, body) {
       <div class="ev-details">
         <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtDate(ev.date, ev.time)}</span></div>
         ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
+        ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
         <div class="ev-row"><div class="ev-icon">👤</div><span>Von ${esc(ev.creatorName||'Jemand')}</span></div>
       </div>
       ${isCreator ? `
@@ -2196,7 +2219,16 @@ function goToRegister() {
 
 function shareEvWA() {
   const ev = window._ev; if (!ev) return;
-  window.open('https://wa.me/?text=' + encodeURIComponent(`${ev.emoji||'🎉'} ${ev.title}\n\nBist du dabei? ${evLink(ev.id)}`), '_blank');
+  const lines = [
+    '👋 Hey!',
+    `${ev.emoji||'🎉'} ${ev.title}`,
+    `📅 ${fmtDate(ev.date, '')}`,
+  ];
+  if (ev.time)     lines.push(`⏰ ${ev.time} Uhr`);
+  if (ev.location) lines.push(`📍 ${ev.location}`);
+  if (ev.details)  lines.push(ev.details);
+  lines.push(`\nKomm dazu 👉 ${evLink(ev.id)}`);
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
