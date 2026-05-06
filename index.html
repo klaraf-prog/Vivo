@@ -723,7 +723,7 @@
 <!-- ═══════════════════════════ HOME ═══════════════════════════ -->
 <div id="screen-home" class="screen">
   <div class="home-bar">
-    <span class="logo">vivo</span>
+    <span class="logo" onclick="navHome()" style="cursor:pointer">vivo</span>
     <button class="avatar" id="avatar-btn" onclick="openProfileScreen()"></button>
   </div>
 
@@ -801,7 +801,7 @@
 <!-- ═══════════════════════════ CREATE ═══════════════════════════ -->
 <div id="screen-create" class="screen">
   <div class="scr-header">
-    <button class="back-btn" onclick="showScreen('home')">
+    <button class="back-btn" onclick="navHome()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <h1>Event erstellen</h1>
@@ -878,6 +878,7 @@
       <button class="back-btn" id="ev-back">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
+      <span class="logo" onclick="navHome()" style="cursor:pointer;font-size:1.125rem;margin-left:8px">vivo</span>
     </div>
     <div class="ev-body" id="ev-body">
       <div style="display:flex;align-items:center;justify-content:center;padding:80px 0">
@@ -1505,6 +1506,11 @@ function showScreen(name) {
   document.getElementById('screen-' + name).classList.add('active');
 }
 
+function navHome() {
+  if (me) { location.hash = ''; showScreen('home'); loadHome(); }
+  else     { showScreen('login'); }
+}
+
 function showCreate() {
   initCreateForm();
   showScreen('create');
@@ -1519,11 +1525,7 @@ function showDatenschutz(from) {
   showScreen('datenschutz');
 }
 
-function goHome() {
-  location.hash = '';
-  showScreen('home');
-  loadHome();
-}
+function goHome() { navHome(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HOME
@@ -1535,7 +1537,7 @@ async function loadPubProfile(username) {
   const body    = document.getElementById('pubprof-body');
   const backBtn = document.getElementById('pubprof-back');
   body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
-  backBtn.onclick = () => { location.hash = ''; if (me) { showScreen('home'); loadHome(); } else showScreen('login'); };
+  backBtn.onclick = navHome;
 
   // usernames/ is public; users/ may require auth — fetch defensively
   let uidSnap;
@@ -1953,15 +1955,20 @@ async function loadFriendsForCreate() {
 }
 
 async function shareEventToSpaces(eventId, spaceIds) {
-  // Write spaceEvents index first — this is what the space view reads.
-  // Must succeed before anything else.
-  const indexBatch = {};
-  spaceIds.forEach(spaceId => {
-    indexBatch['spaceEvents/' + spaceId + '/' + eventId] = true;
-  });
-  await db.ref().update(indexBatch);
+  // Write each spaceEvents entry individually so a rule failure on one
+  // space doesn't silently block the others.
+  const failed = [];
+  await Promise.all(spaceIds.map(async spaceId => {
+    try {
+      await db.ref('spaceEvents/' + spaceId + '/' + eventId).set(true);
+    } catch(e) {
+      console.error('spaceEvents write failed for', spaceId, e);
+      failed.push(spaceId);
+    }
+  }));
+  if (failed.length) throw new Error('space_write_failed');
 
-  // Fan out to members' home feeds (best-effort; needs spaces/ read permission).
+  // Fan out to members' home feeds (best-effort).
   try {
     const fanout = {};
     await Promise.all(spaceIds.map(async spaceId => {
@@ -1973,7 +1980,7 @@ async function shareEventToSpaces(eventId, spaceIds) {
     }));
     if (Object.keys(fanout).length) await db.ref().update(fanout);
   } catch(e) {
-    console.warn('Space member fanout skipped (check Firebase rules for spaces/):', e);
+    console.warn('Space member fanout skipped:', e);
   }
 }
 
@@ -2238,7 +2245,10 @@ async function createEvent() {
     if (me) await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
     if (me && _selectedSpaces.size > 0) {
       try { await shareEventToSpaces(createdId, [..._selectedSpaces]); }
-      catch(e) { console.warn('shareEventToSpaces:', e); }
+      catch(e) {
+        console.error('shareEventToSpaces:', e);
+        toast('⚠️ Event erstellt, aber Space-Zuweisung fehlgeschlagen. Bitte Firebase-Regeln für spaceEvents prüfen.');
+      }
     }
     if (me && _selectedFriends.size > 0) {
       try {
@@ -2307,7 +2317,7 @@ function loadEventScreen(id) {
   const body   = document.getElementById('ev-body');
   const backBtn = document.getElementById('ev-back');
   body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
-  backBtn.onclick = () => me ? (location.hash = '', showScreen('home'), loadHome()) : history.back();
+  backBtn.onclick = navHome;
 
   const ref = db.ref('events/' + id);
   const cb  = ref.on('value', snap => {
