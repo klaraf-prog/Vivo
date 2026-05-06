@@ -182,6 +182,20 @@
     /* ── PUBLIC PROFILE ── */
     #screen-pub-profile { align-items: stretch; }
     #screen-pub-space   { align-items: stretch; }
+    #screen-datenschutz { align-items: stretch; }
+    .legal-body {
+      flex: 1; overflow-y: auto; padding: 24px 20px 60px;
+      font-size: .9375rem; line-height: 1.6; color: var(--text);
+    }
+    .legal-body h1 { font-size: 1.5rem; margin: 0 0 16px; }
+    .legal-body h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+    .legal-body h3 { font-size: 1rem; margin: 16px 0 6px; }
+    .legal-body p  { margin: 0 0 10px; }
+    .legal-body ul { padding-left: 20px; margin: 0 0 10px; }
+    .legal-body li { margin-bottom: 6px; }
+    .legal-body a  { color: var(--pink); text-decoration: none; }
+    .legal-body a:hover { text-decoration: underline; }
+    .legal-body .seal { font-size:.8rem; color:var(--muted); margin-top:32px; }
     .pubprof-body {
       flex:1; display:flex; flex-direction:column; align-items:center;
       justify-content:center; padding:40px 24px; gap:14px;
@@ -685,6 +699,11 @@
         <input type="password" id="inp-pw" placeholder="Mindestens 6 Zeichen" required minlength="6" autocomplete="current-password">
       </div>
       <button type="submit" class="btn btn-primary btn-full" id="auth-btn">Anmelden</button>
+      <p id="dsgvo-hint" style="display:none;margin:10px 0 0;font-size:.8125rem;color:var(--muted);text-align:center;line-height:1.5">
+        Mit der Registrierung stimmst du unserer
+        <button type="button" onclick="showDatenschutz('login')" style="background:none;border:none;padding:0;color:var(--pink);font-size:.8125rem;cursor:pointer;text-decoration:underline">Datenschutzerklärung</button>
+        zu.
+      </p>
     </form>
 
     <div class="divider">oder</div>
@@ -911,6 +930,7 @@
       <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()">Änderungen speichern</button>
       <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none">Profil teilen 🔗</button>
       <button class="btn btn-outline btn-full" onclick="doSignOut()">Abmelden</button>
+      <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')">Datenschutzerklärung</button>
     </div>
   </div>
 </div>
@@ -959,6 +979,124 @@
     <div id="space-ev-body" style="padding:0 20px 60px">
       <div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>
     </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ DATENSCHUTZ ════════════════════════ -->
+<div id="screen-datenschutz" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="datenschutz-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Datenschutz</h1>
+  </div>
+  <div class="legal-body">
+    <h1>Datenschutzerklärung</h1>
+    <h2 id="m716">Präambel</h2>
+    <p>Mit der folgenden Datenschutzerklärung möchten wir Sie darüber aufklären, welche Arten Ihrer personenbezogenen Daten (nachfolgend auch kurz als "Daten" bezeichnet) wir zu welchen Zwecken und in welchem Umfang verarbeiten. Die Datenschutzerklärung gilt für alle von uns durchgeführten Verarbeitungen personenbezogener Daten, sowohl im Rahmen der Erbringung unserer Leistungen als auch insbesondere auf unseren Webseiten, in mobilen Applikationen sowie innerhalb externer Onlinepräsenzen, wie z. B. unserer Social-Media-Profile (nachfolgend zusammenfassend bezeichnet als "Onlineangebot").</p>
+    <p>Die verwendeten Begriffe sind nicht geschlechtsspezifisch.</p>
+    <p>Stand: 6. Mai 2026</p>
+    <h2>Inhaltsübersicht</h2>
+    <ul class="index">
+      <li><a href="#m716">Präambel</a></li>
+      <li><a href="#m3">Verantwortlicher</a></li>
+      <li><a href="#mOverview">Übersicht der Verarbeitungen</a></li>
+      <li><a href="#m2427">Maßgebliche Rechtsgrundlagen</a></li>
+      <li><a href="#m27">Sicherheitsmaßnahmen</a></li>
+      <li><a href="#m25">Übermittlung von personenbezogenen Daten</a></li>
+      <li><a href="#m24">Internationale Datentransfers</a></li>
+      <li><a href="#m12">Allgemeine Informationen zur Datenspeicherung und Löschung</a></li>
+      <li><a href="#m10">Rechte der betroffenen Personen</a></li>
+      <li><a href="#m225">Bereitstellung des Onlineangebots und Webhosting</a></li>
+      <li><a href="#m134">Einsatz von Cookies</a></li>
+      <li><a href="#m367">Registrierung, Anmeldung und Nutzerkonto</a></li>
+      <li><a href="#m432">Community Funktionen</a></li>
+      <li><a href="#m451">Single-Sign-On-Anmeldung</a></li>
+      <li><a href="#m17">Newsletter und elektronische Benachrichtigungen</a></li>
+      <li><a href="#m15">Änderung und Aktualisierung</a></li>
+      <li><a href="#m42">Begriffsdefinitionen</a></li>
+    </ul>
+    <h2 id="m3">Verantwortlicher</h2>
+    <p>Klara Faiß<br>Adresse wird nachgereicht</p>
+    <p>E-Mail-Adresse: <a href="mailto:hey.vivo.app@gmail.com">hey.vivo.app@gmail.com</a></p>
+    <h2 id="mOverview">Übersicht der Verarbeitungen</h2>
+    <p>Die nachfolgende Übersicht fasst die Arten der verarbeiteten Daten und die Zwecke ihrer Verarbeitung zusammen und verweist auf die betroffenen Personen.</p>
+    <h3>Arten der verarbeiteten Daten</h3>
+    <ul><li>Bestandsdaten.</li><li>Beschäftigtendaten.</li><li>Kontaktdaten.</li><li>Inhaltsdaten.</li><li>Nutzungsdaten.</li><li>Meta-, Kommunikations- und Verfahrensdaten.</li><li>Protokolldaten.</li></ul>
+    <h3>Kategorien betroffener Personen</h3>
+    <ul><li>Beschäftigte.</li><li>Kommunikationspartner.</li><li>Nutzer.</li><li>Dritte Personen.</li><li>Hinweisgeber.</li></ul>
+    <h3>Zwecke der Verarbeitung</h3>
+    <ul><li>Erbringung vertraglicher Leistungen und Erfüllung vertraglicher Pflichten.</li><li>Sicherheitsmaßnahmen.</li><li>Direktmarketing.</li><li>Organisations- und Verwaltungsverfahren.</li><li>Anmeldeverfahren.</li><li>Bereitstellung unseres Onlineangebotes und Nutzerfreundlichkeit.</li><li>Informationstechnische Infrastruktur.</li><li>Hinweisgeberschutz.</li></ul>
+    <h2 id="m2427">Maßgebliche Rechtsgrundlagen</h2>
+    <p><strong>Maßgebliche Rechtsgrundlagen nach der DSGVO:</strong> Im Folgenden erhalten Sie eine Übersicht der Rechtsgrundlagen der DSGVO, auf deren Basis wir personenbezogene Daten verarbeiten. Bitte nehmen Sie zur Kenntnis, dass neben den Regelungen der DSGVO nationale Datenschutzvorgaben in Ihrem bzw. unserem Wohn- oder Sitzland gelten können. Sollten ferner im Einzelfall speziellere Rechtsgrundlagen maßgeblich sein, teilen wir Ihnen diese in der Datenschutzerklärung mit.</p>
+    <ul><li><strong>Einwilligung (Art. 6 Abs. 1 S. 1 lit. a) DSGVO)</strong> – Die betroffene Person hat ihre Einwilligung in die Verarbeitung der sie betreffenden personenbezogenen Daten für einen spezifischen Zweck oder mehrere bestimmte Zwecke gegeben.</li><li><strong>Vertragserfüllung und vorvertragliche Anfragen (Art. 6 Abs. 1 S. 1 lit. b) DSGVO)</strong> – Die Verarbeitung ist für die Erfüllung eines Vertrags erforderlich.</li><li><strong>Rechtliche Verpflichtung (Art. 6 Abs. 1 S. 1 lit. c) DSGVO)</strong> – Die Verarbeitung ist zur Erfüllung einer rechtlichen Verpflichtung erforderlich.</li><li><strong>Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO)</strong> – Die Verarbeitung ist zur Wahrung der berechtigten Interessen des Verantwortlichen oder eines Dritten notwendig.</li></ul>
+    <p><strong>Nationale Datenschutzregelungen in Deutschland:</strong> Zusätzlich zu den Datenschutzregelungen der DSGVO gelten nationale Regelungen zum Datenschutz in Deutschland, insbesondere das Bundesdatenschutzgesetz (BDSG).</p>
+    <h2 id="m27">Sicherheitsmaßnahmen</h2>
+    <p>Wir treffen nach Maßgabe der gesetzlichen Vorgaben unter Berücksichtigung des Stands der Technik, der Implementierungskosten und der Art, des Umfangs, der Umstände und der Zwecke der Verarbeitung sowie der unterschiedlichen Eintrittswahrscheinlichkeiten und des Ausmaßes der Bedrohung der Rechte und Freiheiten natürlicher Personen geeignete technische und organisatorische Maßnahmen, um ein dem Risiko angemessenes Schutzniveau zu gewährleisten.</p>
+    <p>Zu den Maßnahmen gehören insbesondere die Sicherung der Vertraulichkeit, Integrität und Verfügbarkeit von Daten durch Kontrolle des physischen und elektronischen Zugangs zu den Daten als auch des sie betreffenden Zugriffs, der Eingabe, der Weitergabe, der Sicherung der Verfügbarkeit und ihrer Trennung.</p>
+    <p>Sicherung von Online-Verbindungen durch TLS-/SSL-Verschlüsselungstechnologie (HTTPS): Um die Daten der Nutzer zu schützen, setzen wir auf TLS/SSL-Verschlüsselung. Dies wird durch HTTPS in der URL signalisiert.</p>
+    <h2 id="m25">Übermittlung von personenbezogenen Daten</h2>
+    <p>Im Rahmen unserer Verarbeitung von personenbezogenen Daten kommt es vor, dass diese an andere Stellen übermittelt werden. Zu den Empfängern dieser Daten können z. B. mit IT-Aufgaben beauftragte Dienstleister gehören oder Anbieter von Diensten und Inhalten, die in eine Website eingebunden sind.</p>
+    <h2 id="m24">Internationale Datentransfers</h2>
+    <p>Sofern wir Daten in ein Drittland übermitteln, erfolgt dies stets im Einklang mit den gesetzlichen Vorgaben. Für Datenübermittlungen in die USA stützen wir uns vorrangig auf das Data Privacy Framework (DPF) sowie Standardvertragsklauseln. Weitere Informationen: <a href="https://www.dataprivacyframework.gov/" target="_blank">https://www.dataprivacyframework.gov/</a></p>
+    <h2 id="m12">Allgemeine Informationen zur Datenspeicherung und Löschung</h2>
+    <p>Wir löschen personenbezogene Daten, die wir verarbeiten, gemäß den gesetzlichen Bestimmungen, sobald die zugrundeliegenden Einwilligungen widerrufen werden oder keine weiteren rechtlichen Grundlagen für die Verarbeitung bestehen.</p>
+    <p>Aufbewahrung und Löschung von Daten – allgemeine Fristen nach deutschem Recht:</p>
+    <ul>
+      <li>10 Jahre – Bücher, Aufzeichnungen, Jahresabschlüsse (§ 147 Abs. 1 Nr. 1 AO, § 257 Abs. 1 Nr. 1 HGB).</li>
+      <li>8 Jahre – Buchungsbelege (§ 147 Abs. 1 Nr. 4 AO, § 257 Abs. 1 Nr. 4 HGB).</li>
+      <li>6 Jahre – Übrige Geschäftsunterlagen (§ 147 Abs. 1 Nr. 2, 3, 5 AO, § 257 Abs. 1 Nr. 2 u. 3 HGB).</li>
+      <li>3 Jahre – Daten für potenzielle Gewährleistungs- und Schadensersatzansprüche (§§ 195, 199 BGB).</li>
+    </ul>
+    <h2 id="m10">Rechte der betroffenen Personen</h2>
+    <p>Ihnen stehen als Betroffene nach der DSGVO verschiedene Rechte zu (Art. 15–21 DSGVO):</p>
+    <ul>
+      <li><strong>Widerspruchsrecht</strong> gegen die Verarbeitung Ihrer personenbezogenen Daten.</li>
+      <li><strong>Widerrufsrecht bei Einwilligungen</strong> – jederzeit möglich.</li>
+      <li><strong>Auskunftsrecht</strong> über verarbeitete Daten.</li>
+      <li><strong>Recht auf Berichtigung</strong> unrichtiger Daten.</li>
+      <li><strong>Recht auf Löschung und Einschränkung</strong> der Verarbeitung.</li>
+      <li><strong>Recht auf Datenübertragbarkeit</strong> in einem maschinenlesbaren Format.</li>
+      <li><strong>Beschwerderecht bei einer Aufsichtsbehörde.</strong></li>
+    </ul>
+    <h2 id="m225">Bereitstellung des Onlineangebots und Webhosting</h2>
+    <p>Wir verarbeiten die Daten der Nutzer, um ihnen unsere Online-Dienste zur Verfügung stellen zu können. Zu diesem Zweck verarbeiten wir die IP-Adresse des Nutzers.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Nutzungsdaten; Meta-, Kommunikations- und Verfahrensdaten; Protokolldaten.</li><li><strong>Betroffene Personen:</strong> Nutzer.</li><li><strong>Rechtsgrundlagen:</strong> Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <p><strong>Erhebung von Zugriffsdaten und Logfiles:</strong> Der Zugriff auf unser Onlineangebot wird in Form von Server-Logfiles protokolliert. Logfile-Informationen werden für die Dauer von maximal 30 Tagen gespeichert und danach gelöscht oder anonymisiert.</p>
+    <h2 id="m134">Einsatz von Cookies</h2>
+    <p>Unter dem Begriff „Cookies" werden Funktionen verstanden, die Informationen auf Endgeräten der Nutzer speichern und aus ihnen auslesen. Wir verwenden Cookies gemäß den gesetzlichen Vorschriften.</p>
+    <p><strong>Speicherdauer:</strong></p>
+    <ul><li><strong>Temporäre Cookies (Session-Cookies):</strong> Werden gelöscht, nachdem ein Nutzer das Onlineangebot verlassen und sein Endgerät geschlossen hat.</li><li><strong>Permanente Cookies:</strong> Bleiben auch nach dem Schließen des Endgeräts gespeichert, bis zu zwei Jahre.</li></ul>
+    <ul><li><strong>Rechtsgrundlagen:</strong> Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO); Einwilligung (Art. 6 Abs. 1 S. 1 lit. a) DSGVO).</li></ul>
+    <h2 id="m367">Registrierung, Anmeldung und Nutzerkonto</h2>
+    <p>Nutzer können ein Nutzerkonto anlegen. Im Rahmen der Registrierung werden die erforderlichen Pflichtangaben verarbeitet. Zu den verarbeiteten Daten gehören insbesondere die Login-Informationen (Nutzername, Passwort sowie eine E-Mail-Adresse).</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Kontaktdaten; Inhaltsdaten; Nutzungsdaten; Protokolldaten.</li><li><strong>Betroffene Personen:</strong> Nutzer.</li><li><strong>Rechtsgrundlagen:</strong> Vertragserfüllung (Art. 6 Abs. 1 S. 1 lit. b) DSGVO); Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <ul><li><strong>Profile der Nutzer sind öffentlich</strong> sichtbar und zugänglich.</li><li><strong>Löschung von Daten nach Kündigung:</strong> Wenn Nutzer ihr Nutzerkonto kündigen, werden deren Daten gelöscht, vorbehaltlich gesetzlicher Aufbewahrungspflichten.</li></ul>
+    <h2 id="m432">Community Funktionen</h2>
+    <p>Die von uns bereitgestellten Community-Funktionen erlauben es Nutzern, miteinander in Konversationen oder sonst miteinander in einen Austausch zu treten.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Nutzungsdaten.</li><li><strong>Rechtsgrundlagen:</strong> Vertragserfüllung (Art. 6 Abs. 1 S. 1 lit. b) DSGVO); Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <h2 id="m451">Single-Sign-On-Anmeldung</h2>
+    <p>Als "Single-Sign-On" werden Verfahren bezeichnet, die es Nutzern erlauben, sich mit Hilfe eines Nutzerkontos bei einem Anbieter (z. B. Google) auch bei unserem Onlineangebot anzumelden. Die Authentifizierung erfolgt direkt beim jeweiligen Single-Sign-On-Anbieter.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Kontaktdaten; Nutzungsdaten; Meta-, Kommunikations- und Verfahrensdaten.</li><li><strong>Rechtsgrundlagen:</strong> Vertragserfüllung (Art. 6 Abs. 1 S. 1 lit. b) DSGVO); Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <ul><li><strong>Google Single-Sign-On:</strong> Authentifizierungsdienste; <strong>Dienstanbieter:</strong> Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland; <strong>Datenschutzerklärung:</strong> <a href="https://policies.google.com/privacy" target="_blank">https://policies.google.com/privacy</a>; <strong>Grundlage Drittlandtransfers:</strong> Data Privacy Framework (DPF).</li></ul>
+    <h2 id="m17">Newsletter und elektronische Benachrichtigungen</h2>
+    <p>Wir versenden Newsletter, E-Mails und weitere elektronische Benachrichtigungen ausschließlich mit der Einwilligung der Empfänger oder aufgrund einer gesetzlichen Grundlage.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Kontaktdaten; Meta-, Kommunikations- und Verfahrensdaten; Nutzungsdaten.</li><li><strong>Betroffene Personen:</strong> Kommunikationspartner.</li><li><strong>Rechtsgrundlagen:</strong> Einwilligung (Art. 6 Abs. 1 S. 1 lit. a) DSGVO).</li></ul>
+    <h2 id="m15">Änderung und Aktualisierung</h2>
+    <p>Wir bitten Sie, sich regelmäßig über den Inhalt unserer Datenschutzerklärung zu informieren. Wir passen die Datenschutzerklärung an, sobald die Änderungen der von uns durchgeführten Datenverarbeitungen dies erforderlich machen.</p>
+    <h2 id="m42">Begriffsdefinitionen</h2>
+    <ul class="glossary">
+      <li><strong>Bestandsdaten:</strong> Informationen zur Identifikation und Verwaltung von Vertragspartnern und Benutzerkonten (Namen, Kontaktinformationen, Benutzer-IDs).</li>
+      <li><strong>Inhaltsdaten:</strong> Informationen, die im Zuge der Erstellung und Veröffentlichung von Inhalten generiert werden (Texte, Bilder, Videos etc.).</li>
+      <li><strong>Kontaktdaten:</strong> Informationen, die die Kommunikation ermöglichen (Telefonnummern, E-Mail-Adressen, postalische Adressen).</li>
+      <li><strong>Meta-, Kommunikations- und Verfahrensdaten:</strong> Informationen über die Art und Weise der Datenverarbeitung und -übermittlung (IP-Adressen, Zeitangaben, Identifikationsnummern).</li>
+      <li><strong>Nutzungsdaten:</strong> Informationen darüber, wie Nutzer mit digitalen Produkten interagieren (Seitenaufrufe, Klickpfade, Geräteinformationen).</li>
+      <li><strong>Personenbezogene Daten:</strong> Alle Informationen, die sich auf eine identifizierte oder identifizierbare natürliche Person beziehen.</li>
+      <li><strong>Protokolldaten:</strong> Informationen über Ereignisse oder Aktivitäten, die in einem System protokolliert wurden.</li>
+      <li><strong>Verantwortlicher:</strong> Die natürliche oder juristische Person, die über die Zwecke und Mittel der Verarbeitung personenbezogener Daten entscheidet.</li>
+      <li><strong>Verarbeitung:</strong> Jeder Vorgang im Zusammenhang mit personenbezogenen Daten (Erheben, Speichern, Übermitteln, Löschen etc.).</li>
+    </ul>
+    <p class="seal"><a href="https://datenschutz-generator.de/" target="_blank" rel="noopener noreferrer nofollow">Erstellt mit kostenlosem Datenschutz-Generator.de von Dr. Thomas Schwenke</a></p>
   </div>
 </div>
 
@@ -1161,6 +1299,7 @@ function switchTab(mode) {
   nameField.style.display = mode === 'register' ? 'flex' : 'none';
   if (mode === 'login') document.getElementById('inp-name').value = '';
   document.getElementById('auth-btn').textContent = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  document.getElementById('dsgvo-hint').style.display = mode === 'register' ? 'block' : 'none';
   authErr('');
 }
 
@@ -1371,6 +1510,13 @@ function showCreate() {
   showScreen('create');
   loadUserSpacesForCreate();
   loadFriendsForCreate();
+}
+
+let _prevScreen = 'home';
+function showDatenschutz(from) {
+  _prevScreen = from || 'home';
+  document.getElementById('datenschutz-back').onclick = () => showScreen(_prevScreen);
+  showScreen('datenschutz');
 }
 
 function goHome() {
