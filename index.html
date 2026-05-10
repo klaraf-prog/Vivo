@@ -2163,16 +2163,10 @@ async function deleteEvent(eventId, e) {
   if (!confirm('Event wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
 
   try {
-    // Remove all attendees' userEvents entries first
-    const rsvpSnap = await db.ref('events/' + eventId + '/rsvps').once('value');
-    const uids = new Set([me.uid]);
-    rsvpSnap.forEach(c => { if (c.val().userId) uids.add(c.val().userId); });
-
-    const batch = {};
-    uids.forEach(uid => { batch['userEvents/' + uid + '/' + eventId] = null; });
-    batch['events/' + eventId] = null;
-    await db.ref().update(batch);
-
+    // Only delete paths the creator is allowed to write.
+    // Other users' stale userEvents entries resolve to null gracefully in loadHome.
+    await db.ref('events/' + eventId).remove();
+    await db.ref('userEvents/' + me.uid + '/' + eventId).remove();
     toast('Event gelöscht.');
   } catch(err) {
     console.error('deleteEvent:', err);
@@ -2274,11 +2268,10 @@ async function createEvent() {
       }
     }
     if (me && _selectedFriends.size > 0) {
-      try {
-        const inviteBatch = {};
-        _selectedFriends.forEach(uid => { inviteBatch['userEvents/' + uid + '/' + createdId] = 'pending'; });
-        await db.ref().update(inviteBatch);
-      } catch(e) { console.warn('friend invite write:', e); }
+      await Promise.all([..._selectedFriends].map(uid =>
+        db.ref('userEvents/' + uid + '/' + createdId).set('pending')
+          .catch(e => console.warn('invite failed for', uid, e))
+      ));
     }
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
