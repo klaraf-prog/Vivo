@@ -835,13 +835,16 @@
         <textarea id="ev-details" placeholder="z.B. Bitte Getränke mitbringen, Eingang über den Hinterhof …"
           rows="3" style="resize:vertical;font-family:inherit;font-size:1rem;padding:13px 16px;border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);background:#fff;width:100%;line-height:1.5"></textarea>
       </div>
-      <div class="field" id="space-sel-wrap" style="display:none">
-        <label>In Space teilen (optional)</label>
-        <div class="space-chips" id="space-chips"></div>
-      </div>
-      <div class="field" id="friend-sel-wrap" style="display:none">
-        <label>Freunde einladen (optional)</label>
-        <div class="space-chips" id="friend-chips"></div>
+      <div class="field" id="invites-wrap" style="display:none">
+        <label>Freunde einladen <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <div id="invites-spaces-row" style="display:none">
+          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500">🏠 Friend Spaces</p>
+          <div class="space-chips" id="space-chips"></div>
+        </div>
+        <div id="invites-friends-row" style="display:none">
+          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500">👤 Einzelne Freunde</p>
+          <div class="space-chips" id="friend-chips"></div>
+        </div>
       </div>
     </div>
 
@@ -1902,24 +1905,32 @@ async function openSpaceView(spaceId) {
   _spaceEvOff = () => ref.off('value', cb);
 }
 
+function updateInvitesWrap() {
+  const sr  = document.getElementById('invites-spaces-row');
+  const fr  = document.getElementById('invites-friends-row');
+  const has = sr.style.display !== 'none' || fr.style.display !== 'none';
+  document.getElementById('invites-wrap').style.display = has ? 'block' : 'none';
+}
+
 async function loadUserSpacesForCreate() {
   _selectedSpaces = new Set();
-  const wrap = document.getElementById('space-sel-wrap');
-  if (!me) { wrap.style.display = 'none'; return; }
+  const row = document.getElementById('invites-spaces-row');
+  if (!me) { row.style.display = 'none'; updateInvitesWrap(); return; }
 
   const snap = await db.ref('userSpaces/' + me.uid).once('value');
   const ids  = snap.val() ? Object.keys(snap.val()) : [];
-  if (!ids.length) { wrap.style.display = 'none'; return; }
+  if (!ids.length) { row.style.display = 'none'; updateInvitesWrap(); return; }
 
   const spaceSnaps = await Promise.all(ids.map(id => db.ref('spaces/' + id).once('value')));
   const spaces = spaceSnaps.filter(s => s.exists()).map(s => ({ id: s.key, name: s.val().name }));
-  if (!spaces.length) { wrap.style.display = 'none'; return; }
+  if (!spaces.length) { row.style.display = 'none'; updateInvitesWrap(); return; }
 
-  wrap.style.display = 'block';
+  row.style.display = 'block';
   document.getElementById('space-chips').innerHTML = spaces.map(sp => `
     <button type="button" class="space-chip" onclick="toggleEventSpace('${sp.id}', this)">
-      🏠 ${esc(sp.name)}
+      ${esc(sp.name)}
     </button>`).join('');
+  updateInvitesWrap();
 }
 
 function toggleEventSpace(spaceId, el) {
@@ -1934,12 +1945,12 @@ function toggleEventFriend(uid, el) {
 
 async function loadFriendsForCreate() {
   _selectedFriends = new Set();
-  const wrap = document.getElementById('friend-sel-wrap');
-  if (!me) { wrap.style.display = 'none'; return; }
+  const row = document.getElementById('invites-friends-row');
+  if (!me) { row.style.display = 'none'; updateInvitesWrap(); return; }
 
   const snap = await db.ref('friends/' + me.uid).once('value');
   const friendUids = snap.val() ? Object.keys(snap.val()) : [];
-  if (!friendUids.length) { wrap.style.display = 'none'; return; }
+  if (!friendUids.length) { row.style.display = 'none'; updateInvitesWrap(); return; }
 
   const userSnaps = await Promise.all(friendUids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
   const friends = userSnaps.map((s, i) => {
@@ -1947,11 +1958,12 @@ async function loadFriendsForCreate() {
     return { uid: friendUids[i], name: d.displayName || d.username || friendUids[i].slice(0, 8) };
   });
 
-  wrap.style.display = 'block';
+  row.style.display = 'block';
   document.getElementById('friend-chips').innerHTML = friends.map(f => `
     <button type="button" class="space-chip" onclick="toggleEventFriend('${f.uid}', this)">
-      👤 ${esc(f.name)}
+      ${esc(f.name)}
     </button>`).join('');
+  updateInvitesWrap();
 }
 
 async function shareEventToSpaces(eventId, spaceIds) {
@@ -2200,8 +2212,9 @@ function initCreateForm() {
   document.getElementById('ev-time').value     = '18:00';
   document.getElementById('ev-location').value = '';
   document.getElementById('ev-details').value  = '';
-  document.getElementById('space-sel-wrap').style.display  = 'none';
-  document.getElementById('friend-sel-wrap').style.display = 'none';
+  document.getElementById('invites-wrap').style.display        = 'none';
+  document.getElementById('invites-spaces-row').style.display  = 'none';
+  document.getElementById('invites-friends-row').style.display = 'none';
 }
 
 async function createEvent() {
@@ -2242,7 +2255,16 @@ async function createEvent() {
     await ref.set(data);
     createdId = ref.key;
 
-    if (me) await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
+    if (me) {
+      await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
+      // Auto-RSVP creator as dabei so they appear in the attendee list
+      await db.ref('events/' + createdId + '/rsvps').push({
+        name:   me.displayName || me.email.split('@')[0],
+        status: 'dabei',
+        userId: me.uid,
+        ts:     Date.now()
+      });
+    }
     if (me && _selectedSpaces.size > 0) {
       try { await shareEventToSpaces(createdId, [..._selectedSpaces]); }
       catch(e) {
@@ -2370,14 +2392,7 @@ function renderEv(ev, body) {
 
   const isCreator = me && ev.createdBy === me.uid;
 
-  const rsvpSection = isCreator ? `
-    <div class="ev-sec" style="margin-top:8px">
-      <div class="ev-sec-title">Deine Antwort</div>
-      <div class="rsvp-box" style="text-align:center;padding:16px">
-        <span style="font-size:1.5rem">✓</span>
-        <p style="margin:6px 0 0;color:var(--muted);font-size:.9375rem">Du bist der Ersteller – automatisch dabei</p>
-      </div>
-    </div>` : me ? `
+  const rsvpSection = me ? `
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">Deine Antwort</div>
       <div class="rsvp-box">
