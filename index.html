@@ -2492,7 +2492,8 @@ async function pickRsvp(status) {
 }
 
 async function submitRsvp(eventId) {
-  if (!_rsvpStatus) { toast('Bitte wähle eine Antwort'); return; }
+  const status = _rsvpStatus; // capture before async work — renderEv can reset _rsvpStatus mid-flight
+  if (!status) { toast('Bitte wähle eine Antwort'); return; }
 
   let name;
   if (me) {
@@ -2517,22 +2518,22 @@ async function submitRsvp(eventId) {
       if (Object.keys(upd).length) await ref.update(upd);
     }
 
-    const rsvp = { name, status: _rsvpStatus, ts: Date.now() };
+    const rsvp = { name, status, ts: Date.now() };
     if (me) rsvp.userId = me.uid;
     const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
     const rsvpKey = newRef.key;
 
-    if (me) await db.ref('userEvents/' + me.uid + '/' + eventId).set(_rsvpStatus);
+    if (me) await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
 
     const ns = document.getElementById('rsvp-name');
     if (ns) ns.classList.remove('open');
 
     if (!me) {
-      _pendingRsvp = { eventId, rsvpKey, status: _rsvpStatus, name };
-      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Eingetragen.' }[_rsvpStatus]);
+      _pendingRsvp = { eventId, rsvpKey, status, name };
+      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Eingetragen.' }[status]);
       setTimeout(showSignupUpsell, 700);
     } else {
-      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[_rsvpStatus]);
+      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[status]);
     }
   } catch(err) {
     console.error('submitRsvp:', err);
