@@ -2030,11 +2030,21 @@ async function loadHome() {
         spEvSnaps.forEach(s => {
           if (!s.exists()) return;
           Object.keys(s.val()).forEach(evId => {
-            if (!map[evId]) map[evId] = 'space'; // don't overwrite explicit status
+            if (!map[evId]) map[evId] = 'space';
           });
         });
       }
     } catch(e) { console.warn('space events merge:', e); }
+
+    // Merge in direct friend invitations (invites/{me.uid})
+    try {
+      const invSnap = await db.ref('invites/' + me.uid).once('value');
+      if (invSnap.val()) {
+        Object.keys(invSnap.val()).forEach(evId => {
+          if (!map[evId]) map[evId] = 'pending';
+        });
+      }
+    } catch(e) { console.warn('invites merge:', e); }
 
     const ids = Object.keys(map);
     if (!ids.length) {
@@ -2154,6 +2164,7 @@ async function quickRsvp(eventId, status) {
   if (Object.keys(upd).length) await ref.update(upd);
   await ref.push({ name, status, userId: me.uid, ts: Date.now() });
   await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
+  db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
   toast({ dabei: '🎉 Du bist dabei!', vielleicht: '~ Als Vielleicht eingetragen', nein: 'Als Nein eingetragen' }[status]);
 }
 
@@ -2269,8 +2280,8 @@ async function createEvent() {
     }
     if (me && _selectedFriends.size > 0) {
       await Promise.all([..._selectedFriends].map(uid =>
-        db.ref('userEvents/' + uid + '/' + createdId).set('pending')
-          .catch(e => console.warn('invite failed for', uid, e))
+        db.ref('invites/' + uid + '/' + createdId).set(true)
+          .catch(e => console.warn('invite write failed for', uid, e))
       ));
     }
 
@@ -2528,7 +2539,10 @@ async function submitRsvp(eventId) {
     const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
     const rsvpKey = newRef.key;
 
-    if (me) await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
+    if (me) {
+      await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
+      db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
+    }
 
     const ns = document.getElementById('rsvp-name');
     if (ns) ns.classList.remove('open');
