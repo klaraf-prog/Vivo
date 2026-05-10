@@ -390,9 +390,10 @@
     .del-btn:hover { background: #FEF0F2; color: var(--pink); }
 
     /* Declined / Abgesagt card */
-    .ecard.declined { background: #F7F5F2; box-shadow: none; }
+    .ecard.declined { background: #F7F5F2; box-shadow: none; opacity: .72; }
     .ecard.declined .ecard-title { color: var(--muted); }
-    .ecard.declined .ecard-emoji { opacity: .5; }
+    .ecard.declined .ecard-emoji { opacity: .45; }
+    .ecard.declined .attendee-chips { opacity: .6; }
 
     /* Bottom tab bar */
     .tab-bar {
@@ -2052,10 +2053,8 @@ async function loadHome() {
         pastEvs.push(ev);
       } else if (ev._st === 'pending' || ev._st === 'space') {
         pEvs.push(ev);
-      } else if (ev._st === 'nein') {
-        // declined future events: not shown
       } else {
-        myEvs.push(ev); // created / dabei / vielleicht
+        myEvs.push(ev); // created / dabei / vielleicht / nein (grayed out)
       }
     });
 
