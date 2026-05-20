@@ -182,6 +182,14 @@
     .pill-sm.dabei      { background: #D1FAE5; color: var(--green); }
     .pill-sm.vielleicht { background: var(--amber-light); color: #9a6000; }
     .pill-sm.nein       { background: #FEE2E2; color: var(--pink); }
+    .pill-sm.test       { background: #EDE8E0; color: var(--muted); }
+    .test-toggle {
+      font-size: .75rem; padding: 2px 8px; border-radius: 50px; cursor: pointer;
+      border: 1.5px solid var(--border); background: var(--bg); color: var(--muted);
+      white-space: nowrap;
+    }
+    .test-toggle:hover { border-color: var(--amber); color: var(--text); }
+    .filter-note { font-size: .8125rem; color: var(--muted); margin: -12px 0 20px; }
 
     /* ── MISC ── */
     .spinner {
@@ -246,6 +254,7 @@
 
   <div class="page-content">
     <div class="page-title">Übersicht</div>
+    <p class="filter-note" id="filter-note"></p>
 
     <!-- ── Metric cards ── -->
     <p class="section-divider">Nutzer & Events</p>
@@ -625,6 +634,16 @@ function renderCharts(userList, eventList) {
   });
 }
 
+// ─── TEST USER MANAGEMENT ────────────────────────────────────────────────────
+async function toggleTestUser(uid, currentlyTest) {
+  try {
+    await db.ref('users/' + uid + '/isTestUser').set(currentlyTest ? null : true);
+    loadMetrics();
+  } catch(e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
 // ─── METRICS ──────────────────────────────────────────────────────────────────
 async function loadMetrics() {
   const btn = document.getElementById('refresh-btn');
@@ -650,18 +669,41 @@ async function loadMetrics() {
     const userList  = Object.entries(usersVal).map(([uid, u]) => ({ uid, ...u }));
     const eventList = Object.entries(eventsVal).map(([id, ev]) => ({ id, ...ev }));
 
-    const totalUsers = userList.length;
-    const newUsers7  = userList.filter(u => u.createdAt && u.createdAt >= weekAgo).length;
-    const hasCreatedAt = userList.some(u => u.createdAt);
+    // ── TEST-USER FILTER ─────────────────────────────────────────────────────
+    // All metrics use real* variants; tables still see everything (with badges).
+    const testIds    = new Set(userList.filter(u => u.isTestUser).map(u => u.uid));
+    const realUsers  = userList.filter(u => !u.isTestUser);
+    // Real events: not created by a test user; RSVPs within stripped of test-user entries
+    const realEvents = eventList
+      .filter(ev => !testIds.has(ev.createdBy))
+      .map(ev => ({
+        ...ev,
+        rsvps: ev.rsvps
+          ? Object.fromEntries(Object.entries(ev.rsvps).filter(([, r]) => !testIds.has(r.userId)))
+          : ev.rsvps,
+      }));
+
+    if (testIds.size > 0) {
+      const note = document.getElementById('filter-note');
+      if (note) note.textContent =
+        `${testIds.size} Testaccount${testIds.size > 1 ? 's' : ''} aus Metriken herausgefiltert`;
+    } else {
+      const note = document.getElementById('filter-note');
+      if (note) note.textContent = '';
+    }
+
+    const totalUsers = realUsers.length;
+    const newUsers7  = realUsers.filter(u => u.createdAt && u.createdAt >= weekAgo).length;
+    const hasCreatedAt = realUsers.some(u => u.createdAt);
 
     set('m-total-users', totalUsers);
     set('m-new-users',   hasCreatedAt ? newUsers7 : '—');
     set('m-new-users-sub', hasCreatedAt ? '' : 'Kein createdAt gespeichert');
 
     // ── EVENTS ───────────────────────────────────────────────────────────────
-    const totalEvents    = eventList.length;
-    const eventsThisWeek = eventList.filter(ev => ev.createdAt && ev.createdAt >= weekAgo).length;
-    const activeEvents   = eventList.filter(ev => !isEventPast(ev)).length;
+    const totalEvents    = realEvents.length;
+    const eventsThisWeek = realEvents.filter(ev => ev.createdAt && ev.createdAt >= weekAgo).length;
+    const activeEvents   = realEvents.filter(ev => !isEventPast(ev)).length;
 
     set('m-total-events', totalEvents);
     set('m-events-sub',   eventsThisWeek + ' diese Woche erstellt');
@@ -669,7 +711,7 @@ async function loadMetrics() {
 
     // ── RSVPS ────────────────────────────────────────────────────────────────
     let totalRsvps = 0, dabeiCnt = 0, vielleichtCnt = 0, neinCnt = 0;
-    eventList.forEach(ev => {
+    realEvents.forEach(ev => {
       if (!ev.rsvps) return;
       Object.values(ev.rsvps).forEach(r => {
         totalRsvps++;
@@ -693,7 +735,7 @@ async function loadMetrics() {
     const active7  = new Set();
     const active30 = new Set();
 
-    eventList.forEach(ev => {
+    realEvents.forEach(ev => {
       // Created an event
       if (ev.createdBy && ev.createdAt) {
         if (ev.createdAt >= weekAgo)  active7.add(ev.createdBy);
@@ -715,7 +757,7 @@ async function loadMetrics() {
     set('m-retention-30', pct30 + '%');
 
     // ── AVG EVENTS PER USER ───────────────────────────────────────────────────
-    const eventsWithCreator = eventList.filter(ev => ev.createdBy).length;
+    const eventsWithCreator = realEvents.filter(ev => ev.createdBy).length;
     const avgEvents = totalUsers > 0 ? (eventsWithCreator / totalUsers).toFixed(1) : '—';
     set('m-avg-events', avgEvents);
 
@@ -724,7 +766,7 @@ async function loadMetrics() {
     // least one event they did NOT create themselves.
     // This approximates "users who engaged via social invitation".
     const viralUsers = new Set();
-    eventList.forEach(ev => {
+    realEvents.forEach(ev => {
       if (!ev.rsvps) return;
       Object.values(ev.rsvps).forEach(r => {
         if (r.userId && r.userId !== ev.createdBy &&
@@ -737,7 +779,7 @@ async function loadMetrics() {
     set('m-viral', viralPct + '%');
 
     // ── CHARTS ───────────────────────────────────────────────────────────────
-    renderCharts(userList, eventList);
+    renderCharts(realUsers, realEvents);
 
     // ── PENDING RSVPs ─────────────────────────────────────────────────────────
     const spacesVal      = spacesSnap.val()      || {};
@@ -755,9 +797,9 @@ async function loadMetrics() {
       });
     });
 
-    // For each future space-event, find members without any RSVP
+    // For each future space-event, find non-test members without any RSVP
     const pendingRows = [];
-    eventList
+    realEvents
       .filter(ev => !isEventPast(ev) && eventSpaceMap[ev.id])
       .sort((a, b) => new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00')))
       .forEach(ev => {
@@ -774,7 +816,7 @@ async function loadMetrics() {
         );
 
         const pending = [...allMembers]
-          .filter(uid => !rsvpedUids.has(uid))
+          .filter(uid => !rsvpedUids.has(uid) && !testIds.has(uid))
           .map(uid => ({
             name:     usersVal[uid]?.displayName || usersVal[uid]?.username || '—',
             username: usersVal[uid]?.username || null,
@@ -801,7 +843,7 @@ async function loadMetrics() {
       : '<p style="color:var(--muted);padding:12px 0">Alle Space-Mitglieder haben auf zukünftige Events reagiert — oder es gibt keine zukünftigen Space-Events.</p>';
 
     // ── ACTIVE EVENTS TABLE ───────────────────────────────────────────────────
-    const byRsvps = [...eventList]
+    const byRsvps = [...realEvents]
       .map(ev => ({ ...ev, rsvpCount: ev.rsvps ? Object.keys(ev.rsvps).length : 0 }))
       .sort((a, b) => b.rsvpCount - a.rsvpCount)
       .slice(0, 10);
@@ -833,7 +875,7 @@ async function loadMetrics() {
       : '<p style="color:var(--muted);padding:12px 0">Keine Events gefunden.</p>';
 
     // ── RECENT EVENTS TABLE ───────────────────────────────────────────────────
-    const recentEvents = [...eventList]
+    const recentEvents = [...realEvents]
       .filter(ev => ev.createdAt)
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 10);
@@ -857,18 +899,23 @@ async function loadMetrics() {
       : '<p style="color:var(--muted);padding:12px 0">Keine Events mit Zeitstempel gefunden.</p>';
 
     // ── USERS TABLE ───────────────────────────────────────────────────────────
-    const sortedUsers = [...userList].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    // Show all users; test users sorted to bottom with badge + toggle
+    const sortedUsers = [...userList].sort((a, b) => {
+      if (!!a.isTestUser !== !!b.isTestUser) return a.isTestUser ? 1 : -1;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
 
     document.getElementById('users-container').innerHTML = sortedUsers.length
       ? `<table>
           <thead><tr>
-            <th>Name</th><th>@Username</th><th>Standort</th><th>Registriert</th>
+            <th>Name</th><th>@Username</th><th>Standort</th><th>Registriert</th><th>Typ</th>
           </tr></thead>
-          <tbody>${sortedUsers.map(u => `<tr>
-            <td><strong>${esc(u.displayName || '—')}</strong></td>
+          <tbody>${sortedUsers.map(u => `<tr${u.isTestUser ? ' style="opacity:.6"' : ''}>
+            <td><strong>${esc(u.displayName || '—')}</strong>${u.isTestUser ? ' <span class="pill-sm test">🧪 Test</span>' : ''}</td>
             <td style="color:var(--muted);font-size:.875rem">${u.username ? '@' + esc(u.username) : '—'}</td>
             <td style="color:var(--muted);font-size:.875rem">${esc(u.location || '—')}</td>
             <td style="color:var(--muted);font-size:.875rem">${u.createdAt ? fmtDate(u.createdAt) : '—'}</td>
+            <td><button class="test-toggle" onclick="toggleTestUser('${esc(u.uid)}', ${!!u.isTestUser})">${u.isTestUser ? 'Test aufheben' : 'Als Test markieren'}</button></td>
           </tr>`).join('')}</tbody>
         </table>`
       : '<p style="color:var(--muted);padding:12px 0">Keine Nutzer gefunden.</p>';
