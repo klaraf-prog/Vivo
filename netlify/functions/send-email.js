@@ -12,6 +12,18 @@ const FROM         = process.env.RESEND_FROM || 'vivo <onboarding@resend.dev>';
 const FIREBASE_KEY = process.env.FIREBASE_API_KEY;
 const RTDB_URL     = (process.env.FIREBASE_RTDB_URL || '').replace(/\/$/, '');
 
+// Production URL fallback (DEPLOY_PRIME_URL is set by Netlify to the branch's stable URL)
+const DEFAULT_APP_URL = process.env.DEPLOY_PRIME_URL || process.env.URL || 'https://vivo-app.netlify.app';
+
+// Only allow origins that are Netlify deploy URLs or the configured production URL.
+// This prevents a compromised token from injecting arbitrary URLs into emails.
+function sanitiseOrigin(origin) {
+  if (!origin) return DEFAULT_APP_URL;
+  if (/^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(origin)) return origin;
+  if (origin === (process.env.URL || '').replace(/\/$/, '')) return origin;
+  return DEFAULT_APP_URL;
+}
+
 // ── Firebase helpers ──────────────────────────────────────────────────────────
 
 async function verifyIdToken(idToken) {
@@ -41,8 +53,7 @@ const TYPE_META = {
   nudge:        { subject: n => `${n} erinnert dich an ein Event`,            cta: 'Event ansehen →' },
 };
 
-function buildEmail({ type, title, body, url, senderName }) {
-  const appUrl   = process.env.URL || 'https://vivo-app.netlify.app';
+function buildEmail({ type, title, body, url, senderName, appUrl }) {
   const fullUrl  = url ? appUrl.replace(/\/$/, '') + url : appUrl;
   const meta     = TYPE_META[type] || { subject: () => title, cta: 'Ansehen →' };
   const subject  = meta.subject(senderName || 'Jemand');
@@ -126,10 +137,14 @@ exports.handler = async (event) => {
   try { payload = JSON.parse(event.body); }
   catch { return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON' }) }; }
 
-  const { recipientUid, type, title, body: msgBody, url, senderName } = payload;
+  const { recipientUid, type, title, body: msgBody, url, senderName, appOrigin } = payload;
   if (!recipientUid || !type || !title) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing fields' }) };
   }
+
+  // Resolve the app URL: trust the client's origin if it's a known Netlify domain,
+  // otherwise fall back to the server-side DEPLOY_PRIME_URL / URL env var.
+  const appUrl = sanitiseOrigin(appOrigin);
 
   // Read recipient settings — function independently validates, never trusts client
   const settings = await getRecipientSettings(recipientUid, idToken);
@@ -144,7 +159,7 @@ exports.handler = async (event) => {
   }
 
   // Build and send
-  const { subject, html } = buildEmail({ type, title, body: msgBody, url, senderName });
+  const { subject, html } = buildEmail({ type, title, body: msgBody, url, senderName, appUrl });
 
   try {
     const result = await resend.emails.send({
@@ -153,7 +168,7 @@ exports.handler = async (event) => {
       subject,
       html,
     });
-    console.log('Email sent:', result.data?.id, '→', settings.emailAddress);
+    console.log('Email sent:', result.data?.id, '→', settings.emailAddress, '(origin:', appUrl, ')');
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true, id: result.data?.id }) };
   } catch (err) {
     console.error('Resend error:', err);

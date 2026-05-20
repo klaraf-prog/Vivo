@@ -1795,7 +1795,8 @@ async function notifyUser(uid, type, title, body, url = '/') {
           title,
           body,
           url,
-          senderName: me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+          senderName:  me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+          appOrigin:   location.origin,
         }),
       })
     ).catch(e => console.warn('send-email function:', e));
@@ -1919,7 +1920,8 @@ function scheduleEventStartNotifs(events) {
                 title,
                 body,
                 url,
-                senderName:   me.displayName || (me.email ? me.email.split('@')[0] : 'vivo'),
+                senderName:  me.displayName || (me.email ? me.email.split('@')[0] : 'vivo'),
+                appOrigin:   location.origin,
               }),
             })
           ).catch(() => {});
