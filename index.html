@@ -1462,6 +1462,9 @@ let _selectedSpaces   = new Set(); // space IDs selected during event creation
 let _selectedFriends  = new Set(); // friend UIDs selected during event creation
 let _spacesOff        = null;  // real-time spaces listener cleanup
 let _spaceEvOff       = null;  // space events view listener cleanup
+let _swRegistration   = null;  // ServiceWorker registration
+let _notifOff         = null;  // notifications RTDB listener cleanup
+let _startTimers      = [];    // setTimeout handles for "event starts in 2h"
 
 const EMOJI_CATEGORIES = [
   { icon: '😀', label: 'Smileys & People', emojis: [
@@ -1552,6 +1555,77 @@ auth.getRedirectResult().catch(err => {
   }
 });
 
+// ─── Push Notifications ─────────────────────────────────────────────────────
+
+(async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    _swRegistration = await navigator.serviceWorker.register('/sw.js');
+  } catch(e) { console.warn('SW:', e); }
+})();
+
+async function requestNotifPermission() {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  await Notification.requestPermission();
+}
+
+async function showNotif(title, body, url = '/') {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: null, data: { url }, tag: title, renotify: false };
+  try {
+    if (_swRegistration) {
+      await _swRegistration.showNotification(title, opts);
+    } else {
+      new Notification(title, opts);
+    }
+  } catch(e) { console.warn('showNotif:', e); }
+}
+
+async function notifyUser(uid, type, title, body, url = '/') {
+  if (!uid || !me) return;
+  // Writes to notifications/{uid} — requires Firebase rule: auth != null can write
+  db.ref('notifications/' + uid).push({ type, title, body, url, ts: Date.now() })
+    .catch(e => console.warn('notifyUser write:', e));
+}
+
+function startNotifListener() {
+  if (!me || _notifOff) return;
+  const loginTs = Date.now();
+  const ref = db.ref('notifications/' + me.uid).orderByChild('ts').startAt(loginTs);
+  const cb = ref.on('child_added', async snap => {
+    const d = snap.val();
+    if (!d) return;
+    await showNotif(d.title, d.body, d.url);
+    snap.ref.remove().catch(() => {});
+  });
+  _notifOff = () => ref.off('child_added', cb);
+}
+
+function stopNotifListener() {
+  if (_notifOff) { _notifOff(); _notifOff = null; }
+  _startTimers.forEach(clearTimeout);
+  _startTimers = [];
+}
+
+function scheduleEventStartNotifs(events) {
+  _startTimers.forEach(clearTimeout);
+  _startTimers = [];
+  const now = Date.now();
+  events.forEach(ev => {
+    if (!ev.date || !ev.time) return;
+    const evStart = new Date(ev.date + 'T' + ev.time).getTime();
+    const fireAt  = evStart - 2 * 60 * 60 * 1000; // 2 h before
+    const delay   = fireAt - now;
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // only schedule if within 24 h
+      _startTimers.push(setTimeout(() => {
+        showNotif('⏰ Bald geht’s los!', `„${ev.title}" startet in 2 Stunden`, `/#event/${ev.id}`);
+      }, delay));
+    }
+  });
+}
+
+// ─── Auth listener ──────────────────────────────────────────────────────────
+
 auth.onAuthStateChanged(async user => {
   me = user;
   document.getElementById('loading').style.display = 'none';
@@ -1605,6 +1679,13 @@ auth.onAuthStateChanged(async user => {
       await db.ref().update(batch);
       toast('🏠 ' + spaceName + ' beigetreten!');
     } catch(e) { console.error('pendingSpaceJoin error:', e); }
+  }
+
+  if (user) {
+    startNotifListener();
+    setTimeout(requestNotifPermission, 1500);
+  } else {
+    stopNotifListener();
   }
 
   const r = route();
@@ -2004,6 +2085,12 @@ async function connectUser(theirUid, theirUsername, theirName) {
     batch['friends/' + theirUid + '/' + me.uid]  = true;
     await db.ref().update(batch);
     toast('🤝 Verbunden mit ' + theirName + '!');
+    const myName = me.displayName || me.email.split('@')[0];
+    notifyUser(theirUid, 'friend',
+      `${myName} hat dich als Freund hinzugefügt 🤝`,
+      'Ihr seid jetzt auf vivo verbunden',
+      `/#u/${_myUsername || ''}`
+    );
     loadPubProfile(theirUsername);
   } catch(err) {
     console.error('connectUser:', err);
@@ -2467,6 +2554,8 @@ async function loadHome() {
     const desc = (a, b) => -asc(a, b);
     myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
 
+    scheduleEventStartNotifs([...myEvs, ...pEvs]);
+
     myEl.innerHTML = myEvs.length
       ? myEvs.map(ev => cardHTML(ev, false)).join('')
       : `<div class="empty"><div class="ei">🌱</div><p>${t('home_empty_my')}</p></div>`;
@@ -2649,7 +2738,8 @@ async function updateEvent() {
   btn.disabled = true; btn.textContent = '…';
 
   try {
-    await db.ref('events/' + _editEventId).update({
+    const editId = _editEventId;
+    await db.ref('events/' + editId).update({
       emoji:    pickedEmoji,
       title,
       date:     document.getElementById('ev-date').value || new Date().toISOString().split('T')[0],
@@ -2658,9 +2748,23 @@ async function updateEvent() {
       details:  document.getElementById('ev-details').value.trim()  || null,
     });
     toast(t('toast_event_saved'));
-    const id = _editEventId;
+
+    // Notify attendees (dabei / vielleicht) about the edit
+    try {
+      const rSnap = await db.ref('events/' + editId + '/rsvps').once('value');
+      rSnap.forEach(child => {
+        const r = child.val();
+        if (r.userId && r.userId !== me.uid && r.status !== 'nein') {
+          notifyUser(r.userId, 'event_edited',
+            '✏️ Event wurde bearbeitet',
+            `„${title}" wurde aktualisiert`,
+            `/#event/${editId}`
+          );
+        }
+      });
+    } catch(e) { /* non-critical */ }
     _editMode = false; _editEventId = null;
-    location.hash = 'event/' + id;
+    location.hash = 'event/' + editId;
     showScreen('event');
     loadEventScreen(id);
   } catch(err) {
@@ -2728,10 +2832,19 @@ async function createEvent() {
       }
     }
     if (me && _selectedFriends.size > 0) {
+      const myName = me.displayName || me.email.split('@')[0];
       await Promise.all([..._selectedFriends].map(uid =>
         db.ref('invites/' + uid + '/' + createdId).set(true)
           .catch(e => console.warn('invite write failed for', uid, e))
       ));
+      // Notify each invited friend
+      _selectedFriends.forEach(uid => {
+        notifyUser(uid, 'invite',
+          `${myName} hat dich eingeladen`,
+          `zum Event „${title}"`,
+          `/#event/${createdId}`
+        );
+      });
     }
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
@@ -3000,6 +3113,21 @@ async function submitRsvp(eventId) {
     if (me) {
       await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
       db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
+
+      // Notify event creator when someone RSVPs
+      try {
+        const evSnap = await db.ref('events/' + eventId).once('value');
+        const evData = evSnap.val();
+        if (evData && evData.createdBy && evData.createdBy !== me.uid) {
+          const myName = me.displayName || me.email.split('@')[0];
+          const label  = { dabei: 'zugesagt ✅', vielleicht: 'vielleicht 🤔', nein: 'abgesagt ❌' }[status];
+          notifyUser(evData.createdBy, 'rsvp',
+            `${myName} hat ${label}`,
+            `zu deinem Event „${evData.title}"`,
+            `/#event/${eventId}`
+          );
+        }
+      } catch(e) { /* non-critical */ }
     }
 
     const ns = document.getElementById('rsvp-name');
