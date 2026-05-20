@@ -38,6 +38,7 @@ const TYPE_META = {
   event_edited: { subject: n => `Ein Event wurde aktualisiert`,              cta: 'Änderungen ansehen →' },
   friend:       { subject: n => `${n} hat dich als Freund hinzugefügt`,      cta: 'Profil ansehen →' },
   event_start:  { subject: () => `Dein Event startet in 2 Stunden`,          cta: 'Event ansehen →' },
+  nudge:        { subject: n => `${n} erinnert dich an ein Event`,            cta: 'Event ansehen →' },
 };
 
 function buildEmail({ type, title, body, url, senderName }) {

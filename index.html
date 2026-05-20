@@ -1794,6 +1794,68 @@ function shouldShowNotif(type) {
   return key ? types[key] !== false : true;
 }
 
+async function nudgeMembers(eventId) {
+  if (!me || !window._ev) return;
+  const ev = window._ev;
+
+  // 1-hour cooldown per event to prevent spam
+  const ck = 'vivo_nudge_' + eventId;
+  const last = parseInt(localStorage.getItem(ck) || '0');
+  const remaining = 60 * 60 * 1000 - (Date.now() - last);
+  if (remaining > 0) {
+    toast('Bitte noch ' + Math.ceil(remaining / 60000) + ' Min. warten');
+    return;
+  }
+
+  const btn = document.getElementById('nudge-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    // Find creator's spaces that contain this event
+    const spacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
+    const mySpaceIds = spacesSnap.val() ? Object.keys(spacesSnap.val()) : [];
+    if (!mySpaceIds.length) { toast('Event gehört zu keinem Space'); return; }
+
+    const checks = await Promise.all(
+      mySpaceIds.map(sid => db.ref('spaceEvents/' + sid + '/' + eventId).once('value'))
+    );
+    const matchIds = mySpaceIds.filter((_, i) => checks[i].exists());
+    if (!matchIds.length) { toast('Event ist in keinem deiner Spaces'); return; }
+
+    // Collect all members across matching spaces
+    const memberSnaps = await Promise.all(
+      matchIds.map(sid => db.ref('spaces/' + sid + '/members').once('value'))
+    );
+    const allMembers = new Set();
+    memberSnaps.forEach(s => { if (s.val()) Object.keys(s.val()).forEach(uid => allMembers.add(uid)); });
+
+    // Who already responded?
+    const rsvpedUids = new Set(
+      ev.rsvps ? Object.values(ev.rsvps).filter(r => r.userId).map(r => r.userId) : []
+    );
+
+    const pending = [...allMembers].filter(uid => uid !== me.uid && !rsvpedUids.has(uid));
+    if (!pending.length) { toast('Alle haben schon geantwortet! 🎉'); return; }
+
+    const myName = me.displayName || me.email.split('@')[0];
+    await Promise.all(pending.map(uid =>
+      notifyUser(uid, 'nudge',
+        myName + ' erinnert dich 👋',
+        'Hast du dich schon zu "' + ev.title + '" gemeldet?',
+        '/#event/' + eventId
+      )
+    ));
+
+    localStorage.setItem(ck, String(Date.now()));
+    toast(pending.length + ' Erinnerung' + (pending.length === 1 ? '' : 'en') + ' verschickt');
+  } catch(err) {
+    console.error('nudgeMembers:', err);
+    toast('Fehler beim Senden');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔔 Space-Mitglieder erinnern'; }
+  }
+}
+
 function scheduleEventStartNotifs(events) {
   _startTimers.forEach(clearTimeout);
   _startTimers = [];
@@ -3322,7 +3384,12 @@ function renderEv(ev, body) {
           </svg>
           ${t('ev_delete')}
         </button>
-      </div>` : ''}
+      </div>
+      ${!isEventPast(ev) ? `
+      <button id="nudge-btn" class="btn btn-outline btn-sm btn-full" style="margin-top:8px;gap:6px"
+        onclick="nudgeMembers('${ev.id}')">
+        🔔 Space-Mitglieder erinnern
+      </button>` : ''}` : ''}
     </div>
 
     <div class="ev-sec">
