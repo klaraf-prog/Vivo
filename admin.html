@@ -342,6 +342,14 @@
 
     <!-- ── Tables ── -->
     <div class="section-card">
+      <h3>⏳ Ausstehende RSVPs</h3>
+      <p style="font-size:.8125rem;color:var(--muted);margin-bottom:16px">Zukünftige Space-Events mit Mitgliedern ohne Rückmeldung</p>
+      <div id="pending-rsvps-container">
+        <div class="loading-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <div class="section-card">
       <h3>🔥 Aktivste Events (nach RSVPs)</h3>
       <div id="active-events-container">
         <div class="loading-state"><div class="spinner"></div></div>
@@ -591,9 +599,11 @@ async function loadMetrics() {
     const weekAgo  = now - week;
     const monthAgo = now - month;
 
-    const [usersSnap, eventsSnap] = await Promise.all([
+    const [usersSnap, eventsSnap, spacesSnap, spaceEventsSnap] = await Promise.all([
       db.ref('users').once('value'),
       db.ref('events').once('value'),
+      db.ref('spaces').once('value'),
+      db.ref('spaceEvents').once('value'),
     ]);
 
     // ── USERS ────────────────────────────────────────────────────────────────
@@ -690,6 +700,67 @@ async function loadMetrics() {
 
     // ── CHARTS ───────────────────────────────────────────────────────────────
     renderCharts(userList, eventList);
+
+    // ── PENDING RSVPs ─────────────────────────────────────────────────────────
+    const spacesVal      = spacesSnap.val()      || {};
+    const spaceEventsVal = spaceEventsSnap.val() || {};
+
+    // Build eventId → [{spaceName, memberUids}]
+    const eventSpaceMap = {};
+    Object.entries(spaceEventsVal).forEach(([spaceId, evIds]) => {
+      const space = spacesVal[spaceId];
+      if (!space || !evIds) return;
+      const memberUids = space.members ? Object.keys(space.members) : [];
+      Object.keys(evIds).forEach(evId => {
+        if (!eventSpaceMap[evId]) eventSpaceMap[evId] = [];
+        eventSpaceMap[evId].push({ spaceName: space.name || spaceId, memberUids });
+      });
+    });
+
+    // For each future space-event, find members without any RSVP
+    const pendingRows = [];
+    eventList
+      .filter(ev => !isEventPast(ev) && eventSpaceMap[ev.id])
+      .sort((a, b) => new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00')))
+      .forEach(ev => {
+        const entries = eventSpaceMap[ev.id];
+        const allSpaceNames = [...new Set(entries.map(e => e.spaceName))].join(', ');
+
+        // Union of all space members for this event
+        const allMembers = new Set();
+        entries.forEach(e => e.memberUids.forEach(uid => allMembers.add(uid)));
+
+        // UIDs who already responded
+        const rsvpedUids = new Set(
+          ev.rsvps ? Object.values(ev.rsvps).filter(r => r.userId).map(r => r.userId) : []
+        );
+
+        const pending = [...allMembers]
+          .filter(uid => !rsvpedUids.has(uid))
+          .map(uid => ({
+            name:     usersVal[uid]?.displayName || usersVal[uid]?.username || '—',
+            username: usersVal[uid]?.username || null,
+          }));
+
+        if (pending.length) pendingRows.push({ ev, allSpaceNames, pending });
+      });
+
+    document.getElementById('pending-rsvps-container').innerHTML = pendingRows.length
+      ? `<table>
+          <thead><tr>
+            <th>Event</th><th>Datum</th><th>Space(s)</th><th>Ausstehend</th><th>Mitglieder</th>
+          </tr></thead>
+          <tbody>${pendingRows.map(({ ev, allSpaceNames, pending }) => `<tr>
+            <td><strong>${esc(ev.emoji || '🎉')} ${esc(ev.title)}</strong></td>
+            <td style="color:var(--muted);font-size:.875rem;white-space:nowrap">${fmtDateEvent(ev.date)}${ev.time ? ' ' + ev.time.slice(0,5) : ''}</td>
+            <td style="color:var(--muted);font-size:.875rem">${esc(allSpaceNames)}</td>
+            <td><span style="font-weight:700;color:var(--pink)">${pending.length}</span></td>
+            <td style="font-size:.875rem">
+              ${pending.map(u => `<span style="display:inline-block;background:var(--bg);border-radius:6px;padding:2px 8px;margin:2px">${esc(u.name)}${u.username ? ' <span style="color:var(--muted)">@' + esc(u.username) + '</span>' : ''}</span>`).join('')}
+            </td>
+          </tr>`).join('')}</tbody>
+        </table>`
+      : '<p style="color:var(--muted);padding:12px 0">Alle Space-Mitglieder haben auf zukünftige Events reagiert — oder es gibt keine zukünftigen Space-Events.</p>';
 
     // ── ACTIVE EVENTS TABLE ───────────────────────────────────────────────────
     const byRsvps = [...eventList]
