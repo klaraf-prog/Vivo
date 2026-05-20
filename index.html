@@ -2963,7 +2963,8 @@ async function loadHome() {
       }
     });
 
-    const asc  = (a, b) => new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00'));
+    const toMs  = ev => ev.date ? new Date(ev.date + 'T' + (ev.time || '12:00')).getTime() : 9e15;
+    const asc  = (a, b) => toMs(a) - toMs(b);
     const desc = (a, b) => -asc(a, b);
     myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
 
@@ -3199,7 +3200,7 @@ async function updateEvent() {
     _editMode = false; _editEventId = null;
     location.hash = 'event/' + editId;
     showScreen('event');
-    loadEventScreen(id);
+    loadEventScreen(editId);
   } catch(err) {
     console.error('updateEvent:', err);
     toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
@@ -3510,7 +3511,12 @@ function loadEventScreen(id) {
       });
     }
 
-    renderEv(ev, body);
+    try {
+      renderEv(ev, body);
+    } catch(e) {
+      console.error('renderEv error:', e);
+      body.innerHTML = `<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Event konnte nicht geladen werden.</p><p style="font-size:.8rem;color:var(--muted)">${esc(e && e.message || '')}</p></div>`;
+    }
   });
 
   evUnsubscribe = () => ref.off('value', cb);
@@ -3632,6 +3638,7 @@ function renderEv(ev, body) {
 
     ${rsvpSection}
 
+    ${ev.date ? `
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('ev_add_calendar')}</div>
       <div class="cal-grid">
@@ -3644,7 +3651,7 @@ function renderEv(ev, body) {
           Apple (.ics)
         </button>
       </div>
-    </div>
+    </div>` : ''}
 
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('ev_share')}</div>
@@ -3763,9 +3770,15 @@ function shareEvWA() {
   const lines = [
     '👋 Hey!',
     `${ev.emoji||'🎉'} ${ev.title}`,
-    `📅 ${fmtDate(ev.date, '')}`,
   ];
-  if (ev.time)     lines.push(`⏰ ${ev.time} Uhr`);
+  if (ev.poll && ev.poll.active) {
+    lines.push('🗳️ Terminabstimmung läuft — stimm ab für welchen Termin!');
+    const opts = ev.poll.options ? Object.values(ev.poll.options) : [];
+    opts.forEach((opt, i) => { if (opt.date) lines.push(`  ${i+1}. ${fmtDate(opt.date, opt.time)}`); });
+  } else {
+    lines.push(`📅 ${fmtDate(ev.date, '')}`);
+    if (ev.time) lines.push(`⏰ ${ev.time} Uhr`);
+  }
   if (ev.location) lines.push(`📍 ${ev.location}`);
   if (ev.details)  lines.push(ev.details);
   lines.push(`\nKomm dazu 👉 ${evLink(ev.id)}`);
@@ -3809,6 +3822,7 @@ function dlICS() {
 }
 
 function toCalDt(date, time, addMin) {
+  if (!date) return '19700101T000000Z'; // guard against null date
   const d = new Date(date + 'T' + (time || '00:00') + ':00');
   d.setMinutes(d.getMinutes() + addMin);
   return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
