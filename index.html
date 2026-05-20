@@ -1727,9 +1727,38 @@ async function showNotif(title, body, url = '/') {
 
 async function notifyUser(uid, type, title, body, url = '/') {
   if (!uid || !me) return;
-  // Writes to notifications/{uid} — requires Firebase rule: auth != null can write
-  db.ref('notifications/' + uid).push({ type, title, body, url, ts: Date.now() })
-    .catch(e => console.warn('notifyUser write:', e));
+
+  const typeMap = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
+  const typeKey = typeMap[type];
+
+  // Read recipient's settings before sending anything.
+  // Fail open: if the read fails (e.g. Firebase rules not yet updated), send anyway.
+  let s = {};
+  try {
+    const snap = await db.ref('users/' + uid + '/settings').once('value');
+    s = snap.val() || {};
+  } catch(e) { console.warn('notifyUser: could not read settings for', uid, e); }
+
+  // Push notification
+  const pushOn  = s.pushEnabled  !== false;
+  const typeOn  = !typeKey || !(s.types) || s.types[typeKey] !== false;
+  if (pushOn && typeOn) {
+    db.ref('notifications/' + uid).push({ type, title, body, url, ts: Date.now() })
+      .catch(e => console.warn('notifyUser push write:', e));
+  }
+
+  // Email notification (stored intent — actual sending requires backend)
+  if (s.emailEnabled && typeOn && s.emailAddress) {
+    db.ref('mailQueue').push({
+      to:      s.emailAddress,
+      type,
+      title,
+      body,
+      url,
+      ts:      Date.now(),
+      fromUid: me.uid,
+    }).catch(() => {});
+  }
 }
 
 function startNotifListener() {
