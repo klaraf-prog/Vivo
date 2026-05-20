@@ -185,6 +185,23 @@
     .settings-email-field { display: none; padding: 12px 0 4px; }
     .settings-email-field.open { display: block; }
     .settings-denied-hint { font-size: .8125rem; color: var(--pink); margin-top: 6px; display: none; }
+    /* ── DATE POLL ── */
+    .poll-divider { border-top: 1.5px solid var(--border); margin: 8px 0; }
+    .poll-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0 10px; }
+    .poll-toggle-label strong { font-size:.9375rem; font-weight:600; color:var(--text); display:block; }
+    .poll-toggle-label small  { font-size:.8125rem; color:var(--muted); }
+    .poll-opt-row { display:flex; align-items:flex-end; gap:8px; margin-bottom:10px; }
+    .poll-opt-row .field { margin:0; }
+    .poll-opt-remove { flex-shrink:0; background:none; border:none; color:var(--pink); font-size:1.25rem; cursor:pointer; padding:0 2px; line-height:1; margin-bottom:6px; }
+    .poll-card { background:#fff; border:1.5px solid var(--border); border-radius:var(--r-sm); padding:14px 16px; margin-bottom:10px; }
+    .poll-card.i-voted { border-color:var(--amber); background:#FFF8EC; }
+    .poll-card.confirmed { border-color:#5CB87A; background:#F0FAF4; }
+    .poll-card-head { display:flex; align-items:center; justify-content:space-between; }
+    .poll-card-date { font-weight:600; font-size:.9375rem; }
+    .poll-card-votes { font-size:.875rem; color:var(--muted); }
+    .poll-bar-wrap { background:var(--bg); border-radius:6px; height:6px; margin-top:8px; }
+    .poll-bar { background:var(--amber); border-radius:6px; height:6px; transition:width .3s; }
+    .poll-card-actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; }
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
 
@@ -896,6 +913,23 @@
           <input type="time" id="ev-time">
         </div>
       </div>
+      <div class="poll-divider"></div>
+      <div class="poll-toggle-row">
+        <div class="poll-toggle-label">
+          <strong>Termin abstimmen lassen</strong>
+          <small>Mehrere Datums-Optionen zur Wahl stellen</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="poll-toggle" onchange="togglePollSection(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="poll-section" style="display:none">
+        <div id="poll-options-list"></div>
+        <button type="button" class="btn btn-outline btn-sm btn-full" style="margin-top:2px" onclick="addPollOption()">+ Datum-Option hinzufügen</button>
+        <p style="font-size:.8125rem;color:var(--muted);margin-top:8px;line-height:1.4">Das Datum wird nach der Abstimmung vom Ersteller bestätigt.</p>
+      </div>
+      <div class="poll-divider"></div>
       <div class="field">
         <label data-i18n="create_location_label">Ort</label>
         <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin" data-i18n-placeholder="create_location_placeholder">
@@ -1590,6 +1624,8 @@ let createdId    = null;  // last created event ID (for share sheet)
 let pickedEmoji  = '🎉';
 let _editMode    = false;
 let _editEventId = null;
+let _pollEnabled = false;
+let _pollOptions = []; // [{date:'', time:''}]
 let evUnsubscribe = null; // real-time event listener cleanup
 let _pendingRsvp      = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
 let _pendingConnect   = null;  // { theirUid, theirUsername, theirName } – set before login
@@ -2344,6 +2380,21 @@ function openEditEvent(ev) {
   document.getElementById('invites-spaces-row').style.display = 'none';
   document.getElementById('invites-friends-row').style.display= 'none';
 
+  // Restore poll state
+  const evPoll = ev.poll;
+  _pollEnabled = !!(evPoll && evPoll.active);
+  _pollOptions = [];
+  if (_pollEnabled && evPoll.options) {
+    _pollOptions = Object.entries(evPoll.options).map(([k, v]) => ({ _key: k, date: v.date || '', time: v.time || '' }));
+  }
+  const pt2 = document.getElementById('poll-toggle');
+  if (pt2) pt2.checked = _pollEnabled;
+  const ps2 = document.getElementById('poll-section');
+  if (ps2) ps2.style.display = _pollEnabled ? 'block' : 'none';
+  const dr2 = document.querySelector('#screen-create .form-row');
+  if (dr2) dr2.style.opacity = _pollEnabled ? '.4' : '';
+  renderPollOptions();
+
   // Update UI for edit mode
   const h1 = document.querySelector('#screen-create h1');
   if (h1) h1.textContent = t('ev_edit');
@@ -2942,6 +2993,7 @@ async function loadHome() {
 }
 
 function isEventPast(ev) {
+  if (!ev.date) return false; // poll events with no confirmed date are never past
   const d = new Date(ev.date + 'T' + (ev.time || '23:59') + ':00');
   return d < new Date();
 }
@@ -2987,7 +3039,7 @@ function cardHTML(ev, showRsvp) {
         <div class="ecard-info">
           <div class="ecard-title">${esc(ev.title)}</div>
           <div class="ecard-meta">
-            <span>📅 ${fmtDate(ev.date, ev.time)}</span>
+            <span>📅 ${ev.poll && ev.poll.active ? 'Datum offen' : fmtDate(ev.date, ev.time)}</span>
             ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
           </div>
         </div>
@@ -3081,6 +3133,15 @@ function initCreateForm() {
   document.getElementById('invites-wrap').style.display        = 'none';
   document.getElementById('invites-spaces-row').style.display  = 'none';
   document.getElementById('invites-friends-row').style.display = 'none';
+  // Reset poll
+  _pollEnabled = false;
+  _pollOptions = [];
+  const pollToggle = document.getElementById('poll-toggle');
+  if (pollToggle) pollToggle.checked = false;
+  const pollSection = document.getElementById('poll-section');
+  if (pollSection) pollSection.style.display = 'none';
+  const dateRow = document.querySelector('#screen-create .form-row');
+  if (dateRow) dateRow.style.opacity = '';
   // Restore create-mode UI (in case coming back from edit mode)
   const h1 = document.querySelector('#screen-create h1');
   if (h1) h1.setAttribute('data-i18n', 'nav_create');
@@ -3101,14 +3162,24 @@ async function updateEvent() {
 
   try {
     const editId = _editEventId;
+    const validPollOpts2 = _pollEnabled ? _pollOptions.filter(o => o.date) : [];
     await db.ref('events/' + editId).update({
       emoji:    pickedEmoji,
       title,
-      date:     document.getElementById('ev-date').value || new Date().toISOString().split('T')[0],
-      time:     document.getElementById('ev-time').value     || null,
+      date:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-date').value || new Date().toISOString().split('T')[0]),
+      time:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-time').value || null),
       location: document.getElementById('ev-location').value.trim() || null,
       details:  document.getElementById('ev-details').value.trim()  || null,
     });
+    if (validPollOpts2.length > 0) {
+      const pollOptions2 = {};
+      validPollOpts2.forEach((opt, i) => {
+        pollOptions2[opt._key || ('opt_' + Date.now() + '_' + i)] = { date: opt.date, time: opt.time || null };
+      });
+      await db.ref('events/' + editId + '/poll').update({ active: true, options: pollOptions2 });
+    } else if (_pollEnabled === false) {
+      await db.ref('events/' + editId + '/poll/active').set(false);
+    }
     toast(t('toast_event_saved'));
 
     // Notify attendees (dabei / vielleicht) about the edit
@@ -3136,6 +3207,149 @@ async function updateEvent() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DATE POLL
+// ─────────────────────────────────────────────────────────────────────────────
+function togglePollSection(on) {
+  _pollEnabled = on;
+  document.getElementById('poll-section').style.display = on ? 'block' : 'none';
+  const dateRow = document.querySelector('#screen-create .form-row');
+  if (dateRow) dateRow.style.opacity = on ? '.4' : '';
+  if (on && _pollOptions.length === 0) { _pollOptions.push({ date: '', time: '' }); _pollOptions.push({ date: '', time: '' }); }
+  renderPollOptions();
+}
+
+function addPollOption() {
+  _pollOptions.push({ date: '', time: '' });
+  renderPollOptions();
+}
+
+function removePollOption(idx) {
+  _pollOptions.splice(idx, 1);
+  renderPollOptions();
+}
+
+function renderPollOptions() {
+  const list = document.getElementById('poll-options-list');
+  if (!list) return;
+  list.innerHTML = _pollOptions.map((opt, i) => `
+    <div class="poll-opt-row">
+      <div class="field" style="flex:2">
+        <label style="font-size:.8125rem;font-weight:600">Datum ${i + 1}</label>
+        <input type="date" value="${opt.date}" oninput="_pollOptions[${i}].date=this.value"
+          style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9375rem;color:var(--text);background:#fff">
+      </div>
+      <div class="field" style="flex:1.2">
+        <label style="font-size:.8125rem;font-weight:600">Uhrzeit</label>
+        <input type="time" value="${opt.time}" oninput="_pollOptions[${i}].time=this.value"
+          style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9375rem;color:var(--text);background:#fff">
+      </div>
+      ${_pollOptions.length > 1
+        ? `<button type="button" class="poll-opt-remove" onclick="removePollOption(${i})" title="Entfernen">×</button>`
+        : '<div style="width:24px"></div>'}
+    </div>`).join('');
+}
+
+function buildPollSection(ev) {
+  if (!ev.poll) return '';
+  const poll = ev.poll;
+  const isCreator = me && ev.createdBy === me.uid;
+
+  // Confirmed state
+  if (!poll.active && poll.confirmedOption) {
+    const opt = poll.options && poll.options[poll.confirmedOption];
+    return `
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Abstimmung abgeschlossen ✓</div>
+      <div class="poll-card confirmed">
+        <div class="poll-card-date">Termin: ${fmtDate(opt ? opt.date : ev.date, opt ? opt.time : ev.time)}</div>
+      </div>
+    </div>`;
+  }
+
+  if (!poll.active) return '';
+
+  const options = poll.options ? Object.entries(poll.options) : [];
+  const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
+  const totalVoters = allVoterIds.size;
+
+  const myVotes = new Set();
+  if (me) options.forEach(([optId, o]) => { if (o.votes && o.votes[me.uid]) myVotes.add(optId); });
+
+  const cards = options.map(([optId, opt]) => {
+    const voteCount = opt.votes ? Object.keys(opt.votes).length : 0;
+    const pct = totalVoters > 0 ? Math.round(voteCount / totalVoters * 100) : 0;
+    const iVoted = myVotes.has(optId);
+    const safeTime = (opt.time || '').replace(/'/g, "\\'");
+    return `
+    <div class="poll-card${iVoted ? ' i-voted' : ''}">
+      <div class="poll-card-head">
+        <div class="poll-card-date">${fmtDate(opt.date, opt.time)}</div>
+        <div class="poll-card-votes">${voteCount} Stimme${voteCount !== 1 ? 'n' : ''}</div>
+      </div>
+      <div class="poll-bar-wrap"><div class="poll-bar" style="width:${pct}%"></div></div>
+      <div class="poll-card-actions">
+        ${me
+          ? `<button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="togglePollVote('${ev.id}','${optId}')">
+              ${iVoted ? '✓ Abgestimmt' : 'Abstimmen'}
+            </button>`
+          : '<span style="font-size:.8125rem;color:var(--muted)">Einloggen zum Abstimmen</span>'}
+        ${isCreator
+          ? `<button class="btn btn-outline btn-sm" style="color:#5CB87A;border-color:#5CB87A"
+               onclick="confirmPollOption('${ev.id}','${optId}','${opt.date}','${safeTime}')">
+               Termin bestätigen ✓
+             </button>`
+          : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="ev-sec" style="margin-top:8px">
+    <div class="ev-sec-title">Termin abstimmen <span class="att-count">${totalVoters}</span></div>
+    ${cards || '<div class="att-sec-empty">Noch keine Optionen</div>'}
+  </div>`;
+}
+
+async function togglePollVote(eventId, optionId) {
+  if (!me) { toast('Bitte einloggen'); return; }
+  const voteRef = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + me.uid);
+  const snap = await voteRef.once('value');
+  if (snap.exists()) {
+    await voteRef.remove();
+  } else {
+    await voteRef.set(true);
+  }
+}
+
+async function confirmPollOption(eventId, optionId, date, time) {
+  if (!me) return;
+  if (!confirm('Diesen Termin für alle bestätigen?')) return;
+  try {
+    await db.ref('events/' + eventId).update({ date, time: time || null });
+    await db.ref('events/' + eventId + '/poll').update({ active: false, confirmedOption: optionId });
+    const [rSnap, evSnap] = await Promise.all([
+      db.ref('events/' + eventId + '/rsvps').once('value'),
+      db.ref('events/' + eventId).once('value'),
+    ]);
+    const evData = evSnap.val();
+    rSnap.forEach(child => {
+      const r = child.val();
+      if (r.userId && r.userId !== me.uid) {
+        notifyUser(r.userId, 'event_edited',
+          '📅 Termin steht fest!',
+          `"${evData ? evData.title : ''}" findet statt: ${fmtDate(date, time || null)}`,
+          '/#event/' + eventId
+        );
+      }
+    });
+    toast('Termin bestätigt! Alle werden benachrichtigt.');
+  } catch (err) {
+    console.error('confirmPollOption:', err);
+    toast('Fehler: ' + err.message);
+  }
+}
+
 async function createEvent() {
   if (_editMode) { await updateEvent(); return; }
 
@@ -3160,11 +3374,12 @@ async function createEvent() {
   btn.textContent = 'Erstelle…';
 
   try {
+    const validPollOpts = _pollEnabled ? _pollOptions.filter(o => o.date) : [];
     const data = {
       emoji:       pickedEmoji,
       title,
-      date:        date || new Date().toISOString().split('T')[0],
-      time:        time || null,
+      date:        validPollOpts.length > 0 ? null : (date || new Date().toISOString().split('T')[0]),
+      time:        validPollOpts.length > 0 ? null : (time || null),
       location:    location || null,
       details:     details  || null,
       createdBy:   me ? me.uid : null,
@@ -3175,6 +3390,14 @@ async function createEvent() {
     const ref = db.ref('events').push();
     await ref.set(data);
     createdId = ref.key;
+
+    if (validPollOpts.length > 0) {
+      const pollOptions = {};
+      validPollOpts.forEach((opt, i) => {
+        pollOptions['opt_' + Date.now() + '_' + i] = { date: opt.date, time: opt.time || null };
+      });
+      await db.ref('events/' + createdId + '/poll').set({ active: true, options: pollOptions, confirmedOption: null });
+    }
 
     if (me) {
       await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
@@ -3362,7 +3585,7 @@ function renderEv(ev, body) {
       <div class="ev-hero-emoji">${ev.emoji||'🎉'}</div>
       <div class="ev-hero-title">${esc(ev.title)}</div>
       <div class="ev-details">
-        <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtDate(ev.date, ev.time)}</span></div>
+        <div class="ev-row"><div class="ev-icon">📅</div><span>${ev.poll && ev.poll.active ? 'Datum wird noch abgestimmt' : fmtDate(ev.date, ev.time)}</span></div>
         ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
         ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
         <div class="ev-row"><div class="ev-icon">👤</div><span>${t('ev_by')} ${esc(ev.creatorName||'Jemand')}</span></div>
@@ -3391,6 +3614,8 @@ function renderEv(ev, body) {
         🔔 Space-Mitglieder erinnern
       </button>` : ''}` : ''}
     </div>
+
+    ${buildPollSection(ev)}
 
     <div class="ev-sec">
       <div class="ev-sec-title">${t('att_dabei')} <span class="att-count">${dabei.length}</span></div>
