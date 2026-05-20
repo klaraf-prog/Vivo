@@ -142,6 +142,49 @@
       background: linear-gradient(to top, var(--bg) 65%, transparent);
     }
     .prof-foot .inner { max-width: var(--max); margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Settings screen ─────────────────────────────────────── */
+    #screen-settings { align-items: stretch; }
+    .settings-body {
+      flex: 1; overflow-y: auto;
+      padding: 0 20px 120px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+      display: flex; flex-direction: column; gap: 0;
+      box-sizing: border-box;
+    }
+    .settings-section { margin-bottom: 28px; }
+    .settings-section-title {
+      font-size: .75rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      margin: 0 0 4px; padding: 20px 0 8px;
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 0; border-bottom: 1px solid var(--border); gap: 16px;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .settings-row-label span { font-size: .9375rem; }
+    .settings-row-label small { font-size: .8125rem; color: var(--muted); line-height: 1.3; }
+    /* Toggle switch */
+    .toggle { position: relative; display: inline-block; width: 46px; height: 27px; flex-shrink: 0; cursor: pointer; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0; background: var(--border);
+      border-radius: 14px; transition: background .2s;
+    }
+    .toggle-track::before {
+      content: ''; position: absolute;
+      width: 21px; height: 21px; left: 3px; top: 3px;
+      background: #fff; border-radius: 50%;
+      transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+    }
+    .toggle input:checked + .toggle-track { background: var(--pink); }
+    .toggle input:checked + .toggle-track::before { transform: translateX(19px); }
+    .toggle input:disabled + .toggle-track { opacity: .45; cursor: default; }
+    .settings-email-field { display: none; padding: 12px 0 4px; }
+    .settings-email-field.open { display: block; }
+    .settings-denied-hint { font-size: .8125rem; color: var(--pink); margin-top: 6px; display: none; }
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
 
@@ -970,8 +1013,99 @@
     <div class="inner">
       <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()" data-i18n="btn_save">Änderungen speichern</button>
       <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none" data-i18n="profile_share">Profil teilen 🔗</button>
+      <button class="btn btn-outline btn-full" onclick="openSettingsScreen()">⚙️ Einstellungen</button>
       <button class="btn btn-outline btn-full" onclick="doSignOut()" data-i18n="btn_signout">Abmelden</button>
       <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')" data-i18n="profile_privacy">Datenschutzerklärung</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SETTINGS ═══════════════════════════ -->
+<div id="screen-settings" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="showScreen('profile')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Einstellungen</h1>
+  </div>
+
+  <div class="settings-body">
+
+    <!-- Push Notifications -->
+    <div class="settings-section">
+      <p class="settings-section-title">Push-Benachrichtigungen</p>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span>Push aktivieren</span>
+          <small>Benachrichtigungen im Browser</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-push-enabled" onchange="onPushToggle(this)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <p class="settings-denied-hint" id="s-push-denied">Push-Benachrichtigungen wurden im Browser blockiert. Bitte in den Browser-Einstellungen erlauben.</p>
+    </div>
+
+    <!-- E-Mail Notifications -->
+    <div class="settings-section">
+      <p class="settings-section-title">E-Mail-Benachrichtigungen</p>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span>E-Mail aktivieren</span>
+          <small>Benachrichtigungen per E-Mail erhalten</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-email-enabled" onchange="onEmailToggle(this)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-email-field" id="s-email-wrap">
+        <div class="field" style="margin:0">
+          <label>E-Mail-Adresse</label>
+          <input type="email" id="s-email-inp" placeholder="deine@email.de" autocomplete="email">
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Types -->
+    <div class="settings-section">
+      <p class="settings-section-title">Benachrichtigungstypen</p>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Event-Einladungen</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-invites" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Zusagen zu meinen Events</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-rsvps" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Event-Änderungen</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-changes" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Neue Freunde</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-friends" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="prof-foot">
+    <div class="inner">
+      <button class="btn btn-primary btn-full" id="save-settings-btn" onclick="saveSettings()">Speichern</button>
     </div>
   </div>
 </div>
@@ -1469,6 +1603,7 @@ let _spaceEvOff       = null;  // space events view listener cleanup
 let _swRegistration   = null;  // ServiceWorker registration
 let _notifOff         = null;  // notifications RTDB listener cleanup
 let _startTimers      = [];    // setTimeout handles for "event starts in 2h"
+let _settings         = null;  // cached users/{uid}/settings from Firebase
 
 const EMOJI_CATEGORIES = [
   { icon: '😀', label: 'Smileys & People', emojis: [
@@ -1604,7 +1739,7 @@ function startNotifListener() {
   const cb = ref.on('child_added', async snap => {
     const d = snap.val();
     if (!d) return;
-    await showNotif(d.title, d.body, d.url);
+    if (shouldShowNotif(d.type)) await showNotif(d.title, d.body, d.url);
     snap.ref.remove().catch(() => {});
   });
   _notifOff = () => ref.off('child_added', cb);
@@ -1614,6 +1749,15 @@ function stopNotifListener() {
   if (_notifOff) { _notifOff(); _notifOff = null; }
   _startTimers.forEach(clearTimeout);
   _startTimers = [];
+}
+
+function shouldShowNotif(type) {
+  if (!_settings) return true;
+  if (_settings.pushEnabled === false) return false;
+  const types = _settings.types || {};
+  const map = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
+  const key = map[type];
+  return key ? types[key] !== false : true;
 }
 
 function scheduleEventStartNotifs(events) {
@@ -1692,7 +1836,10 @@ auth.onAuthStateChanged(async user => {
 
   if (user) {
     startNotifListener();
+    db.ref('users/' + user.uid + '/settings').once('value')
+      .then(s => { _settings = s.val() || {}; }).catch(() => {});
   } else {
+    _settings = null;
     stopNotifListener();
   }
 
@@ -1851,6 +1998,97 @@ function applyAvatar(el, user, size) {
 function setAvatar(user) {
   applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
 }
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+async function openSettingsScreen() {
+  if (!me) return;
+  // Load latest settings from DB
+  const snap = await db.ref('users/' + me.uid + '/settings').once('value');
+  const s = snap.val() || {};
+  _settings = s;
+
+  // Push toggle — reflect actual permission state too
+  const pushGranted  = 'Notification' in window && Notification.permission === 'granted';
+  const pushDenied   = 'Notification' in window && Notification.permission === 'denied';
+  const pushOn = pushGranted && s.pushEnabled !== false;
+  document.getElementById('s-push-enabled').checked  = pushOn;
+  document.getElementById('s-push-enabled').disabled  = pushDenied;
+  document.getElementById('s-push-denied').style.display = pushDenied ? 'block' : 'none';
+
+  // Email toggle + field
+  const emailOn = s.emailEnabled === true;
+  document.getElementById('s-email-enabled').checked = emailOn;
+  document.getElementById('s-email-wrap').classList.toggle('open', emailOn);
+  document.getElementById('s-email-inp').value = s.emailAddress || (me.email || '');
+
+  // Notification types (default all on)
+  const types = s.types || {};
+  document.getElementById('s-type-invites').checked  = types.invites       !== false;
+  document.getElementById('s-type-rsvps').checked    = types.rsvps         !== false;
+  document.getElementById('s-type-changes').checked  = types.eventChanges  !== false;
+  document.getElementById('s-type-friends').checked  = types.newFriends    !== false;
+
+  showScreen('settings');
+}
+
+function onPushToggle(el) {
+  if (!el.checked) return; // turning off is always allowed
+  if (!('Notification' in window)) { el.checked = false; return; }
+  if (Notification.permission === 'denied') {
+    el.checked = false;
+    document.getElementById('s-push-denied').style.display = 'block';
+    return;
+  }
+  if (Notification.permission === 'default') {
+    el.checked = false; // will re-check if granted
+    Notification.requestPermission().then(result => {
+      el.checked = result === 'granted';
+      document.getElementById('s-push-denied').style.display =
+        result === 'denied' ? 'block' : 'none';
+    });
+  }
+}
+
+function onEmailToggle(el) {
+  document.getElementById('s-email-wrap').classList.toggle('open', el.checked);
+}
+
+async function saveSettings() {
+  if (!me) return;
+  const btn = document.getElementById('save-settings-btn');
+  btn.disabled = true; btn.textContent = 'Speichern…';
+
+  const pushOn  = document.getElementById('s-push-enabled').checked;
+  const emailOn = document.getElementById('s-email-enabled').checked;
+  const email   = document.getElementById('s-email-inp').value.trim();
+
+  const settings = {
+    pushEnabled:  pushOn,
+    emailEnabled: emailOn,
+    emailAddress: emailOn && email ? email : (me.email || null),
+    types: {
+      invites:      document.getElementById('s-type-invites').checked,
+      rsvps:        document.getElementById('s-type-rsvps').checked,
+      eventChanges: document.getElementById('s-type-changes').checked,
+      newFriends:   document.getElementById('s-type-friends').checked,
+    },
+  };
+
+  try {
+    await db.ref('users/' + me.uid + '/settings').set(settings);
+    _settings = settings;
+    toast('Einstellungen gespeichert');
+    showScreen('profile');
+  } catch(err) {
+    console.error('saveSettings:', err);
+    toast('Fehler beim Speichern');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Speichern';
+  }
+}
+
+// ─── Profile ─────────────────────────────────────────────────────────────────
 
 async function openProfileScreen() {
   if (!me) return;
