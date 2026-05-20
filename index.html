@@ -202,6 +202,11 @@
     .poll-bar-wrap { background:var(--bg); border-radius:6px; height:6px; margin-top:8px; }
     .poll-bar { background:var(--amber); border-radius:6px; height:6px; transition:width .3s; }
     .poll-card-actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; }
+    .poll-anon-foot { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+    .poll-anon-foot .field { margin-bottom:6px; }
+    .poll-anon-foot input { width:100%; padding:11px 12px; border:1.5px solid var(--border); border-radius:var(--r-sm); font-size:.9375rem; color:var(--text); background:#fff; box-sizing:border-box; }
+    .poll-anon-foot input:focus { outline:none; border-color:var(--amber); }
+    .link-btn { background:none; border:none; padding:0; color:var(--amber); font-weight:600; cursor:pointer; font-size:inherit; text-decoration:underline; }
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
 
@@ -3253,6 +3258,22 @@ function renderPollOptions() {
     </div>`).join('');
 }
 
+// Returns a stable anonymous session ID stored in localStorage
+function getPollSessionId() {
+  let id = localStorage.getItem('vivo_poll_sid');
+  if (!id) {
+    id = 'a_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+    localStorage.setItem('vivo_poll_sid', id);
+  }
+  return id;
+}
+
+// Show login screen while keeping the current URL hash so onAuthStateChanged
+// routes straight back to this event after login.
+function showLoginForPoll() {
+  showScreen('login');
+}
+
 function buildPollSection(ev) {
   if (!ev.poll) return '';
   const poll = ev.poll;
@@ -3276,8 +3297,10 @@ function buildPollSection(ev) {
   const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
   const totalVoters = allVoterIds.size;
 
+  // Detect own votes — uid for logged-in, localStorage session ID for anonymous
+  const voterKey = me ? me.uid : getPollSessionId();
   const myVotes = new Set();
-  if (me) options.forEach(([optId, o]) => { if (o.votes && o.votes[me.uid]) myVotes.add(optId); });
+  options.forEach(([optId, o]) => { if (o.votes && o.votes[voterKey]) myVotes.add(optId); });
 
   const cards = options.map(([optId, opt]) => {
     const voteCount = opt.votes ? Object.keys(opt.votes).length : 0;
@@ -3292,11 +3315,10 @@ function buildPollSection(ev) {
       </div>
       <div class="poll-bar-wrap"><div class="poll-bar" style="width:${pct}%"></div></div>
       <div class="poll-card-actions">
-        ${me
-          ? `<button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="togglePollVote('${ev.id}','${optId}')">
-              ${iVoted ? '✓ Abgestimmt' : 'Abstimmen'}
-            </button>`
-          : '<span style="font-size:.8125rem;color:var(--muted)">Einloggen zum Abstimmen</span>'}
+        <button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm"
+          onclick="togglePollVote('${ev.id}','${optId}')">
+          ${iVoted ? '✓ Abgestimmt' : 'Abstimmen'}
+        </button>
         ${isCreator
           ? `<button class="btn btn-outline btn-sm" style="color:#5CB87A;border-color:#5CB87A"
                onclick="confirmPollOption('${ev.id}','${optId}','${opt.date}','${safeTime}')">
@@ -3307,21 +3329,59 @@ function buildPollSection(ev) {
     </div>`;
   }).join('');
 
+  // Footer: name input for anonymous users + optional login link
+  const anonName = !me ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
+  const anonFoot = !me ? `
+    <div class="poll-anon-foot">
+      <div class="field">
+        <label style="font-size:.8125rem;font-weight:600">Dein Name</label>
+        <input type="text" id="poll-anon-inp" value="${esc(anonName)}" placeholder="z.B. Max Mustermann"
+          oninput="localStorage.setItem('vivo_poll_anon_name',this.value)">
+      </div>
+      <p style="font-size:.8125rem;color:var(--muted);margin:0;text-align:center">
+        oder <button class="link-btn" onclick="showLoginForPoll()">einloggen</button>
+        — dann wird dein Name automatisch verwendet
+      </p>
+    </div>` : '';
+
   return `
   <div class="ev-sec" style="margin-top:8px">
     <div class="ev-sec-title">Termin abstimmen <span class="att-count">${totalVoters}</span></div>
     ${cards || '<div class="att-sec-empty">Noch keine Optionen</div>'}
+    ${anonFoot}
   </div>`;
 }
 
 async function togglePollVote(eventId, optionId) {
-  if (!me) { toast('Bitte einloggen'); return; }
-  const voteRef = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + me.uid);
-  const snap = await voteRef.once('value');
-  if (snap.exists()) {
-    await voteRef.remove();
+  const voterKey = me ? me.uid : getPollSessionId();
+  const voteRef = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
+
+  if (!me) {
+    const nameInp = document.getElementById('poll-anon-inp');
+    const name = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
+    const snap = await voteRef.once('value');
+    if (snap.exists()) {
+      await voteRef.remove();
+    } else {
+      if (!name) {
+        if (nameInp) {
+          nameInp.focus();
+          nameInp.style.borderColor = 'var(--pink)';
+          setTimeout(() => { nameInp.style.borderColor = ''; }, 2000);
+        }
+        toast('Bitte gib deinen Namen ein');
+        return;
+      }
+      localStorage.setItem('vivo_poll_anon_name', name);
+      await voteRef.set({ name, ts: Date.now() });
+    }
   } else {
-    await voteRef.set(true);
+    const snap = await voteRef.once('value');
+    if (snap.exists()) {
+      await voteRef.remove();
+    } else {
+      await voteRef.set(true);
+    }
   }
 }
 
