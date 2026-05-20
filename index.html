@@ -659,6 +659,12 @@
 </head>
 <body>
 
+<button id="lang-toggle" onclick="toggleLang()" style="
+  position:fixed;top:12px;right:16px;z-index:200;
+  background:none;border:none;font-size:1.25rem;cursor:pointer;
+  padding:4px;line-height:1;opacity:0.8
+">🇩🇪</button>
+
 <!-- ═══════════════════════════ LOADING ═══════════════════════════ -->
 <div id="loading">
   <div class="logo">vivo</div>
@@ -682,26 +688,26 @@
     </div>
 
     <div class="auth-tabs">
-      <button class="auth-tab on" onclick="switchTab('login')">Anmelden</button>
-      <button class="auth-tab"    onclick="switchTab('register')">Registrieren</button>
+      <button class="auth-tab on" onclick="switchTab('login')" data-i18n="login_btn">Anmelden</button>
+      <button class="auth-tab"    onclick="switchTab('register')" data-i18n="login_register_link">Registrieren</button>
     </div>
 
     <div id="auth-err" class="auth-err"></div>
 
     <form class="auth-form" onsubmit="handleAuth(event)">
       <div class="field" id="name-field" style="display:none">
-        <label>Anzeigename <span style="color:var(--pink)">*</span></label>
+        <label><span data-i18n="register_name">Dein Name</span> <span style="color:var(--pink)">*</span></label>
         <input type="text" id="inp-name" placeholder="z.B. Klara" autocomplete="name">
       </div>
       <div class="field">
-        <label>E-Mail</label>
+        <label data-i18n="login_email">E-Mail</label>
         <input type="email" id="inp-email" placeholder="du@beispiel.de" required autocomplete="email">
       </div>
       <div class="field">
-        <label>Passwort</label>
+        <label data-i18n="login_password">Passwort</label>
         <input type="password" id="inp-pw" placeholder="Mindestens 6 Zeichen" required minlength="6" autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary btn-full" id="auth-btn">Anmelden</button>
+      <button type="submit" class="btn btn-primary btn-full" id="auth-btn" data-i18n="login_btn">Anmelden</button>
       <p id="dsgvo-hint" style="display:none;margin:10px 0 0;font-size:.8125rem;color:var(--muted);text-align:center;line-height:1.5">
         Mit der Registrierung stimmst du unserer
         <button type="button" onclick="showDatenschutz('login')" style="background:none;border:none;padding:0;color:var(--pink);font-size:.8125rem;cursor:pointer;text-decoration:underline">Datenschutzerklärung</button>
@@ -718,7 +724,7 @@
         <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
         <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
       </svg>
-      Mit Google anmelden
+      <span data-i18n="login_google">Mit Google anmelden</span>
     </button>
   </div>
 </div>
@@ -734,7 +740,7 @@
     <!-- Events tab -->
     <div class="tab-panel active" id="tab-events">
       <div class="section">
-        <div class="section-head"><h2>Deine Events</h2></div>
+        <div class="section-head"><h2 data-i18n="home_my_events">Deine Events</h2></div>
         <div class="events-stack" id="my-list">
           <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
         </div>
@@ -742,7 +748,7 @@
 
       <div class="section" id="pending-sec" style="display:none">
         <div class="section-head">
-          <h2>Ausstehend</h2>
+          <h2 data-i18n="home_pending">Ausstehend</h2>
           <div class="badge" id="pending-count">0</div>
         </div>
         <div class="events-stack" id="pending-list"></div>
@@ -750,7 +756,7 @@
 
       <div class="section" id="past-sec" style="display:none">
         <div class="section-head" onclick="togglePastEvents()" style="cursor:pointer;user-select:none">
-          <h2>Vergangene Events</h2>
+          <h2 data-i18n="home_past">Vergangene Events</h2>
           <svg id="past-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);flex-shrink:0">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
@@ -764,15 +770,15 @@
       <div class="section" style="padding-bottom:8px">
         <button class="btn btn-outline btn-full" onclick="openCreateSpace()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Space erstellen
+          <span data-i18n="friends_create_space">Space erstellen</span>
         </button>
       </div>
       <div class="section">
-        <div class="section-head"><h2>Freunde</h2></div>
+        <div class="section-head"><h2 data-i18n="friends_my_label">Freunde</h2></div>
         <div id="friends-list"></div>
       </div>
       <div class="section" id="spaces-sec" style="display:none">
-        <div class="section-head"><h2>Spaces</h2></div>
+        <div class="section-head"><h2 data-i18n="friends_spaces_label">Spaces</h2></div>
         <div class="space-list" id="spaces-list"></div>
       </div>
     </div>
@@ -784,14 +790,14 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
       </svg>
-      Events
+      <span data-i18n="nav_home">Events</span>
     </button>
     <button class="tab-btn" id="tab-btn-friends" onclick="switchHomeTab('friends')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
         <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
       </svg>
-      Freunde
+      <span data-i18n="nav_friends">Freunde</span>
     </button>
     <button class="tab-create" onclick="showCreate()" title="Event erstellen">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
@@ -807,7 +813,7 @@
     <button class="back-btn" onclick="navHome()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <h1>Event erstellen</h1>
+    <h1 data-i18n="nav_create">Event erstellen</h1>
   </div>
 
   <div class="create-body">
@@ -816,43 +822,43 @@
 
     <div class="form-stack">
       <div class="field">
-        <label>Titel</label>
-        <input type="text" id="ev-title" placeholder="z.B. Grillabend im Park" maxlength="60">
+        <label data-i18n="create_title_label">Titel *</label>
+        <input type="text" id="ev-title" placeholder="z.B. Grillabend 🔥" maxlength="60" data-i18n-placeholder="create_title_placeholder">
       </div>
       <div class="form-row">
         <div class="field">
-          <label>Datum</label>
+          <label data-i18n="create_date_label">Datum</label>
           <input type="date" id="ev-date">
         </div>
         <div class="field">
-          <label>Uhrzeit</label>
+          <label data-i18n="create_time_label">Uhrzeit</label>
           <input type="time" id="ev-time">
         </div>
       </div>
       <div class="field">
-        <label>Ort</label>
-        <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin">
+        <label data-i18n="create_location_label">Ort</label>
+        <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin" data-i18n-placeholder="create_location_placeholder">
       </div>
       <div class="field">
-        <label>Details <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-        <textarea id="ev-details" placeholder="z.B. Bitte Getränke mitbringen, Eingang über den Hinterhof …"
-          rows="3" style="resize:vertical;font-family:inherit;font-size:1rem;padding:13px 16px;border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);background:#fff;width:100%;line-height:1.5"></textarea>
+        <label><span data-i18n="create_details_label">Details</span> <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <textarea id="ev-details" placeholder="Was erwartet die Gäste?"
+          rows="3" style="resize:vertical;font-family:inherit;font-size:1rem;padding:13px 16px;border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);background:#fff;width:100%;line-height:1.5" data-i18n-placeholder="create_details_placeholder"></textarea>
       </div>
       <div class="field" id="invites-wrap" style="display:none">
-        <label>Freunde einladen <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <label><span data-i18n="create_invites_label">Freunde einladen</span> <span style="color:var(--muted);font-weight:400" data-i18n="create_invites_optional">(optional)</span></label>
         <div id="invites-spaces-row" style="display:none">
-          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500">🏠 Friend Spaces</p>
+          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500" data-i18n="create_spaces_sublabel">🏠 Friend Spaces</p>
           <div class="space-chips" id="space-chips"></div>
         </div>
         <div id="invites-friends-row" style="display:none">
-          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500">👤 Einzelne Freunde</p>
+          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500" data-i18n="create_friends_sublabel">👤 Einzelne Freunde</p>
           <div class="space-chips" id="friend-chips"></div>
         </div>
       </div>
     </div>
 
     <div class="create-foot">
-      <button class="btn btn-primary btn-full" id="create-btn">
+      <button class="btn btn-primary btn-full" id="create-btn" data-i18n="btn_create_event">
         Event erstellen &amp; teilen ✨
       </button>
     </div>
@@ -862,18 +868,18 @@
 <!-- ═══════════════════════════ SUCCESS ═══════════════════════════ -->
 <div id="screen-success" class="screen">
   <div class="suc-icon" id="suc-emoji">🎉</div>
-  <div class="suc-title">Event erstellt!</div>
+  <div class="suc-title" data-i18n="success_title">Event erstellt!</div>
   <p class="suc-sub">Jetzt teilen und Zusagen sammeln</p>
   <div class="share-stack">
     <button class="btn btn-primary btn-full" onclick="shareWA()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-      WhatsApp teilen
+      <span data-i18n="success_share_wa">Via WhatsApp teilen</span>
     </button>
     <button class="btn btn-outline btn-full" onclick="copyLink()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2v1"/></svg>
-      Link kopieren
+      <span data-i18n="success_copy">Link kopieren</span>
     </button>
-    <button class="btn btn-ghost btn-full" onclick="goHome()">Zur Übersicht</button>
+    <button class="btn btn-ghost btn-full" onclick="goHome()" data-i18n="success_home">Zur Startseite</button>
   </div>
 </div>
 
@@ -901,7 +907,7 @@
     <button class="back-btn" onclick="showScreen('home')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <h1>Profil</h1>
+    <h1 data-i18n="profile_title">Profil</h1>
   </div>
 
   <div class="prof-body">
@@ -912,32 +918,38 @@
 
     <!-- Name -->
     <div class="field">
-      <label>Anzeigename</label>
-      <input type="text" id="prof-name-inp" placeholder="Dein Name" autocomplete="name">
+      <label data-i18n="profile_name_label">Anzeigename</label>
+      <input type="text" id="prof-name-inp" placeholder="Dein Name" autocomplete="name" data-i18n-placeholder="profile_name_placeholder">
     </div>
 
     <!-- Username -->
     <div class="field">
-      <label>Benutzername</label>
+      <label data-i18n="profile_username_label">Benutzername</label>
       <input type="text" id="prof-user-inp" placeholder="@benutzername"
         autocomplete="username" autocapitalize="none" spellcheck="false"
         oninput="validateUsernameInput(this)">
       <span class="username-hint" id="user-hint"></span>
     </div>
 
+    <!-- Location -->
+    <div class="field">
+      <label data-i18n="profile_location_label">Standort</label>
+      <input type="text" id="prof-location-inp" placeholder="z.B. Berlin" data-i18n-placeholder="profile_location_placeholder">
+    </div>
+
     <!-- Email (read-only) -->
     <div class="field">
-      <label>E-Mail</label>
+      <label data-i18n="profile_email_label">E-Mail</label>
       <input type="text" id="prof-email-inp" disabled style="color:var(--muted);background:#F7F5F2">
     </div>
   </div>
 
   <div class="prof-foot">
     <div class="inner">
-      <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()">Änderungen speichern</button>
-      <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none">Profil teilen 🔗</button>
-      <button class="btn btn-outline btn-full" onclick="doSignOut()">Abmelden</button>
-      <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')">Datenschutzerklärung</button>
+      <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()" data-i18n="btn_save">Änderungen speichern</button>
+      <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none" data-i18n="profile_share">Profil teilen 🔗</button>
+      <button class="btn btn-outline btn-full" onclick="doSignOut()" data-i18n="btn_signout">Abmelden</button>
+      <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')" data-i18n="profile_privacy">Datenschutzerklärung</button>
     </div>
   </div>
 </div>
@@ -1170,6 +1182,243 @@ const auth = firebase.auth();
 const db   = firebase.database();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// I18N
+// ─────────────────────────────────────────────────────────────────────────────
+const LANG = {
+  de: {
+    nav_home: 'Events',
+    nav_friends: 'Freunde',
+    nav_create: 'Event erstellen',
+    btn_save: 'Änderungen speichern',
+    btn_signout: 'Abmelden',
+    btn_create_event: 'Event erstellen & teilen ✨',
+    home_my_events: 'Deine Events',
+    home_pending: 'Ausstehend',
+    home_past: 'Vergangene Events',
+    home_empty_my: 'Noch keine kommenden Events.',
+    home_empty_start: 'Noch keine Events. Erstelle dein erstes!',
+    status_dabei: 'Dabei',
+    status_vielleicht: 'Vielleicht',
+    status_nein: 'Nein',
+    rsvp_dabei: '✓ Dabei',
+    rsvp_vielleicht: '~ Vielleicht',
+    rsvp_nein: '✗ Nein',
+    att_nobody: 'Noch niemand',
+    att_dabei: '✅ Dabei',
+    att_vielleicht: '🤔 Vielleicht',
+    att_abgesagt: '❌ Abgesagt',
+    rsvp_hint_change: 'Antwort ändern? Einfach oben tippen.',
+    rsvp_your_answer: 'Deine Antwort',
+    rsvp_as: 'Als',
+    rsvp_your_name: 'Dein Name',
+    rsvp_name_placeholder: 'Wie heißt du?',
+    rsvp_send: 'Antwort senden',
+    rsvp_change_hint: 'Antwort ändern? Wähle oben.',
+    who_is_coming: 'Wer ist dabei',
+    create_title_label: 'Titel *',
+    create_title_placeholder: 'z.B. Grillabend 🔥',
+    create_date_label: 'Datum',
+    create_time_label: 'Uhrzeit',
+    create_location_label: 'Ort',
+    create_location_placeholder: 'z.B. Mauerpark, Berlin',
+    create_details_label: 'Details',
+    create_details_placeholder: 'Was erwartet die Gäste?',
+    create_invites_label: 'Freunde einladen',
+    create_invites_optional: '(optional)',
+    create_spaces_sublabel: '🏠 Friend Spaces',
+    create_friends_sublabel: '👤 Einzelne Freunde',
+    profile_title: 'Profil',
+    profile_name_label: 'Anzeigename',
+    profile_name_placeholder: 'Dein Name',
+    profile_username_label: 'Benutzername',
+    profile_location_label: 'Standort',
+    profile_location_placeholder: 'z.B. Berlin',
+    profile_email_label: 'E-Mail',
+    profile_share: 'Profil teilen 🔗',
+    profile_privacy: 'Datenschutzerklärung',
+    login_title: 'vivo',
+    login_email: 'E-Mail',
+    login_password: 'Passwort',
+    login_btn: 'Anmelden',
+    login_google: 'Mit Google anmelden',
+    login_no_account: 'Noch kein Konto?',
+    login_register_link: 'Registrieren',
+    register_title: 'Konto erstellen',
+    register_name: 'Dein Name',
+    register_btn: 'Konto erstellen',
+    register_has_account: 'Bereits ein Konto?',
+    register_login_link: 'Anmelden',
+    friends_title: 'Freunde',
+    friends_connect_label: 'Freund verbinden',
+    friends_username_placeholder: '@benutzername',
+    friends_connect_btn: 'Verbinden',
+    friends_my_label: 'Meine Freunde',
+    friends_spaces_label: 'Friend Spaces',
+    friends_create_space: 'Space erstellen',
+    friends_empty: 'Noch keine Freunde verbunden.',
+    toast_going: '🎉 Du bist dabei!',
+    toast_maybe: '~ Als Vielleicht eingetragen',
+    toast_declined: 'Schade, als Nein eingetragen',
+    toast_declined_guest: 'Eingetragen.',
+    toast_quick_nein: 'Als Nein eingetragen',
+    toast_profile_saved: 'Profil gespeichert ✓',
+    toast_link_copied: 'Link kopiert! 📋',
+    toast_event_deleted: 'Event gelöscht.',
+    toast_delete_error: 'Fehler beim Löschen.',
+    toast_rsvp_error: 'Fehler – bitte erneut versuchen.',
+    toast_rsvp_choose: 'Bitte wähle eine Antwort',
+    toast_name_required: 'Bitte gib deinen Namen ein',
+    toast_title_required: 'Bitte einen Titel eingeben',
+    ev_by: 'Von',
+    ev_add_calendar: 'Zum Kalender hinzufügen',
+    ev_share: 'Teilen',
+    ev_whatsapp: 'WhatsApp',
+    ev_copy_link: 'Link kopieren',
+    ev_delete: 'Event löschen',
+    ev_not_found: 'Event nicht gefunden.',
+    success_title: 'Event erstellt!',
+    success_share_wa: 'Via WhatsApp teilen',
+    success_copy: 'Link kopieren',
+    success_to_event: 'Zum Event',
+    success_home: 'Zur Startseite',
+    confirm_delete: 'Event wirklich löschen? Das kann nicht rückgängig gemacht werden.',
+    no_rsvps: 'Noch keine Rückmeldungen',
+    event_not_found_empty: 'Noch keine Events. Erstelle dein erstes!',
+    att_nobody_yet: 'Noch niemand',
+  },
+  en: {
+    nav_home: 'Events',
+    nav_friends: 'Friends',
+    nav_create: 'Create event',
+    btn_save: 'Save changes',
+    btn_signout: 'Sign out',
+    btn_create_event: 'Create & share event ✨',
+    home_my_events: 'Your Events',
+    home_pending: 'Pending',
+    home_past: 'Past Events',
+    home_empty_my: 'No upcoming events.',
+    home_empty_start: 'No events yet. Create your first!',
+    status_dabei: 'Going',
+    status_vielleicht: 'Maybe',
+    status_nein: 'Not going',
+    rsvp_dabei: '✓ Going',
+    rsvp_vielleicht: '~ Maybe',
+    rsvp_nein: '✗ Not going',
+    att_nobody: 'Nobody yet',
+    att_dabei: '✅ Going',
+    att_vielleicht: '🤔 Maybe',
+    att_abgesagt: '❌ Not going',
+    rsvp_hint_change: 'Change answer? Just tap above.',
+    rsvp_your_answer: 'Your Answer',
+    rsvp_as: 'As',
+    rsvp_your_name: 'Your name',
+    rsvp_name_placeholder: "What's your name?",
+    rsvp_send: 'Send reply',
+    rsvp_change_hint: 'Change answer? Select above.',
+    who_is_coming: "Who's coming",
+    create_title_label: 'Title *',
+    create_title_placeholder: 'e.g. BBQ night 🔥',
+    create_date_label: 'Date',
+    create_time_label: 'Time',
+    create_location_label: 'Location',
+    create_location_placeholder: 'e.g. Central Park, NYC',
+    create_details_label: 'Details',
+    create_details_placeholder: 'What can guests expect?',
+    create_invites_label: 'Invite friends',
+    create_invites_optional: '(optional)',
+    create_spaces_sublabel: '🏠 Friend Spaces',
+    create_friends_sublabel: '👤 Individual friends',
+    profile_title: 'Profile',
+    profile_name_label: 'Display name',
+    profile_name_placeholder: 'Your name',
+    profile_username_label: 'Username',
+    profile_location_label: 'Location',
+    profile_location_placeholder: 'e.g. Berlin',
+    profile_email_label: 'Email',
+    profile_share: 'Share profile 🔗',
+    profile_privacy: 'Privacy Policy',
+    login_title: 'vivo',
+    login_email: 'Email',
+    login_password: 'Password',
+    login_btn: 'Sign in',
+    login_google: 'Sign in with Google',
+    login_no_account: 'No account yet?',
+    login_register_link: 'Register',
+    register_title: 'Create account',
+    register_name: 'Your name',
+    register_btn: 'Create account',
+    register_has_account: 'Already have an account?',
+    register_login_link: 'Sign in',
+    friends_title: 'Friends',
+    friends_connect_label: 'Connect a friend',
+    friends_username_placeholder: '@username',
+    friends_connect_btn: 'Connect',
+    friends_my_label: 'My friends',
+    friends_spaces_label: 'Friend Spaces',
+    friends_create_space: 'Create space',
+    friends_empty: 'No friends connected yet.',
+    toast_going: '🎉 You\'re going!',
+    toast_maybe: '~ Marked as maybe',
+    toast_declined: 'Noted, marked as not going',
+    toast_declined_guest: 'Noted.',
+    toast_quick_nein: 'Marked as not going',
+    toast_profile_saved: 'Profile saved ✓',
+    toast_link_copied: 'Link copied! 📋',
+    toast_event_deleted: 'Event deleted.',
+    toast_delete_error: 'Error deleting.',
+    toast_rsvp_error: 'Error – please try again.',
+    toast_rsvp_choose: 'Please choose an answer',
+    toast_name_required: 'Please enter your name',
+    toast_title_required: 'Please enter a title',
+    ev_by: 'By',
+    ev_add_calendar: 'Add to calendar',
+    ev_share: 'Share',
+    ev_whatsapp: 'WhatsApp',
+    ev_copy_link: 'Copy link',
+    ev_delete: 'Delete event',
+    ev_not_found: 'Event not found.',
+    success_title: 'Event created!',
+    success_share_wa: 'Share via WhatsApp',
+    success_copy: 'Copy link',
+    success_to_event: 'Go to event',
+    success_home: 'Go home',
+    confirm_delete: 'Really delete this event? This cannot be undone.',
+    no_rsvps: 'No responses yet',
+    event_not_found_empty: 'No events yet. Create your first!',
+    att_nobody_yet: 'Nobody yet',
+  }
+};
+
+let _lang = localStorage.getItem('vivo_lang') || 'de';
+
+function t(key) {
+  return (LANG[_lang] && LANG[_lang][key]) || (LANG.de && LANG.de[key]) || key;
+}
+
+function applyLang() {
+  const btn = document.getElementById('lang-toggle');
+  if (btn) btn.textContent = _lang === 'de' ? '🇩🇪' : '🇬🇧';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key  = el.getAttribute('data-i18n');
+    const attr = el.getAttribute('data-i18n-attr');
+    if (attr) {
+      el.setAttribute(attr, t(key));
+    } else {
+      el.textContent = t(key);
+    }
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+}
+
+function toggleLang() {
+  _lang = _lang === 'de' ? 'en' : 'de';
+  localStorage.setItem('vivo_lang', _lang);
+  applyLang();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────────────────────────────────────
 let me           = null;  // current firebase user
@@ -1225,7 +1474,7 @@ auth.onAuthStateChanged(async user => {
     try {
       await db.ref('events/' + eventId + '/rsvps/' + rsvpKey).update({ userId: user.uid });
       await db.ref('userEvents/' + user.uid + '/' + eventId).set(status);
-      toast('🎉 Event ist jetzt in deinem Dashboard!');
+      toast(t('toast_going') + ' Event ist jetzt in deinem Dashboard!');
     } catch(e) { console.error('RSVP link error:', e); }
   }
 
@@ -1305,7 +1554,7 @@ function switchTab(mode) {
   const nameField = document.getElementById('name-field');
   nameField.style.display = mode === 'register' ? 'flex' : 'none';
   if (mode === 'login') document.getElementById('inp-name').value = '';
-  document.getElementById('auth-btn').textContent = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  document.getElementById('auth-btn').textContent = mode === 'login' ? t('login_btn') : t('register_btn');
   document.getElementById('dsgvo-hint').style.display = mode === 'register' ? 'block' : 'none';
   authErr('');
 }
@@ -1325,7 +1574,7 @@ async function handleAuth(e) {
       const name = document.getElementById('inp-name').value.trim();
       if (!name) {
         authErr('Bitte gib einen Anzeigenamen ein.');
-        btn.disabled = false; btn.textContent = 'Konto erstellen';
+        btn.disabled = false; btn.textContent = t('register_btn');
         return;
       }
       const c = await auth.createUserWithEmailAndPassword(email, pw);
@@ -1336,7 +1585,7 @@ async function handleAuth(e) {
   } catch (err) {
     authErr(fmtAuthErr(err.code, err.message));
     btn.disabled = false;
-    btn.textContent = authMode === 'login' ? 'Anmelden' : 'Konto erstellen';
+    btn.textContent = authMode === 'login' ? t('login_btn') : t('register_btn');
   }
 }
 
@@ -1418,13 +1667,15 @@ async function openProfileScreen() {
   document.getElementById('prof-name-inp').value  = me.displayName || '';
   document.getElementById('prof-email-inp').value = me.email || '';
   document.getElementById('save-prof-btn').disabled    = false;
-  document.getElementById('save-prof-btn').textContent = 'Änderungen speichern';
+  document.getElementById('save-prof-btn').textContent = t('btn_save');
   showUsernameHint('', '');
 
-  // Load current username from DB
-  const snap = await db.ref('users/' + me.uid + '/username').once('value');
-  _myUsername = snap.val() || null;
-  document.getElementById('prof-user-inp').value = _myUsername || '';
+  // Load current username + location from DB
+  const snap = await db.ref('users/' + me.uid).once('value');
+  const userData = snap.val() || {};
+  _myUsername = userData.username || null;
+  document.getElementById('prof-user-inp').value      = _myUsername || '';
+  document.getElementById('prof-location-inp').value  = userData.location || '';
   const shareBtn = document.getElementById('share-prof-btn');
   shareBtn.style.display = _myUsername ? '' : 'none';
 
@@ -1454,9 +1705,10 @@ function shareProfile() {
 }
 
 async function saveProfile() {
-  const name    = document.getElementById('prof-name-inp').value.trim();
-  const rawUser = document.getElementById('prof-user-inp').value.trim();
-  const btn     = document.getElementById('save-prof-btn');
+  const name     = document.getElementById('prof-name-inp').value.trim();
+  const rawUser  = document.getElementById('prof-user-inp').value.trim();
+  const location = document.getElementById('prof-location-inp').value.trim();
+  const btn      = document.getElementById('save-prof-btn');
 
   if (rawUser && rawUser.length < 3) {
     showUsernameHint('Mindestens 3 Zeichen', 'err'); return;
@@ -1470,7 +1722,7 @@ async function saveProfile() {
       const snap = await db.ref('usernames/' + rawUser).once('value');
       if (snap.exists() && snap.val() !== me.uid) {
         showUsernameHint('@' + rawUser + ' ist bereits vergeben', 'err');
-        btn.disabled = false; btn.textContent = 'Änderungen speichern';
+        btn.disabled = false; btn.textContent = t('btn_save');
         return;
       }
     }
@@ -1482,6 +1734,7 @@ async function saveProfile() {
     // Atomic batch: username index + user record
     const batch = {};
     batch['users/' + me.uid + '/displayName'] = displayName;
+    batch['users/' + me.uid + '/location']    = location || null;
     if (rawUser) {
       if (_myUsername && _myUsername !== rawUser) {
         batch['usernames/' + _myUsername] = null; // free old username
@@ -1494,7 +1747,7 @@ async function saveProfile() {
 
     setAvatar(me);
     document.getElementById('share-prof-btn').style.display = _myUsername ? '' : 'none';
-    toast('Profil gespeichert ✓');
+    toast(t('toast_profile_saved'));
     showScreen('home');
     loadHome();
   } catch(err) {
@@ -2048,7 +2301,7 @@ async function loadHome() {
 
     const ids = Object.keys(map);
     if (!ids.length) {
-      myEl.innerHTML = `<div class="empty"><div class="ei">🌱</div><p>Noch keine Events. Erstelle dein erstes!</p></div>`;
+      myEl.innerHTML = `<div class="empty"><div class="ei">🌱</div><p>${t('home_empty_start')}</p></div>`;
       pSec.style.display = 'none';
       pastSec.style.display = 'none';
       return;
@@ -2076,7 +2329,7 @@ async function loadHome() {
 
     myEl.innerHTML = myEvs.length
       ? myEvs.map(ev => cardHTML(ev, false)).join('')
-      : '<div class="empty"><div class="ei">🌱</div><p>Noch keine kommenden Events.</p></div>';
+      : `<div class="empty"><div class="ei">🌱</div><p>${t('home_empty_my')}</p></div>`;
 
     if (pEvs.length) {
       pSec.style.display = 'block';
@@ -2120,13 +2373,13 @@ function cardHTML(ev, showRsvp) {
   const chips = [
     ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${esc(r.name)}</span>`),
     ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${esc(r.name)}</span>`),
-  ].join('') || '<span style="font-size:.8125rem;color:var(--muted)">Noch keine Zusagen</span>';
+  ].join('') || `<span style="font-size:.8125rem;color:var(--muted)">${t('no_rsvps')}</span>`;
 
   const rsvpRow = showRsvp ? `
     <div class="inline-rsvp" onclick="event.stopPropagation()">
-      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','dabei')">✓ Dabei</button>
-      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','vielleicht')">~ Vielleicht</button>
-      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','nein')">✗ Nein</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','dabei')">${t('rsvp_dabei')}</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','vielleicht')">${t('rsvp_vielleicht')}</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','nein')">${t('rsvp_nein')}</button>
     </div>` : '';
 
   const delBtn = isCreator ? `
@@ -2165,23 +2418,23 @@ async function quickRsvp(eventId, status) {
   await ref.push({ name, status, userId: me.uid, ts: Date.now() });
   await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
   db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
-  toast({ dabei: '🎉 Du bist dabei!', vielleicht: '~ Als Vielleicht eingetragen', nein: 'Als Nein eingetragen' }[status]);
+  toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_quick_nein') }[status]);
 }
 
 async function deleteEvent(eventId, e) {
   e.stopPropagation();
   if (!me) return;
-  if (!confirm('Event wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
+  if (!confirm(t('confirm_delete'))) return;
 
   try {
     // Only delete paths the creator is allowed to write.
     // Other users' stale userEvents entries resolve to null gracefully in loadHome.
     await db.ref('events/' + eventId).remove();
     await db.ref('userEvents/' + me.uid + '/' + eventId).remove();
-    toast('Event gelöscht.');
+    toast(t('toast_event_deleted'));
   } catch(err) {
     console.error('deleteEvent:', err);
-    toast('Fehler beim Löschen.');
+    toast(t('toast_delete_error'));
   }
 }
 
@@ -2236,7 +2489,7 @@ async function createEvent() {
   if (!title) {
     titleEl.style.borderColor = 'var(--pink)';
     titleEl.focus();
-    toast('Bitte einen Titel eingeben');
+    toast(t('toast_title_required'));
     return;
   }
   titleEl.style.borderColor = '';
@@ -2323,7 +2576,7 @@ async function copyLink(id) {
   const link = evLink(id);
   try { await navigator.clipboard.writeText(link); }
   catch { fallbackCopy(link); }
-  toast('Link kopiert! 📋');
+  toast(t('toast_link_copied'));
 }
 
 function fallbackCopy(text) {
@@ -2349,7 +2602,7 @@ function loadEventScreen(id) {
   const ref = db.ref('events/' + id);
   const cb  = ref.on('value', snap => {
     if (!snap.exists()) {
-      body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Event nicht gefunden.</p></div>';
+      body.innerHTML = `<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>${t('ev_not_found')}</p></div>`;
       return;
     }
     const ev = { id: snap.key, ...snap.val() };
@@ -2392,7 +2645,7 @@ function renderEv(ev, body) {
         <span class="att-name">${esc(r.name)}</span>
       </div>
     </div>`;
-  const attEmpty = '<div class="att-sec-empty">Noch niemand</div>';
+  const attEmpty = `<div class="att-sec-empty">${t('att_nobody')}</div>`;
   const dabeiRows    = dabei.length ? dabei.map(mkRow).join('') : attEmpty;
   const vlRows       = vl.length   ? vl.map(mkRow).join('')    : attEmpty;
   const neinRows     = nein.length ? nein.map(mkRow).join('')   : attEmpty;
@@ -2401,33 +2654,33 @@ function renderEv(ev, body) {
 
   const rsvpSection = me ? `
     <div class="ev-sec" style="margin-top:8px">
-      <div class="ev-sec-title">Deine Antwort</div>
+      <div class="ev-sec-title">${t('rsvp_your_answer')}</div>
       <div class="rsvp-box">
-        <p class="rsvp-as-label">Als <strong>${esc(me.displayName || me.email.split('@')[0])}</strong></p>
+        <p class="rsvp-as-label">${t('rsvp_as')} <strong>${esc(me.displayName || me.email.split('@')[0])}</strong></p>
         <div class="rsvp-btns">
-          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>Dabei</button>
-          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>Vielleicht</button>
-          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>Nein</button>
+          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>${t('status_dabei')}</button>
+          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>${t('status_vielleicht')}</button>
+          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>${t('status_nein')}</button>
         </div>
-        ${myStatus ? '<p class="rsvp-hint">Antwort ändern? Einfach oben tippen.</p>' : ''}
+        ${myStatus ? `<p class="rsvp-hint">${t('rsvp_hint_change')}</p>` : ''}
       </div>
     </div>` : `
     <div class="ev-sec" style="margin-top:8px">
-      <div class="ev-sec-title">Deine Antwort</div>
+      <div class="ev-sec-title">${t('rsvp_your_answer')}</div>
       <div class="rsvp-box">
         <div class="rsvp-btns">
-          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>Dabei</button>
-          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>Vielleicht</button>
-          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>Nein</button>
+          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>${t('status_dabei')}</button>
+          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>${t('status_vielleicht')}</button>
+          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>${t('status_nein')}</button>
         </div>
         <div class="rsvp-name" id="rsvp-name">
           <div class="field">
-            <label>Dein Name</label>
-            <input type="text" id="rsvp-inp" placeholder="Wie heißt du?">
+            <label>${t('rsvp_your_name')}</label>
+            <input type="text" id="rsvp-inp" placeholder="${t('rsvp_name_placeholder')}">
           </div>
-          <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">Antwort senden</button>
+          <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">${t('rsvp_send')}</button>
         </div>
-        ${myStatus ? '<p class="rsvp-hint">Antwort ändern? Wähle oben.</p>' : ''}
+        ${myStatus ? `<p class="rsvp-hint">${t('rsvp_change_hint')}</p>` : ''}
       </div>
     </div>`;
 
@@ -2439,7 +2692,7 @@ function renderEv(ev, body) {
         <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtDate(ev.date, ev.time)}</span></div>
         ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
         ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
-        <div class="ev-row"><div class="ev-icon">👤</div><span>Von ${esc(ev.creatorName||'Jemand')}</span></div>
+        <div class="ev-row"><div class="ev-icon">👤</div><span>${t('ev_by')} ${esc(ev.creatorName||'Jemand')}</span></div>
       </div>
       ${isCreator ? `
       <button class="btn btn-outline btn-sm" style="margin-top:16px;color:var(--pink);border-color:var(--pink);gap:6px"
@@ -2448,27 +2701,27 @@ function renderEv(ev, body) {
           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
           <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
         </svg>
-        Event löschen
+        ${t('ev_delete')}
       </button>` : ''}
     </div>
 
     <div class="ev-sec">
-      <div class="ev-sec-title">✅ Dabei <span class="att-count">${dabei.length}</span></div>
+      <div class="ev-sec-title">${t('att_dabei')} <span class="att-count">${dabei.length}</span></div>
       <div class="att-list">${dabeiRows}</div>
     </div>
     <div class="ev-sec" style="margin-top:4px">
-      <div class="ev-sec-title">🤔 Vielleicht <span class="att-count">${vl.length}</span></div>
+      <div class="ev-sec-title">${t('att_vielleicht')} <span class="att-count">${vl.length}</span></div>
       <div class="att-list">${vlRows}</div>
     </div>
     <div class="ev-sec" style="margin-top:4px">
-      <div class="ev-sec-title">❌ Abgesagt <span class="att-count">${nein.length}</span></div>
+      <div class="ev-sec-title">${t('att_abgesagt')} <span class="att-count">${nein.length}</span></div>
       <div class="att-list">${neinRows}</div>
     </div>
 
     ${rsvpSection}
 
     <div class="ev-sec" style="margin-top:8px">
-      <div class="ev-sec-title">Zum Kalender hinzufügen</div>
+      <div class="ev-sec-title">${t('ev_add_calendar')}</div>
       <div class="cal-grid">
         <a href="${gcalLink(ev)}" target="_blank" class="cal-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -2482,10 +2735,10 @@ function renderEv(ev, body) {
     </div>
 
     <div class="ev-sec" style="margin-top:8px">
-      <div class="ev-sec-title">Teilen</div>
+      <div class="ev-sec-title">${t('ev_share')}</div>
       <div style="display:flex;gap:10px">
-        <button class="btn btn-outline" style="flex:1" onclick="shareEvWA()">WhatsApp</button>
-        <button class="btn btn-outline" style="flex:1" onclick="copyLink('${ev.id}')">Link kopieren</button>
+        <button class="btn btn-outline" style="flex:1" onclick="shareEvWA()">${t('ev_whatsapp')}</button>
+        <button class="btn btn-outline" style="flex:1" onclick="copyLink('${ev.id}')">${t('ev_copy_link')}</button>
       </div>
     </div>
     <div style="height:40px"></div>`;
@@ -2509,7 +2762,7 @@ async function pickRsvp(status) {
 
 async function submitRsvp(eventId) {
   const status = _rsvpStatus; // capture before async work — renderEv can reset _rsvpStatus mid-flight
-  if (!status) { toast('Bitte wähle eine Antwort'); return; }
+  if (!status) { toast(t('toast_rsvp_choose')); return; }
 
   let name;
   if (me) {
@@ -2517,7 +2770,7 @@ async function submitRsvp(eventId) {
   } else {
     const inp = document.getElementById('rsvp-inp');
     name = inp ? inp.value.trim() : '';
-    if (!name) { toast('Bitte gib deinen Namen ein'); if(inp) inp.focus(); return; }
+    if (!name) { toast(t('toast_name_required')); if(inp) inp.focus(); return; }
   }
 
   const btn = document.querySelector('.rsvp-box .btn-primary');
@@ -2549,15 +2802,15 @@ async function submitRsvp(eventId) {
 
     if (!me) {
       _pendingRsvp = { eventId, rsvpKey, status, name };
-      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Eingetragen.' }[status]);
+      toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined_guest') }[status]);
       setTimeout(showSignupUpsell, 700);
     } else {
-      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[status]);
+      toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined') }[status]);
     }
   } catch(err) {
     console.error('submitRsvp:', err);
-    toast('Fehler – bitte erneut versuchen.');
-    if (btn) { btn.disabled = false; btn.textContent = 'Antwort senden'; }
+    toast(t('toast_rsvp_error'));
+    if (btn) { btn.disabled = false; btn.textContent = t('rsvp_send'); }
   }
 }
 
@@ -2660,6 +2913,7 @@ function toast(msg) {
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
+applyLang();
 initEmojiGrid();
 
 // Wire up create button via addEventListener (more reliable than inline onclick)
