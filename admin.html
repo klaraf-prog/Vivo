@@ -285,11 +285,6 @@
         <div class="metric-label">Aktive Events</div>
         <div class="metric-sub">in der Zukunft</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-icon">🤝</div>
-        <div class="metric-value" id="m-friendships">—</div>
-        <div class="metric-label">Freundschaften</div>
-      </div>
     </div>
 
     <!-- RSVP breakdown -->
@@ -420,10 +415,9 @@ async function loadMetrics() {
   try {
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-    const [usersSnap, eventsSnap, friendsSnap] = await Promise.all([
+    const [usersSnap, eventsSnap] = await Promise.all([
       db.ref('users').once('value'),
       db.ref('events').once('value'),
-      db.ref('friends').once('value'),
     ]);
 
     // ── USERS ────────────────────────────────────────────────────────────────
@@ -440,11 +434,6 @@ async function loadMetrics() {
     set('m-new-users-sub', hasCreatedAt ? '' : 'Kein createdAt gespeichert');
 
     // ── FRIENDSHIPS ──────────────────────────────────────────────────────────
-    const friendsVal = friendsSnap.val() || {};
-    // Each friendship is stored twice (A→B and B→A), so divide by 2
-    let friendEdges = 0;
-    Object.values(friendsVal).forEach(f => { friendEdges += Object.keys(f).length; });
-    set('m-friendships', Math.floor(friendEdges / 2));
 
     // ── EVENTS ───────────────────────────────────────────────────────────────
     const eventsVal = eventsSnap.val() || {};
