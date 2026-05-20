@@ -142,6 +142,49 @@
       background: linear-gradient(to top, var(--bg) 65%, transparent);
     }
     .prof-foot .inner { max-width: var(--max); margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Settings screen ─────────────────────────────────────── */
+    #screen-settings { align-items: stretch; }
+    .settings-body {
+      flex: 1; overflow-y: auto;
+      padding: 0 20px 120px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+      display: flex; flex-direction: column; gap: 0;
+      box-sizing: border-box;
+    }
+    .settings-section { margin-bottom: 28px; }
+    .settings-section-title {
+      font-size: .75rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      margin: 0 0 4px; padding: 20px 0 8px;
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 0; border-bottom: 1px solid var(--border); gap: 16px;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .settings-row-label span { font-size: .9375rem; }
+    .settings-row-label small { font-size: .8125rem; color: var(--muted); line-height: 1.3; }
+    /* Toggle switch */
+    .toggle { position: relative; display: inline-block; width: 46px; height: 27px; flex-shrink: 0; cursor: pointer; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0; background: var(--border);
+      border-radius: 14px; transition: background .2s;
+    }
+    .toggle-track::before {
+      content: ''; position: absolute;
+      width: 21px; height: 21px; left: 3px; top: 3px;
+      background: #fff; border-radius: 50%;
+      transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+    }
+    .toggle input:checked + .toggle-track { background: var(--pink); }
+    .toggle input:checked + .toggle-track::before { transform: translateX(19px); }
+    .toggle input:disabled + .toggle-track { opacity: .45; cursor: default; }
+    .settings-email-field { display: none; padding: 12px 0 4px; }
+    .settings-email-field.open { display: block; }
+    .settings-denied-hint { font-size: .8125rem; color: var(--pink); margin-top: 6px; display: none; }
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
 
@@ -896,6 +939,10 @@
     </button>
     <button class="btn btn-ghost btn-full" onclick="goHome()" data-i18n="success_home">Zur Startseite</button>
   </div>
+  <div id="notif-prompt" style="display:none;width:100%;margin-top:20px;padding:16px 18px;background:var(--card);border-radius:14px;text-align:left;box-sizing:border-box">
+    <p style="margin:0 0 12px;font-size:0.9rem;line-height:1.45;color:var(--text)">🔔 <strong>Erhalte eine Benachrichtigung wenn Freunde zusagen</strong></p>
+    <button class="btn btn-outline btn-full" onclick="enableNotifs()">Benachrichtigungen aktivieren</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════ EVENT VIEW ═══════════════════════════ -->
@@ -963,8 +1010,99 @@
     <div class="inner">
       <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()" data-i18n="btn_save">Änderungen speichern</button>
       <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none" data-i18n="profile_share">Profil teilen 🔗</button>
+      <button class="btn btn-outline btn-full" onclick="openSettingsScreen()">⚙️ Einstellungen</button>
       <button class="btn btn-outline btn-full" onclick="doSignOut()" data-i18n="btn_signout">Abmelden</button>
       <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')" data-i18n="profile_privacy">Datenschutzerklärung</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SETTINGS ═══════════════════════════ -->
+<div id="screen-settings" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="showScreen('profile')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Einstellungen</h1>
+  </div>
+
+  <div class="settings-body">
+
+    <!-- Push Notifications -->
+    <div class="settings-section">
+      <p class="settings-section-title">Push-Benachrichtigungen</p>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span>Push aktivieren</span>
+          <small>Benachrichtigungen im Browser</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-push-enabled" onchange="onPushToggle(this)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <p class="settings-denied-hint" id="s-push-denied">Push-Benachrichtigungen wurden im Browser blockiert. Bitte in den Browser-Einstellungen erlauben.</p>
+    </div>
+
+    <!-- E-Mail Notifications -->
+    <div class="settings-section">
+      <p class="settings-section-title">E-Mail-Benachrichtigungen</p>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span>E-Mail aktivieren</span>
+          <small>Benachrichtigungen per E-Mail erhalten</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-email-enabled" onchange="onEmailToggle(this)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-email-field" id="s-email-wrap">
+        <div class="field" style="margin:0">
+          <label>E-Mail-Adresse</label>
+          <input type="email" id="s-email-inp" placeholder="deine@email.de" autocomplete="email">
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Types -->
+    <div class="settings-section">
+      <p class="settings-section-title">Benachrichtigungstypen</p>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Event-Einladungen</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-invites" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Zusagen zu meinen Events</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-rsvps" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Event-Änderungen</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-changes" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span>Neue Freunde</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-friends" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="prof-foot">
+    <div class="inner">
+      <button class="btn btn-primary btn-full" id="save-settings-btn" onclick="saveSettings()">Speichern</button>
     </div>
   </div>
 </div>
@@ -1459,6 +1597,10 @@ let _selectedSpaces   = new Set(); // space IDs selected during event creation
 let _selectedFriends  = new Set(); // friend UIDs selected during event creation
 let _spacesOff        = null;  // real-time spaces listener cleanup
 let _spaceEvOff       = null;  // space events view listener cleanup
+let _swRegistration   = null;  // ServiceWorker registration
+let _notifOff         = null;  // notifications RTDB listener cleanup
+let _startTimers      = [];    // setTimeout handles for "event starts in 2h"
+let _settings         = null;  // cached users/{uid}/settings from Firebase
 
 const EMOJI_CATEGORIES = [
   { icon: '😀', label: 'Smileys & People', emojis: [
@@ -1549,6 +1691,145 @@ auth.getRedirectResult().catch(err => {
   }
 });
 
+// ─── Push Notifications ─────────────────────────────────────────────────────
+
+(async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    _swRegistration = await navigator.serviceWorker.register('/sw.js');
+  } catch(e) { console.warn('SW:', e); }
+})();
+
+async function requestNotifPermission() {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  await Notification.requestPermission();
+}
+
+async function enableNotifs() {
+  document.getElementById('notif-prompt').style.display = 'none';
+  await requestNotifPermission();
+}
+
+async function showNotif(title, body, url = '/') {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: null, data: { url }, tag: title, renotify: false };
+  try {
+    if (_swRegistration) {
+      await _swRegistration.showNotification(title, opts);
+    } else {
+      new Notification(title, opts);
+    }
+  } catch(e) { console.warn('showNotif:', e); }
+}
+
+async function notifyUser(uid, type, title, body, url = '/') {
+  if (!uid || !me) return;
+
+  const typeMap = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
+  const typeKey = typeMap[type];
+
+  // Read recipient's settings before sending anything.
+  // Fail open: if the read fails (e.g. Firebase rules not yet updated), send anyway.
+  let s = {};
+  try {
+    const snap = await db.ref('users/' + uid + '/settings').once('value');
+    s = snap.val() || {};
+  } catch(e) { console.warn('notifyUser: could not read settings for', uid, e); }
+
+  // Push notification
+  const pushOn  = s.pushEnabled  !== false;
+  const typeOn  = !typeKey || !(s.types) || s.types[typeKey] !== false;
+  if (pushOn && typeOn) {
+    db.ref('notifications/' + uid).push({ type, title, body, url, ts: Date.now() })
+      .catch(e => console.warn('notifyUser push write:', e));
+  }
+
+  // Email notification via Netlify Function
+  if (s.emailEnabled && typeOn && s.emailAddress) {
+    me.getIdToken().then(idToken =>
+      fetch('/.netlify/functions/send-email', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+        body:    JSON.stringify({
+          recipientUid: uid,
+          type,
+          title,
+          body,
+          url,
+          senderName: me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+        }),
+      })
+    ).catch(e => console.warn('send-email function:', e));
+  }
+}
+
+function startNotifListener() {
+  if (!me || _notifOff) return;
+  const loginTs = Date.now();
+  const ref = db.ref('notifications/' + me.uid).orderByChild('ts').startAt(loginTs);
+  const cb = ref.on('child_added', async snap => {
+    const d = snap.val();
+    if (!d) return;
+    if (shouldShowNotif(d.type)) await showNotif(d.title, d.body, d.url);
+    snap.ref.remove().catch(() => {});
+  });
+  _notifOff = () => ref.off('child_added', cb);
+}
+
+function stopNotifListener() {
+  if (_notifOff) { _notifOff(); _notifOff = null; }
+  _startTimers.forEach(clearTimeout);
+  _startTimers = [];
+}
+
+function shouldShowNotif(type) {
+  if (!_settings) return true;
+  if (_settings.pushEnabled === false) return false;
+  const types = _settings.types || {};
+  const map = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
+  const key = map[type];
+  return key ? types[key] !== false : true;
+}
+
+function scheduleEventStartNotifs(events) {
+  _startTimers.forEach(clearTimeout);
+  _startTimers = [];
+  const now = Date.now();
+  events.forEach(ev => {
+    if (!ev.date || !ev.time) return;
+    const evStart = new Date(ev.date + 'T' + ev.time).getTime();
+    const fireAt  = evStart - 2 * 60 * 60 * 1000; // 2 h before
+    const delay   = fireAt - now;
+    if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // only schedule if within 24 h
+      _startTimers.push(setTimeout(() => {
+        const title = "⏰ Bald geht's los!";
+        const body  = `„${ev.title}" startet in 2 Stunden`;
+        const url   = `/#event/${ev.id}`;
+        showNotif(title, body, url);
+        // Email to self — check settings + send via Netlify Function
+        if (me && _settings?.emailEnabled) {
+          me.getIdToken().then(idToken =>
+            fetch('/.netlify/functions/send-email', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+              body:    JSON.stringify({
+                recipientUid: me.uid,
+                type:         'event_start',
+                title,
+                body,
+                url,
+                senderName:   me.displayName || (me.email ? me.email.split('@')[0] : 'vivo'),
+              }),
+            })
+          ).catch(() => {});
+        }
+      }, delay));
+    }
+  });
+}
+
+// ─── Auth listener ──────────────────────────────────────────────────────────
+
 auth.onAuthStateChanged(async user => {
   me = user;
   document.getElementById('loading').style.display = 'none';
@@ -1602,6 +1883,15 @@ auth.onAuthStateChanged(async user => {
       await db.ref().update(batch);
       toast('🏠 ' + spaceName + ' beigetreten!');
     } catch(e) { console.error('pendingSpaceJoin error:', e); }
+  }
+
+  if (user) {
+    startNotifListener();
+    db.ref('users/' + user.uid + '/settings').once('value')
+      .then(s => { _settings = s.val() || {}; }).catch(() => {});
+  } else {
+    _settings = null;
+    stopNotifListener();
   }
 
   const r = route();
@@ -1759,6 +2049,97 @@ function applyAvatar(el, user, size) {
 function setAvatar(user) {
   applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
 }
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+async function openSettingsScreen() {
+  if (!me) return;
+  // Load latest settings from DB
+  const snap = await db.ref('users/' + me.uid + '/settings').once('value');
+  const s = snap.val() || {};
+  _settings = s;
+
+  // Push toggle — reflect actual permission state too
+  const pushGranted  = 'Notification' in window && Notification.permission === 'granted';
+  const pushDenied   = 'Notification' in window && Notification.permission === 'denied';
+  const pushOn = pushGranted && s.pushEnabled !== false;
+  document.getElementById('s-push-enabled').checked  = pushOn;
+  document.getElementById('s-push-enabled').disabled  = pushDenied;
+  document.getElementById('s-push-denied').style.display = pushDenied ? 'block' : 'none';
+
+  // Email toggle + field
+  const emailOn = s.emailEnabled === true;
+  document.getElementById('s-email-enabled').checked = emailOn;
+  document.getElementById('s-email-wrap').classList.toggle('open', emailOn);
+  document.getElementById('s-email-inp').value = s.emailAddress || (me.email || '');
+
+  // Notification types (default all on)
+  const types = s.types || {};
+  document.getElementById('s-type-invites').checked  = types.invites       !== false;
+  document.getElementById('s-type-rsvps').checked    = types.rsvps         !== false;
+  document.getElementById('s-type-changes').checked  = types.eventChanges  !== false;
+  document.getElementById('s-type-friends').checked  = types.newFriends    !== false;
+
+  showScreen('settings');
+}
+
+function onPushToggle(el) {
+  if (!el.checked) return; // turning off is always allowed
+  if (!('Notification' in window)) { el.checked = false; return; }
+  if (Notification.permission === 'denied') {
+    el.checked = false;
+    document.getElementById('s-push-denied').style.display = 'block';
+    return;
+  }
+  if (Notification.permission === 'default') {
+    el.checked = false; // will re-check if granted
+    Notification.requestPermission().then(result => {
+      el.checked = result === 'granted';
+      document.getElementById('s-push-denied').style.display =
+        result === 'denied' ? 'block' : 'none';
+    });
+  }
+}
+
+function onEmailToggle(el) {
+  document.getElementById('s-email-wrap').classList.toggle('open', el.checked);
+}
+
+async function saveSettings() {
+  if (!me) return;
+  const btn = document.getElementById('save-settings-btn');
+  btn.disabled = true; btn.textContent = 'Speichern…';
+
+  const pushOn  = document.getElementById('s-push-enabled').checked;
+  const emailOn = document.getElementById('s-email-enabled').checked;
+  const email   = document.getElementById('s-email-inp').value.trim();
+
+  const settings = {
+    pushEnabled:  pushOn,
+    emailEnabled: emailOn,
+    emailAddress: emailOn && email ? email : (me.email || null),
+    types: {
+      invites:      document.getElementById('s-type-invites').checked,
+      rsvps:        document.getElementById('s-type-rsvps').checked,
+      eventChanges: document.getElementById('s-type-changes').checked,
+      newFriends:   document.getElementById('s-type-friends').checked,
+    },
+  };
+
+  try {
+    await db.ref('users/' + me.uid + '/settings').set(settings);
+    _settings = settings;
+    toast('Einstellungen gespeichert');
+    showScreen('profile');
+  } catch(err) {
+    console.error('saveSettings:', err);
+    toast('Fehler beim Speichern');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Speichern';
+  }
+}
+
+// ─── Profile ─────────────────────────────────────────────────────────────────
 
 async function openProfileScreen() {
   if (!me) return;
@@ -2001,6 +2382,12 @@ async function connectUser(theirUid, theirUsername, theirName) {
     batch['friends/' + theirUid + '/' + me.uid]  = true;
     await db.ref().update(batch);
     toast('🤝 Verbunden mit ' + theirName + '!');
+    const myName = me.displayName || me.email.split('@')[0];
+    notifyUser(theirUid, 'friend',
+      `${myName} hat dich als Freund hinzugefügt 🤝`,
+      'Ihr seid jetzt auf vivo verbunden',
+      `/#u/${_myUsername || ''}`
+    );
     loadPubProfile(theirUsername);
   } catch(err) {
     console.error('connectUser:', err);
@@ -2464,6 +2851,8 @@ async function loadHome() {
     const desc = (a, b) => -asc(a, b);
     myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
 
+    scheduleEventStartNotifs([...myEvs, ...pEvs]);
+
     myEl.innerHTML = myEvs.length
       ? myEvs.map(ev => cardHTML(ev, false)).join('')
       : `<div class="empty"><div class="ei">🌱</div><p>${t('home_empty_my')}</p></div>`;
@@ -2646,7 +3035,8 @@ async function updateEvent() {
   btn.disabled = true; btn.textContent = '…';
 
   try {
-    await db.ref('events/' + _editEventId).update({
+    const editId = _editEventId;
+    await db.ref('events/' + editId).update({
       emoji:    pickedEmoji,
       title,
       date:     document.getElementById('ev-date').value || new Date().toISOString().split('T')[0],
@@ -2655,9 +3045,23 @@ async function updateEvent() {
       details:  document.getElementById('ev-details').value.trim()  || null,
     });
     toast(t('toast_event_saved'));
-    const id = _editEventId;
+
+    // Notify attendees (dabei / vielleicht) about the edit
+    try {
+      const rSnap = await db.ref('events/' + editId + '/rsvps').once('value');
+      rSnap.forEach(child => {
+        const r = child.val();
+        if (r.userId && r.userId !== me.uid && r.status !== 'nein') {
+          notifyUser(r.userId, 'event_edited',
+            '✏️ Event wurde bearbeitet',
+            `„${title}" wurde aktualisiert`,
+            `/#event/${editId}`
+          );
+        }
+      });
+    } catch(e) { /* non-critical */ }
     _editMode = false; _editEventId = null;
-    location.hash = 'event/' + id;
+    location.hash = 'event/' + editId;
     showScreen('event');
     loadEventScreen(id);
   } catch(err) {
@@ -2725,13 +3129,24 @@ async function createEvent() {
       }
     }
     if (me && _selectedFriends.size > 0) {
+      const myName = me.displayName || me.email.split('@')[0];
       await Promise.all([..._selectedFriends].map(uid =>
         db.ref('invites/' + uid + '/' + createdId).set(true)
           .catch(e => console.warn('invite write failed for', uid, e))
       ));
+      // Notify each invited friend
+      _selectedFriends.forEach(uid => {
+        notifyUser(uid, 'invite',
+          `${myName} hat dich eingeladen`,
+          `zum Event „${title}"`,
+          `/#event/${createdId}`
+        );
+      });
     }
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
+    const np = document.getElementById('notif-prompt');
+    if (np) np.style.display = ('Notification' in window && Notification.permission === 'default') ? 'block' : 'none';
     showScreen('success');
   } catch(err) {
     console.error('createEvent error:', err);
@@ -2997,6 +3412,21 @@ async function submitRsvp(eventId) {
     if (me) {
       await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
       db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
+
+      // Notify event creator when someone RSVPs
+      try {
+        const evSnap = await db.ref('events/' + eventId).once('value');
+        const evData = evSnap.val();
+        if (evData && evData.createdBy && evData.createdBy !== me.uid) {
+          const myName = me.displayName || me.email.split('@')[0];
+          const label  = { dabei: 'zugesagt ✅', vielleicht: 'vielleicht 🤔', nein: 'abgesagt ❌' }[status];
+          notifyUser(evData.createdBy, 'rsvp',
+            `${myName} hat ${label}`,
+            `zu deinem Event „${evData.title}"`,
+            `/#event/${eventId}`
+          );
+        }
+      } catch(e) { /* non-critical */ }
     }
 
     const ns = document.getElementById('rsvp-name');
