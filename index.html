@@ -202,10 +202,6 @@
     .poll-bar-wrap { background:var(--bg); border-radius:6px; height:6px; margin-top:8px; }
     .poll-bar { background:var(--amber); border-radius:6px; height:6px; transition:width .3s; }
     .poll-card-actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; }
-    .poll-anon-foot { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
-    .poll-anon-foot .field { margin-bottom:6px; }
-    .poll-anon-foot input { width:100%; padding:11px 12px; border:1.5px solid var(--border); border-radius:var(--r-sm); font-size:.9375rem; color:var(--text); background:#fff; box-sizing:border-box; }
-    .poll-anon-foot input:focus { outline:none; border-color:var(--amber); }
     .link-btn { background:none; border:none; padding:0; color:var(--amber); font-weight:600; cursor:pointer; font-size:inherit; text-decoration:underline; }
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
@@ -3297,10 +3293,28 @@ function buildPollSection(ev) {
   const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
   const totalVoters = allVoterIds.size;
 
-  // Detect own votes — uid for logged-in, localStorage session ID for anonymous
+  // Detect own votes — uid for logged-in, localStorage session ID for anonymous.
+  // Read from the already-loaded snapshot (window._ev) so no extra Firebase read is needed.
   const voterKey = me ? me.uid : getPollSessionId();
   const myVotes = new Set();
   options.forEach(([optId, o]) => { if (o.votes && o.votes[voterKey]) myVotes.add(optId); });
+
+  // Name input shown ABOVE the options for anonymous users — mirrors the anonymous RSVP UX
+  const anonName = !me ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
+  const anonHeader = !me ? `
+    <div class="rsvp-box" style="margin-bottom:12px">
+      <p class="rsvp-as-label" style="margin-bottom:8px">Abstimmen als…</p>
+      <div class="field" style="margin-bottom:8px">
+        <input type="text" id="poll-anon-inp" value="${esc(anonName)}"
+          placeholder="Dein Name, z.B. Max Mustermann"
+          oninput="localStorage.setItem('vivo_poll_anon_name',this.value)"
+          style="padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9375rem;color:var(--text);background:#fff;width:100%;box-sizing:border-box">
+      </div>
+      <p style="font-size:.8125rem;color:var(--muted);margin:0;text-align:center">
+        oder <button class="link-btn" onclick="showLoginForPoll()">einloggen</button>
+        — dann wird dein Name automatisch verwendet
+      </p>
+    </div>` : '';
 
   const cards = options.map(([optId, opt]) => {
     const voteCount = opt.votes ? Object.keys(opt.votes).length : 0;
@@ -3329,58 +3343,64 @@ function buildPollSection(ev) {
     </div>`;
   }).join('');
 
-  // Footer: name input for anonymous users + optional login link
-  const anonName = !me ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
-  const anonFoot = !me ? `
-    <div class="poll-anon-foot">
-      <div class="field">
-        <label style="font-size:.8125rem;font-weight:600">Dein Name</label>
-        <input type="text" id="poll-anon-inp" value="${esc(anonName)}" placeholder="z.B. Max Mustermann"
-          oninput="localStorage.setItem('vivo_poll_anon_name',this.value)">
-      </div>
-      <p style="font-size:.8125rem;color:var(--muted);margin:0;text-align:center">
-        oder <button class="link-btn" onclick="showLoginForPoll()">einloggen</button>
-        — dann wird dein Name automatisch verwendet
-      </p>
-    </div>` : '';
-
   return `
   <div class="ev-sec" style="margin-top:8px">
     <div class="ev-sec-title">Termin abstimmen <span class="att-count">${totalVoters}</span></div>
+    ${anonHeader}
     ${cards || '<div class="att-sec-empty">Noch keine Optionen</div>'}
-    ${anonFoot}
   </div>`;
 }
 
 async function togglePollVote(eventId, optionId) {
   const voterKey = me ? me.uid : getPollSessionId();
-  const voteRef = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
+  const voteRef  = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
+
+  // Use already-loaded snapshot to determine voted state — avoids an extra Firebase read
+  // that could fail for unauthenticated users depending on security rules.
+  const alreadyVoted = !!(window._ev?.poll?.options?.[optionId]?.votes?.[voterKey]);
 
   if (!me) {
     const nameInp = document.getElementById('poll-anon-inp');
     const name = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
-    const snap = await voteRef.once('value');
-    if (snap.exists()) {
-      await voteRef.remove();
-    } else {
-      if (!name) {
-        if (nameInp) {
-          nameInp.focus();
-          nameInp.style.borderColor = 'var(--pink)';
-          setTimeout(() => { nameInp.style.borderColor = ''; }, 2000);
-        }
-        toast('Bitte gib deinen Namen ein');
-        return;
+
+    if (alreadyVoted) {
+      try {
+        await voteRef.remove();
+      } catch(e) {
+        console.error('poll unvote error:', e);
+        toast('Fehler beim Entfernen der Stimme');
       }
+      return;
+    }
+
+    if (!name) {
+      if (nameInp) {
+        nameInp.focus();
+        nameInp.style.borderColor = 'var(--pink)';
+        nameInp.style.outline = 'none';
+        setTimeout(() => { nameInp.style.borderColor = ''; }, 2500);
+      }
+      toast('Bitte gib zuerst deinen Namen ein');
+      return;
+    }
+
+    try {
       localStorage.setItem('vivo_poll_anon_name', name);
       await voteRef.set({ name, ts: Date.now() });
+    } catch(e) {
+      console.error('poll vote error:', e);
+      toast('Fehler beim Abstimmen' + (e.code ? ': ' + e.code : ''));
     }
   } else {
-    const snap = await voteRef.once('value');
-    if (snap.exists()) {
-      await voteRef.remove();
-    } else {
-      await voteRef.set(true);
+    try {
+      if (alreadyVoted) {
+        await voteRef.remove();
+      } else {
+        await voteRef.set(true);
+      }
+    } catch(e) {
+      console.error('poll vote error:', e);
+      toast('Fehler beim Abstimmen');
     }
   }
 }
