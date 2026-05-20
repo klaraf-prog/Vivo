@@ -899,6 +899,10 @@
     </button>
     <button class="btn btn-ghost btn-full" onclick="goHome()" data-i18n="success_home">Zur Startseite</button>
   </div>
+  <div id="notif-prompt" style="display:none;width:100%;margin-top:20px;padding:16px 18px;background:var(--card);border-radius:14px;text-align:left;box-sizing:border-box">
+    <p style="margin:0 0 12px;font-size:0.9rem;line-height:1.45;color:var(--text)">🔔 <strong>Erhalte eine Benachrichtigung wenn Freunde zusagen</strong></p>
+    <button class="btn btn-outline btn-full" onclick="enableNotifs()">Benachrichtigungen aktivieren</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════ EVENT VIEW ═══════════════════════════ -->
@@ -1569,6 +1573,11 @@ async function requestNotifPermission() {
   await Notification.requestPermission();
 }
 
+async function enableNotifs() {
+  document.getElementById('notif-prompt').style.display = 'none';
+  await requestNotifPermission();
+}
+
 async function showNotif(title, body, url = '/') {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const opts = { body, icon: null, data: { url }, tag: title, renotify: false };
@@ -1683,7 +1692,6 @@ auth.onAuthStateChanged(async user => {
 
   if (user) {
     startNotifListener();
-    setTimeout(requestNotifPermission, 1500);
   } else {
     stopNotifListener();
   }
@@ -2848,6 +2856,8 @@ async function createEvent() {
     }
 
     document.getElementById('suc-emoji').textContent = pickedEmoji;
+    const np = document.getElementById('notif-prompt');
+    if (np) np.style.display = ('Notification' in window && Notification.permission === 'default') ? 'block' : 'none';
     showScreen('success');
   } catch(err) {
     console.error('createEvent error:', err);
