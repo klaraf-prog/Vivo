@@ -98,22 +98,18 @@
       color: var(--muted);
     }
     .logout-btn:hover { color: var(--pink); border-color: var(--pink); }
-    .last-updated {
-      font-size: .8125rem; color: var(--muted);
-    }
+    .last-updated { font-size: .8125rem; color: var(--muted); }
 
     .page-content {
       max-width: 1100px; margin: 0 auto;
       padding: 32px 24px 60px;
     }
-    .page-title {
-      font-size: 1.5rem; font-weight: 700; margin-bottom: 24px;
-    }
+    .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 24px; }
 
     /* ── METRIC CARDS ── */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 16px; margin-bottom: 32px;
     }
     .metric-card {
@@ -121,24 +117,29 @@
       padding: 22px 24px; box-shadow: var(--shadow);
       display: flex; flex-direction: column; gap: 6px;
     }
-    .metric-icon {
-      font-size: 1.5rem; margin-bottom: 4px;
+    .metric-icon  { font-size: 1.5rem; margin-bottom: 4px; }
+    .metric-value { font-size: 2.25rem; font-weight: 700; letter-spacing: -.5px; line-height: 1; }
+    .metric-label { font-size: .875rem; color: var(--muted); font-weight: 500; }
+    .metric-sub   { font-size: .8125rem; color: var(--muted); margin-top: 2px; }
+    .metric-card.amber  .metric-value { color: var(--amber); }
+    .metric-card.green  .metric-value { color: var(--green); }
+    .metric-card.blue   .metric-value { color: var(--blue);  }
+    .metric-card.purple .metric-value { color: var(--purple);}
+    .metric-card.pink   .metric-value { color: var(--pink);  }
+
+    /* ── CHARTS ── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 32px;
     }
-    .metric-value {
-      font-size: 2.25rem; font-weight: 700; letter-spacing: -.5px;
-      line-height: 1;
+    .chart-card {
+      background: var(--card); border-radius: 16px;
+      padding: 22px 24px; box-shadow: var(--shadow);
     }
-    .metric-label {
-      font-size: .875rem; color: var(--muted); font-weight: 500;
-    }
-    .metric-sub {
-      font-size: .8125rem; color: var(--muted); margin-top: 2px;
-    }
-    .metric-card.amber .metric-value { color: var(--amber); }
-    .metric-card.green .metric-value { color: var(--green); }
-    .metric-card.blue  .metric-value { color: var(--blue);  }
-    .metric-card.purple .metric-value { color: var(--purple); }
-    .metric-card.pink  .metric-value { color: var(--pink);  }
+    .chart-card.full { grid-column: 1 / -1; }
+    .chart-card h3   { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+    .chart-wrap      { position: relative; height: 190px; }
 
     /* ── RSVP BREAKDOWN ── */
     .rsvp-breakdown {
@@ -146,31 +147,16 @@
       padding: 22px 24px; box-shadow: var(--shadow);
       margin-bottom: 32px;
     }
-    .rsvp-breakdown h3 {
-      font-size: 1rem; font-weight: 600; margin-bottom: 16px;
-    }
+    .rsvp-breakdown h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
     .rsvp-bars { display: flex; flex-direction: column; gap: 10px; }
-    .rsvp-bar-row {
-      display: flex; align-items: center; gap: 12px;
-    }
-    .rsvp-bar-label {
-      font-size: .875rem; width: 80px; flex-shrink: 0;
-    }
-    .rsvp-bar-track {
-      flex: 1; height: 10px; border-radius: 99px;
-      background: var(--bg); overflow: hidden;
-    }
-    .rsvp-bar-fill {
-      height: 100%; border-radius: 99px;
-      transition: width .6s ease;
-    }
-    .rsvp-bar-fill.dabei     { background: var(--green); }
-    .rsvp-bar-fill.vielleicht{ background: var(--amber); }
-    .rsvp-bar-fill.nein      { background: var(--pink);  }
-    .rsvp-bar-count {
-      font-size: .875rem; font-weight: 600; width: 40px;
-      text-align: right; flex-shrink: 0;
-    }
+    .rsvp-bar-row { display: flex; align-items: center; gap: 12px; }
+    .rsvp-bar-label  { font-size: .875rem; width: 80px; flex-shrink: 0; }
+    .rsvp-bar-track  { flex: 1; height: 10px; border-radius: 99px; background: var(--bg); overflow: hidden; }
+    .rsvp-bar-fill   { height: 100%; border-radius: 99px; transition: width .6s ease; }
+    .rsvp-bar-fill.dabei      { background: var(--green); }
+    .rsvp-bar-fill.vielleicht { background: var(--amber); }
+    .rsvp-bar-fill.nein       { background: var(--pink);  }
+    .rsvp-bar-count { font-size: .875rem; font-weight: 600; width: 40px; text-align: right; flex-shrink: 0; }
 
     /* ── TABLES ── */
     .section-card {
@@ -178,21 +164,14 @@
       padding: 22px 24px; box-shadow: var(--shadow);
       margin-bottom: 24px;
     }
-    .section-card h3 {
-      font-size: 1rem; font-weight: 600; margin-bottom: 16px;
-    }
-    table {
-      width: 100%; border-collapse: collapse;
-    }
+    .section-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
     th {
       text-align: left; font-size: .8125rem; font-weight: 600;
       color: var(--muted); padding: 0 12px 10px;
       border-bottom: 1px solid var(--border);
     }
-    td {
-      padding: 12px; font-size: .9375rem;
-      border-bottom: 1px solid var(--border);
-    }
+    td { padding: 12px; font-size: .9375rem; border-bottom: 1px solid var(--border); }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--bg); }
     .rank { font-weight: 700; color: var(--muted); font-size: .875rem; }
@@ -204,7 +183,7 @@
     .pill-sm.vielleicht { background: var(--amber-light); color: #9a6000; }
     .pill-sm.nein       { background: #FEE2E2; color: var(--pink); }
 
-    /* ── LOADING / SPINNER ── */
+    /* ── MISC ── */
     .spinner {
       width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid var(--border); border-top-color: var(--amber);
@@ -212,11 +191,18 @@
       margin: 40px auto;
     }
     .loading-state { text-align: center; padding: 40px; color: var(--muted); }
+    .section-divider {
+      font-size: .75rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .06em;
+      margin: 0 0 16px;
+    }
 
-    @media (max-width: 600px) {
+    @media (max-width: 700px) {
       .top-bar { padding: 0 16px; }
       .page-content { padding: 20px 16px 60px; }
       .metrics-grid { grid-template-columns: 1fr 1fr; }
+      .charts-grid  { grid-template-columns: 1fr; }
+      .chart-card.full { grid-column: 1; }
       .last-updated { display: none; }
     }
   </style>
@@ -255,7 +241,8 @@
   <div class="page-content">
     <div class="page-title">Übersicht</div>
 
-    <!-- Metric cards -->
+    <!-- ── Metric cards ── -->
+    <p class="section-divider">Nutzer & Events</p>
     <div class="metrics-grid">
       <div class="metric-card amber">
         <div class="metric-icon">👤</div>
@@ -287,7 +274,51 @@
       </div>
     </div>
 
-    <!-- RSVP breakdown -->
+    <p class="section-divider">Engagement & Wachstum</p>
+    <div class="metrics-grid">
+      <div class="metric-card green">
+        <div class="metric-icon">🔄</div>
+        <div class="metric-value" id="m-retention-7">—</div>
+        <div class="metric-label">Retention 7 Tage</div>
+        <div class="metric-sub">Nutzer mit Aktivität</div>
+      </div>
+      <div class="metric-card blue">
+        <div class="metric-icon">📆</div>
+        <div class="metric-value" id="m-retention-30">—</div>
+        <div class="metric-label">Retention 30 Tage</div>
+        <div class="metric-sub">Nutzer mit Aktivität</div>
+      </div>
+      <div class="metric-card amber">
+        <div class="metric-icon">⚡</div>
+        <div class="metric-value" id="m-avg-events">—</div>
+        <div class="metric-label">Ø Events / Nutzer</div>
+      </div>
+      <div class="metric-card purple">
+        <div class="metric-icon">🦠</div>
+        <div class="metric-value" id="m-viral">—</div>
+        <div class="metric-label">Viraler Koeffizient</div>
+        <div class="metric-sub">Nutzer via Einladung</div>
+      </div>
+    </div>
+
+    <!-- ── Charts ── -->
+    <p class="section-divider">Zeitverlauf (letzte 8 Wochen)</p>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>📈 Nutzerwachstum (kumulativ)</h3>
+        <div class="chart-wrap"><canvas id="chart-users"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>🎉 Events pro Woche</h3>
+        <div class="chart-wrap"><canvas id="chart-events"></canvas></div>
+      </div>
+      <div class="chart-card full">
+        <h3>✅ RSVPs pro Woche</h3>
+        <div class="chart-wrap"><canvas id="chart-rsvps"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── RSVP breakdown ── -->
     <div class="rsvp-breakdown">
       <h3>RSVP-Aufteilung</h3>
       <div class="rsvp-bars">
@@ -309,7 +340,7 @@
       </div>
     </div>
 
-    <!-- Most active events -->
+    <!-- ── Tables ── -->
     <div class="section-card">
       <h3>🔥 Aktivste Events (nach RSVPs)</h3>
       <div id="active-events-container">
@@ -317,7 +348,6 @@
       </div>
     </div>
 
-    <!-- Recent events -->
     <div class="section-card">
       <h3>🆕 Zuletzt erstellte Events</h3>
       <div id="recent-events-container">
@@ -325,7 +355,6 @@
       </div>
     </div>
 
-    <!-- Recent users -->
     <div class="section-card">
       <h3>👤 Nutzer</h3>
       <div id="users-container">
@@ -339,10 +368,11 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-// Change ADMIN_PASSWORD to set your own password.
 const ADMIN_PASSWORD = 'vivo2024';
 
 const firebaseConfig = {
@@ -357,6 +387,9 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// Chart.js instances (destroyed on each refresh to avoid canvas reuse errors)
+let _charts = {};
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 function checkPassword() {
@@ -407,13 +440,156 @@ function isEventPast(ev) {
   return new Date(ev.date + 'T' + (ev.time || '23:59') + ':00') < new Date();
 }
 
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function setBar(id, count, max) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = Math.round((count / max) * 100) + '%';
+}
+
+// Returns array of N weekly buckets (oldest → newest)
+function weekBuckets(n = 8) {
+  const now = Date.now();
+  const W   = 7 * 24 * 60 * 60 * 1000;
+  return Array.from({ length: n }, (_, i) => {
+    const end   = now - (n - 1 - i) * W;
+    const start = end - W;
+    const label = new Date(end).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    return { start, end, label, count: 0 };
+  });
+}
+
+// ─── CHARTS ──────────────────────────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+  scales: {
+    x: { grid: { display: false }, ticks: { color: '#8A8078', font: { size: 11 } } },
+    y: { grid: { color: '#EDE8E0' }, ticks: { color: '#8A8078', font: { size: 11 }, precision: 0 }, beginAtZero: true },
+  },
+};
+
+function makeChart(id, type, labels, datasets, extraOpts = {}) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+  const ctx = document.getElementById(id).getContext('2d');
+  _charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: { ...CHART_DEFAULTS, ...extraOpts },
+  });
+}
+
+function rgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function renderCharts(userList, eventList) {
+  const buckets = weekBuckets(8);
+  const labels  = buckets.map(b => b.label);
+
+  // ── User growth (cumulative) ─────────────────────────────────────────────
+  const userBuckets = buckets.map(b => ({ ...b, count: 0 }));
+  userList.forEach(u => {
+    if (!u.createdAt) return;
+    const idx = userBuckets.findIndex(b => u.createdAt >= b.start && u.createdAt < b.end);
+    if (idx >= 0) userBuckets[idx].count++;
+  });
+  // Cumulative sum
+  const usersBeforeWindow = userList.filter(u => u.createdAt && u.createdAt < userBuckets[0].start).length;
+  const cumulativeUsers = userBuckets.reduce((acc, b, i) => {
+    acc.push((acc[i - 1] ?? usersBeforeWindow) + b.count);
+    return acc;
+  }, []);
+
+  makeChart('chart-users', 'line', labels, [{
+    label: 'Nutzer',
+    data: cumulativeUsers,
+    borderColor: '#F5A623',
+    backgroundColor: rgba('#F5A623', 0.12),
+    fill: true,
+    tension: 0.35,
+    pointRadius: 3,
+    pointBackgroundColor: '#F5A623',
+  }]);
+
+  // ── Events per week ──────────────────────────────────────────────────────
+  const evBuckets = buckets.map(b => ({ ...b, count: 0 }));
+  eventList.forEach(ev => {
+    if (!ev.createdAt) return;
+    const idx = evBuckets.findIndex(b => ev.createdAt >= b.start && ev.createdAt < b.end);
+    if (idx >= 0) evBuckets[idx].count++;
+  });
+
+  makeChart('chart-events', 'bar', labels, [{
+    label: 'Events',
+    data: evBuckets.map(b => b.count),
+    backgroundColor: rgba('#3B82F6', 0.75),
+    borderRadius: 5,
+  }]);
+
+  // ── RSVPs per week ───────────────────────────────────────────────────────
+  const rsvpBuckets = { dabei: buckets.map(b => ({ ...b, count: 0 })),
+                        vielleicht: buckets.map(b => ({ ...b, count: 0 })),
+                        nein: buckets.map(b => ({ ...b, count: 0 })) };
+
+  eventList.forEach(ev => {
+    if (!ev.rsvps) return;
+    Object.values(ev.rsvps).forEach(r => {
+      if (!r.ts || !r.status) return;
+      const bucket = rsvpBuckets[r.status];
+      if (!bucket) return;
+      const idx = bucket.findIndex(b => r.ts >= b.start && r.ts < b.end);
+      if (idx >= 0) bucket[idx].count++;
+    });
+  });
+
+  makeChart('chart-rsvps', 'bar', labels, [
+    {
+      label: 'Dabei',
+      data: rsvpBuckets.dabei.map(b => b.count),
+      backgroundColor: rgba('#2E9E6B', 0.8),
+      borderRadius: 4,
+    },
+    {
+      label: 'Vielleicht',
+      data: rsvpBuckets.vielleicht.map(b => b.count),
+      backgroundColor: rgba('#F5A623', 0.8),
+      borderRadius: 4,
+    },
+    {
+      label: 'Abgesagt',
+      data: rsvpBuckets.nein.map(b => b.count),
+      backgroundColor: rgba('#E8534A', 0.7),
+      borderRadius: 4,
+    },
+  ], {
+    plugins: {
+      legend: { display: true, position: 'top',
+        labels: { boxWidth: 12, font: { size: 12 }, color: '#8A8078' } },
+      tooltip: { mode: 'index', intersect: false },
+    },
+    scales: { ...CHART_DEFAULTS.scales, x: { ...CHART_DEFAULTS.scales.x, stacked: true }, y: { ...CHART_DEFAULTS.scales.y, stacked: true } },
+  });
+}
+
 // ─── METRICS ──────────────────────────────────────────────────────────────────
 async function loadMetrics() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
 
   try {
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const now     = Date.now();
+    const week    = 7  * 24 * 60 * 60 * 1000;
+    const month   = 30 * 24 * 60 * 60 * 1000;
+    const weekAgo  = now - week;
+    const monthAgo = now - month;
 
     const [usersSnap, eventsSnap] = await Promise.all([
       db.ref('users').once('value'),
@@ -421,46 +597,40 @@ async function loadMetrics() {
     ]);
 
     // ── USERS ────────────────────────────────────────────────────────────────
-    const usersVal = usersSnap.val() || {};
-    const userList = Object.entries(usersVal).map(([uid, u]) => ({ uid, ...u }));
-    const totalUsers = userList.length;
+    const usersVal  = usersSnap.val()  || {};
+    const eventsVal = eventsSnap.val() || {};
+    const userList  = Object.entries(usersVal).map(([uid, u]) => ({ uid, ...u }));
+    const eventList = Object.entries(eventsVal).map(([id, ev]) => ({ id, ...ev }));
 
-    // New users this week (if createdAt stored)
-    const newUsers = userList.filter(u => u.createdAt && u.createdAt >= weekAgo).length;
+    const totalUsers = userList.length;
+    const newUsers7  = userList.filter(u => u.createdAt && u.createdAt >= weekAgo).length;
     const hasCreatedAt = userList.some(u => u.createdAt);
 
     set('m-total-users', totalUsers);
-    set('m-new-users', hasCreatedAt ? newUsers : '—');
+    set('m-new-users',   hasCreatedAt ? newUsers7 : '—');
     set('m-new-users-sub', hasCreatedAt ? '' : 'Kein createdAt gespeichert');
 
-    // ── FRIENDSHIPS ──────────────────────────────────────────────────────────
-
     // ── EVENTS ───────────────────────────────────────────────────────────────
-    const eventsVal = eventsSnap.val() || {};
-    const eventList = Object.entries(eventsVal).map(([id, ev]) => ({ id, ...ev }));
-    const totalEvents = eventList.length;
+    const totalEvents    = eventList.length;
     const eventsThisWeek = eventList.filter(ev => ev.createdAt && ev.createdAt >= weekAgo).length;
-    const activeEvents = eventList.filter(ev => !isEventPast(ev)).length;
+    const activeEvents   = eventList.filter(ev => !isEventPast(ev)).length;
 
     set('m-total-events', totalEvents);
-    set('m-events-sub', eventsThisWeek + ' diese Woche erstellt');
+    set('m-events-sub',   eventsThisWeek + ' diese Woche erstellt');
     set('m-active-events', activeEvents);
 
     // ── RSVPS ────────────────────────────────────────────────────────────────
     let totalRsvps = 0, dabeiCnt = 0, vielleichtCnt = 0, neinCnt = 0;
     eventList.forEach(ev => {
-      if (ev.rsvps) {
-        Object.values(ev.rsvps).forEach(r => {
-          totalRsvps++;
-          if (r.status === 'dabei')       dabeiCnt++;
-          else if (r.status === 'vielleicht') vielleichtCnt++;
-          else if (r.status === 'nein')   neinCnt++;
-        });
-      }
+      if (!ev.rsvps) return;
+      Object.values(ev.rsvps).forEach(r => {
+        totalRsvps++;
+        if      (r.status === 'dabei')      dabeiCnt++;
+        else if (r.status === 'vielleicht') vielleichtCnt++;
+        else if (r.status === 'nein')       neinCnt++;
+      });
     });
     set('m-total-rsvps', totalRsvps);
-
-    // RSVP bars
     const maxBar = Math.max(dabeiCnt, vielleichtCnt, neinCnt, 1);
     setBar('bar-dabei',      dabeiCnt,      maxBar);
     setBar('bar-vielleicht', vielleichtCnt, maxBar);
@@ -468,6 +638,58 @@ async function loadMetrics() {
     set('cnt-dabei',      dabeiCnt);
     set('cnt-vielleicht', vielleichtCnt);
     set('cnt-nein',       neinCnt);
+
+    // ── RETENTION ────────────────────────────────────────────────────────────
+    // A user is "active" in a period if they created an event OR submitted
+    // an RSVP (with timestamp) during that window.
+    const active7  = new Set();
+    const active30 = new Set();
+
+    eventList.forEach(ev => {
+      // Created an event
+      if (ev.createdBy && ev.createdAt) {
+        if (ev.createdAt >= weekAgo)  active7.add(ev.createdBy);
+        if (ev.createdAt >= monthAgo) active30.add(ev.createdBy);
+      }
+      // Submitted an RSVP
+      if (ev.rsvps) {
+        Object.values(ev.rsvps).forEach(r => {
+          if (!r.userId || !r.ts) return;
+          if (r.ts >= weekAgo)  active7.add(r.userId);
+          if (r.ts >= monthAgo) active30.add(r.userId);
+        });
+      }
+    });
+
+    const pct7  = totalUsers > 0 ? Math.round(active7.size  / totalUsers * 100) : 0;
+    const pct30 = totalUsers > 0 ? Math.round(active30.size / totalUsers * 100) : 0;
+    set('m-retention-7',  pct7  + '%');
+    set('m-retention-30', pct30 + '%');
+
+    // ── AVG EVENTS PER USER ───────────────────────────────────────────────────
+    const eventsWithCreator = eventList.filter(ev => ev.createdBy).length;
+    const avgEvents = totalUsers > 0 ? (eventsWithCreator / totalUsers).toFixed(1) : '—';
+    set('m-avg-events', avgEvents);
+
+    // ── VIRAL COEFFICIENT ─────────────────────────────────────────────────────
+    // Definition: % of registered users who RSVPed (dabei/vielleicht) to at
+    // least one event they did NOT create themselves.
+    // This approximates "users who engaged via social invitation".
+    const viralUsers = new Set();
+    eventList.forEach(ev => {
+      if (!ev.rsvps) return;
+      Object.values(ev.rsvps).forEach(r => {
+        if (r.userId && r.userId !== ev.createdBy &&
+            (r.status === 'dabei' || r.status === 'vielleicht')) {
+          viralUsers.add(r.userId);
+        }
+      });
+    });
+    const viralPct = totalUsers > 0 ? Math.round(viralUsers.size / totalUsers * 100) : 0;
+    set('m-viral', viralPct + '%');
+
+    // ── CHARTS ───────────────────────────────────────────────────────────────
+    renderCharts(userList, eventList);
 
     // ── ACTIVE EVENTS TABLE ───────────────────────────────────────────────────
     const byRsvps = [...eventList]
@@ -526,8 +748,7 @@ async function loadMetrics() {
       : '<p style="color:var(--muted);padding:12px 0">Keine Events mit Zeitstempel gefunden.</p>';
 
     // ── USERS TABLE ───────────────────────────────────────────────────────────
-    const sortedUsers = [...userList]
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const sortedUsers = [...userList].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     document.getElementById('users-container').innerHTML = sortedUsers.length
       ? `<table>
@@ -543,9 +764,8 @@ async function loadMetrics() {
         </table>`
       : '<p style="color:var(--muted);padding:12px 0">Keine Nutzer gefunden.</p>';
 
-    // Last updated
     document.getElementById('last-updated').textContent =
-      'Zuletzt aktualisiert: ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      'Zuletzt: ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
   } catch (err) {
     console.error('loadMetrics:', err);
@@ -555,20 +775,8 @@ async function loadMetrics() {
   btn.classList.remove('spinning');
 }
 
-function set(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-function setBar(id, count, max) {
-  const el = document.getElementById(id);
-  if (el) el.style.width = Math.round((count / max) * 100) + '%';
-}
-
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-if (sessionStorage.getItem('vivo_admin') === '1') {
-  showDashboard();
-}
+if (sessionStorage.getItem('vivo_admin') === '1') showDashboard();
 </script>
 </body>
 </html>
