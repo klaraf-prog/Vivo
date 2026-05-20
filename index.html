@@ -1747,17 +1747,22 @@ async function notifyUser(uid, type, title, body, url = '/') {
       .catch(e => console.warn('notifyUser push write:', e));
   }
 
-  // Email notification (stored intent — actual sending requires backend)
+  // Email notification via Netlify Function
   if (s.emailEnabled && typeOn && s.emailAddress) {
-    db.ref('mailQueue').push({
-      to:      s.emailAddress,
-      type,
-      title,
-      body,
-      url,
-      ts:      Date.now(),
-      fromUid: me.uid,
-    }).catch(() => {});
+    me.getIdToken().then(idToken =>
+      fetch('/.netlify/functions/send-email', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+        body:    JSON.stringify({
+          recipientUid: uid,
+          type,
+          title,
+          body,
+          url,
+          senderName: me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+        }),
+      })
+    ).catch(e => console.warn('send-email function:', e));
   }
 }
 
