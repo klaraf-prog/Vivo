@@ -507,9 +507,23 @@
       max-width: var(--max); margin: 0 auto; width: 100%;
     }
 
-    /* Emoji grid */
-    .emoji-label { font-size: .875rem; font-weight: 500; color: var(--muted); margin-bottom: 10px; display: block; }
-    .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-bottom: 22px; max-height: 164px; overflow-y: auto; padding-right: 2px; }
+    /* Emoji picker */
+    .emoji-picker { margin-bottom: 22px; }
+    .emoji-cats {
+      display: flex; gap: 5px; margin-bottom: 8px;
+      overflow-x: auto; padding-bottom: 3px; scrollbar-width: none;
+    }
+    .emoji-cats::-webkit-scrollbar { display: none; }
+    .ecat {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
+      border: 2px solid transparent; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.0625rem; cursor: pointer; transition: all .12s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .ecat:hover { border-color: var(--amber-light); }
+    .ecat.on { border-color: var(--amber); background: #FFF9EE; }
+    .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; max-height: 168px; overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
     .egi {
       aspect-ratio: 1; border-radius: 10px;
       border: 2px solid transparent; background: #fff;
@@ -819,7 +833,10 @@
 
   <div class="create-body">
     <span class="emoji-label">Emoji</span>
-    <div class="emoji-grid" id="emoji-grid"></div>
+    <div class="emoji-picker">
+      <div class="emoji-cats" id="emoji-cats"></div>
+      <div class="emoji-grid" id="emoji-grid"></div>
+    </div>
 
     <div class="form-stack">
       <div class="field">
@@ -1446,24 +1463,74 @@ let _selectedFriends  = new Set(); // friend UIDs selected during event creation
 let _spacesOff        = null;  // real-time spaces listener cleanup
 let _spaceEvOff       = null;  // space events view listener cleanup
 
-const EMOJIS = [
-  // Feiern & Party
-  '🎉','🥳','🎊','🎈','🎂','🥂','🍺','🍻','🍷','🎆',
-  // Essen & Trinken
-  '🍕','🌮','🍣','🍩','🧁','🍦','🥗','🥘','🍔','🥐',
-  // Sport & Bewegung
-  '⚽','🏊','🧗','🏋️','🚴','🏃','🧘','🥾','🎾','🏸',
-  '🏂','🤿','🏄','🛴','🎳','🏇','🤸','🏌️','🥊','🎯',
-  // Reisen & Natur
-  '🚗','✈️','🏕','🌊','🌺','🌻','🌿','🍀','🌈','🌅',
-  '🌄','🏔️','🗺️','🏖','🌙','☀️','🌃','🌆','🛤','🚀',
-  // Musik & Kultur
-  '🎸','🎤','🎺','🎻','🎵','🎭','🎬','🎨','📸','🎪',
-  // Games & Spaß
-  '🎮','🎲','🃏','🧩','🎠','🪩','🎡','🦄','🛸','🪄',
-  // Sonstiges
-  '🦋','🌙','🎋','🎐','🎑','🌟','🎸','💫','🔥','✨',
+const EMOJI_CATEGORIES = [
+  { icon: '😀', label: 'Smileys & People', emojis: [
+    '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😉',
+    '😊','😇','🥰','😍','🤩','😘','😋','😛','😜','🤪',
+    '😎','🤓','🧐','🤗','🤭','🤫','🤔','😐','😑','🙄',
+    '😬','😏','😒','😔','😪','😴','🥱','😷','🤒','🤕',
+    '🤢','🥵','🥶','😵','🤯','🥳','🥸','😤','😡','😠',
+    '😈','💀','👻','👽','🤖','😺','😸','😹','😻','🙈',
+    '💪','🙏','👏','🤝','👍','👎','✌️','🤞','🤙','👋',
+  ]},
+  { icon: '🏃', label: 'Aktivitäten & Sport', emojis: [
+    '⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸',
+    '🥊','🥋','🥅','⛳','🎯','🎳','🏒','🏑','🏏','🛹',
+    '🛷','🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','🏇','⛹️',
+    '🤾','🏌️','🏄','🧗','🚵','🚴','🏊','🤽','🚣','🧘',
+    '🏃','🚶','🤿','🎣','🧗','🥾','🎽','🤺','🤸','🛼',
+    '🏆','🥇','🥈','🥉','🎖️','🏅','🎗️','🎫','🎟️','🎪',
+  ]},
+  { icon: '🍕', label: 'Essen & Trinken', emojis: [
+    '🍕','🍔','🌮','🌯','🥙','🧆','🍟','🌭','🥪','🥨',
+    '🍣','🍱','🍜','🍝','🍲','🥘','🍛','🍗','🥩','🥓',
+    '🍳','🥚','🧈','🥞','🧇','🧀','🥗','🥬','🥦','🌽',
+    '🍩','🎂','🧁','🍰','🍦','🍧','🍨','🍫','🍬','🍭',
+    '🍇','🍓','🫐','🍒','🍑','🥭','🍍','🥝','🍊','🍋',
+    '🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧋','☕','🍵',
+  ]},
+  { icon: '🚗', label: 'Reisen & Transport', emojis: [
+    '🚗','🚕','🚙','🏎️','🚓','🚑','🚒','🚐','🛻','🚚',
+    '🚜','🏍️','🛵','🚲','🛴','🛹','🚏','✈️','🛩️','🚀',
+    '🛸','🚁','🚂','🚃','🚄','🚅','🚇','🚊','🚉','🛳️',
+    '⛵','🚤','🛥️','⛽','🗺️','🧭','🏔️','⛰️','🌋','🏕️',
+    '🏖️','🏜️','🏝️','🏞️','🌍','🌎','🌏','🌁','🌃','🌆',
+    '🌇','🌉','🌅','🌄','🎠','🎡','🎢','🎪','🏟️','🏛️',
+  ]},
+  { icon: '🌿', label: 'Natur & Tiere', emojis: [
+    '🌿','🍀','☘️','🌱','🌵','🎋','🎍','🍃','🍂','🍁',
+    '🌺','🌸','🌼','🌻','🌹','🌷','💐','🌾','🍄','🌊',
+    '🔥','❄️','🌈','☀️','🌤️','⛅','🌥️','🌧️','⛈️','🌨️',
+    '⭐','🌟','💫','🌙','🌛','🌜','🌝','🌞','🌍','🪸',
+    '🐶','🐱','🐭','🐰','🦊','🐻','🐼','🐯','🦁','🐮',
+    '🐸','🦋','🐝','🐢','🦎','🐬','🐳','🦈','🦜','🦉',
+  ]},
+  { icon: '🎵', label: 'Musik & Kunst', emojis: [
+    '🎵','🎶','🎼','🎹','🥁','🪘','🎷','🎺','🎸','🪕',
+    '🎻','🪗','🎤','🎧','📻','📣','🎙️','🎚️','🎛️','🔔',
+    '🎭','🎨','🖼️','🖌️','✏️','📝','📖','📚','🎬','🎥',
+    '📸','📷','🎞️','📽️','🎦','📺','🎮','🕹️','🎰','🧩',
+    '🎲','🃏','🀄','🎯','🎳','♟️','🎪','🎠','🎡','🎢',
+    '🪄','🔮','🧿','🪬','🎭','🪩','🛸','🦄','🌟','✨',
+  ]},
+  { icon: '🏠', label: 'Orte & Zuhause', emojis: [
+    '🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪',
+    '🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌',
+    '⛩️','🕋','⛲','⛺','🏕️','🛖','🌁','🏙️','🌃','🌆',
+    '🏟️','🏛️','🎠','🎡','🎢','💈','🎪','🌄','🌅','🌉',
+    '🛏️','🛋️','🪑','🚿','🛁','💡','🕯️','🔑','🗝️','🚪',
+    '🪴','🖼️','📦','🎁','🎀','🛍️','💰','💎','🏺','🧸',
+  ]},
+  { icon: '❤️', label: 'Symbole & Herzen', emojis: [
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔',
+    '❤️‍🔥','💖','💗','💓','💞','💕','💟','❣️','💌','💋',
+    '💯','✨','🌟','⭐','💫','⚡','🔥','🎆','🎇','🌈',
+    '🏆','🥇','🎖️','🏅','🎗️','🎉','🎊','🎈','🎀','🎁',
+    '🔮','🪬','🧿','🌀','♾️','✅','❌','❓','❗','💯',
+    '🛡️','⚔️','🗡️','🔒','🔓','🔐','🗺️','🧭','🚩','🏳️',
+  ]},
 ];
+const EMOJIS = EMOJI_CATEGORIES.flatMap(c => c.emojis);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTING  (hash-based: #event/<id>)
@@ -1808,9 +1875,8 @@ function openEditEvent(ev) {
 
   // Pre-populate fields
   pickedEmoji = ev.emoji || '🎉';
-  document.querySelectorAll('.egi').forEach(b => {
-    b.classList.toggle('on', b.textContent.trim() === pickedEmoji);
-  });
+  const catIdx = EMOJI_CATEGORIES.findIndex(c => c.emojis.includes(pickedEmoji));
+  switchEmojiCat(catIdx >= 0 ? catIdx : 0);
   document.getElementById('ev-title').value    = ev.title    || '';
   document.getElementById('ev-date').value     = ev.date     || '';
   document.getElementById('ev-time').value     = ev.time     || '';
@@ -2510,23 +2576,39 @@ function openEv(id) { location.hash = 'event/' + id; }
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE
 // ─────────────────────────────────────────────────────────────────────────────
+let _emojiCatIdx = 0;
+
 function initEmojiGrid() {
-  document.getElementById('emoji-grid').innerHTML = EMOJIS.map((em, i) =>
-    `<button type="button" class="egi${i===0?' on':''}" onclick="pickEmoji('${em}',this)">${em}</button>`
+  _emojiCatIdx = 0;
+  const catsEl = document.getElementById('emoji-cats');
+  catsEl.innerHTML = EMOJI_CATEGORIES.map((cat, i) =>
+    `<button type="button" class="ecat${i===0?' on':''}" onclick="switchEmojiCat(${i})" title="${cat.label}">${cat.icon}</button>`
+  ).join('');
+  renderEmojiGrid(0);
+}
+
+function switchEmojiCat(idx) {
+  _emojiCatIdx = idx;
+  document.querySelectorAll('.ecat').forEach((b, i) => b.classList.toggle('on', i === idx));
+  renderEmojiGrid(idx);
+}
+
+function renderEmojiGrid(idx) {
+  document.getElementById('emoji-grid').innerHTML = EMOJI_CATEGORIES[idx].emojis.map(em =>
+    `<button type="button" class="egi${em === pickedEmoji ? ' on' : ''}" onclick="pickEmoji('${em}')">${em}</button>`
   ).join('');
 }
 
-function pickEmoji(em, el) {
-  document.querySelectorAll('.egi').forEach(e => e.classList.remove('on'));
-  el.classList.add('on');
+function pickEmoji(em) {
   pickedEmoji = em;
+  document.querySelectorAll('.egi').forEach(b => b.classList.toggle('on', b.textContent.trim() === em));
 }
 
 function initCreateForm() {
   pickedEmoji = '🎉';
   _selectedSpaces  = new Set();
   _selectedFriends = new Set();
-  document.querySelectorAll('.egi').forEach((e, i) => e.classList.toggle('on', i === 0));
+  switchEmojiCat(0);
   document.getElementById('ev-title').value    = '';
   document.getElementById('ev-date').value     = new Date().toISOString().split('T')[0];
   document.getElementById('ev-time').value     = '18:00';
