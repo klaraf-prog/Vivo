@@ -508,7 +508,7 @@
 
     /* Emoji grid */
     .emoji-label { font-size: .875rem; font-weight: 500; color: var(--muted); margin-bottom: 10px; display: block; }
-    .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-bottom: 22px; }
+    .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-bottom: 22px; max-height: 164px; overflow-y: auto; padding-right: 2px; }
     .egi {
       aspect-ratio: 1; border-radius: 10px;
       border: 2px solid transparent; background: #fff;
@@ -1285,6 +1285,10 @@ const LANG = {
     no_rsvps: 'Noch keine Rückmeldungen',
     event_not_found_empty: 'Noch keine Events. Erstelle dein erstes!',
     att_nobody_yet: 'Noch niemand',
+    ev_edit: 'Event bearbeiten',
+    ev_edit_btn: 'Bearbeiten',
+    ev_save_changes: 'Änderungen speichern',
+    toast_event_saved: 'Änderungen gespeichert ✓',
   },
   en: {
     nav_home: 'Events',
@@ -1386,6 +1390,10 @@ const LANG = {
     no_rsvps: 'No responses yet',
     event_not_found_empty: 'No events yet. Create your first!',
     att_nobody_yet: 'Nobody yet',
+    ev_edit: 'Edit event',
+    ev_edit_btn: 'Edit',
+    ev_save_changes: 'Save changes',
+    toast_event_saved: 'Changes saved ✓',
   }
 };
 
@@ -1424,6 +1432,8 @@ function toggleLang() {
 let me           = null;  // current firebase user
 let createdId    = null;  // last created event ID (for share sheet)
 let pickedEmoji  = '🎉';
+let _editMode    = false;
+let _editEventId = null;
 let evUnsubscribe = null; // real-time event listener cleanup
 let _pendingRsvp      = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
 let _pendingConnect   = null;  // { theirUid, theirUsername, theirName } – set before login
@@ -1436,11 +1446,22 @@ let _spacesOff        = null;  // real-time spaces listener cleanup
 let _spaceEvOff       = null;  // space events view listener cleanup
 
 const EMOJIS = [
-  '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
-  '🌿','🎮','🎤','🏕','🌊','🚀','🎨','🍣','🥂','🌮',
-  '🧁','🎭','🏖','🎺','🏋','🌺','🎻','🎯','🥳','🎪',
-  '🪩','🌙','☀️','🌈','🍦','🎠','🧩','🛤','🎆','🎑',
-  '🪄','🦋','🌻','🍀','🎐','🛸','🦄','🎋','🎊','🌟'
+  // Feiern & Party
+  '🎉','🥳','🎊','🎈','🎂','🥂','🍺','🍻','🍷','🎆',
+  // Essen & Trinken
+  '🍕','🌮','🍣','🍩','🧁','🍦','🥗','🥘','🍔','🥐',
+  // Sport & Bewegung
+  '⚽','🏊','🧗','🏋️','🚴','🏃','🧘','🥾','🎾','🏸',
+  '🏂','🤿','🏄','🛴','🎳','🏇','🤸','🏌️','🥊','🎯',
+  // Reisen & Natur
+  '🚗','✈️','🏕','🌊','🌺','🌻','🌿','🍀','🌈','🌅',
+  '🌄','🏔️','🗺️','🏖','🌙','☀️','🌃','🌆','🛤','🚀',
+  // Musik & Kultur
+  '🎸','🎤','🎺','🎻','🎵','🎭','🎬','🎨','📸','🎪',
+  // Games & Spaß
+  '🎮','🎲','🃏','🧩','🎠','🪩','🎡','🦄','🛸','🪄',
+  // Sonstiges
+  '🦋','🌙','🎋','🎐','🎑','🌟','🎸','💫','🔥','✨',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1771,10 +1792,49 @@ function navHome() {
 }
 
 function showCreate() {
+  _editMode = false;
+  _editEventId = null;
   initCreateForm();
   showScreen('create');
   loadUserSpacesForCreate();
   loadFriendsForCreate();
+}
+
+function openEditEvent(ev) {
+  if (!ev || !me) return;
+  _editMode    = true;
+  _editEventId = ev.id;
+
+  // Pre-populate fields
+  pickedEmoji = ev.emoji || '🎉';
+  document.querySelectorAll('.egi').forEach(b => {
+    b.classList.toggle('on', b.textContent.trim() === pickedEmoji);
+  });
+  document.getElementById('ev-title').value    = ev.title    || '';
+  document.getElementById('ev-date').value     = ev.date     || '';
+  document.getElementById('ev-time').value     = ev.time     || '';
+  document.getElementById('ev-location').value = ev.location || '';
+  document.getElementById('ev-details').value  = ev.details  || '';
+
+  // Hide invite section (not relevant for edits)
+  document.getElementById('invites-wrap').style.display       = 'none';
+  document.getElementById('invites-spaces-row').style.display = 'none';
+  document.getElementById('invites-friends-row').style.display= 'none';
+
+  // Update UI for edit mode
+  const h1 = document.querySelector('#screen-create h1');
+  if (h1) h1.textContent = t('ev_edit');
+  const btn = document.getElementById('create-btn');
+  if (btn) btn.textContent = t('ev_save_changes');
+
+  // Back goes to event view
+  document.querySelector('#screen-create .back-btn').onclick = () => {
+    _editMode = false; _editEventId = null;
+    location.hash = 'event/' + ev.id;
+    showScreen('event');
+  };
+
+  showScreen('create');
 }
 
 let _prevScreen = 'home';
@@ -2474,9 +2534,49 @@ function initCreateForm() {
   document.getElementById('invites-wrap').style.display        = 'none';
   document.getElementById('invites-spaces-row').style.display  = 'none';
   document.getElementById('invites-friends-row').style.display = 'none';
+  // Restore create-mode UI (in case coming back from edit mode)
+  const h1 = document.querySelector('#screen-create h1');
+  if (h1) h1.setAttribute('data-i18n', 'nav_create');
+  const btn = document.getElementById('create-btn');
+  if (btn) { btn.setAttribute('data-i18n', 'btn_create_event'); applyLang(); }
+  const backBtn = document.querySelector('#screen-create .back-btn');
+  if (backBtn) backBtn.onclick = navHome;
+}
+
+async function updateEvent() {
+  const titleEl = document.getElementById('ev-title');
+  const title   = titleEl.value.trim();
+  if (!title) { titleEl.style.borderColor = 'var(--pink)'; titleEl.focus(); toast(t('toast_title_required')); return; }
+  titleEl.style.borderColor = '';
+
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true; btn.textContent = '…';
+
+  try {
+    await db.ref('events/' + _editEventId).update({
+      emoji:    pickedEmoji,
+      title,
+      date:     document.getElementById('ev-date').value || new Date().toISOString().split('T')[0],
+      time:     document.getElementById('ev-time').value     || null,
+      location: document.getElementById('ev-location').value.trim() || null,
+      details:  document.getElementById('ev-details').value.trim()  || null,
+    });
+    toast(t('toast_event_saved'));
+    const id = _editEventId;
+    _editMode = false; _editEventId = null;
+    location.hash = 'event/' + id;
+    showScreen('event');
+    loadEventScreen(id);
+  } catch(err) {
+    console.error('updateEvent:', err);
+    toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
+    btn.disabled = false; btn.textContent = t('ev_save_changes');
+  }
 }
 
 async function createEvent() {
+  if (_editMode) { await updateEvent(); return; }
+
   const titleEl = document.getElementById('ev-title');
   const dateEl  = document.getElementById('ev-date');
   const title   = titleEl.value.trim();
@@ -2695,14 +2795,23 @@ function renderEv(ev, body) {
         <div class="ev-row"><div class="ev-icon">👤</div><span>${t('ev_by')} ${esc(ev.creatorName||'Jemand')}</span></div>
       </div>
       ${isCreator ? `
-      <button class="btn btn-outline btn-sm" style="margin-top:16px;color:var(--pink);border-color:var(--pink);gap:6px"
-        onclick="deleteEventFromView('${ev.id}')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-          <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-        </svg>
-        ${t('ev_delete')}
-      </button>` : ''}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-outline btn-sm" style="flex:1;gap:6px" onclick="openEditEvent(window._ev)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          ${t('ev_edit_btn')}
+        </button>
+        <button class="btn btn-outline btn-sm" style="flex:1;color:var(--pink);border-color:var(--pink);gap:6px"
+          onclick="deleteEventFromView('${ev.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+          ${t('ev_delete')}
+        </button>
+      </div>` : ''}
     </div>
 
     <div class="ev-sec">
