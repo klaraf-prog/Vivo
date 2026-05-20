@@ -1556,6 +1556,19 @@ auth.onAuthStateChanged(async user => {
   me = user;
   document.getElementById('loading').style.display = 'none';
 
+  // Ensure Google (and any OAuth) users have a /users entry on first login
+  if (user) {
+    try {
+      const userSnap = await db.ref('users/' + user.uid).once('value');
+      if (!userSnap.exists()) {
+        await db.ref('users/' + user.uid).set({
+          displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'User'),
+          createdAt: Date.now(),
+        });
+      }
+    } catch(e) { console.warn('users node init:', e); }
+  }
+
   // Auto-link a pending guest RSVP to the newly created account
   if (user && _pendingRsvp) {
     const { eventId, rsvpKey, status } = _pendingRsvp;
