@@ -37,6 +37,7 @@ const TYPE_META = {
   rsvp:         { subject: n => `${n} hat auf dein Event reagiert`,          cta: 'Event ansehen →' },
   event_edited: { subject: n => `Ein Event wurde aktualisiert`,              cta: 'Änderungen ansehen →' },
   friend:       { subject: n => `${n} hat dich als Freund hinzugefügt`,      cta: 'Profil ansehen →' },
+  event_start:  { subject: () => `Dein Event startet in 2 Stunden`,          cta: 'Event ansehen →' },
 };
 
 function buildEmail({ type, title, body, url, senderName }) {

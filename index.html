@@ -1805,7 +1805,27 @@ function scheduleEventStartNotifs(events) {
     const delay   = fireAt - now;
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // only schedule if within 24 h
       _startTimers.push(setTimeout(() => {
-        showNotif('⏰ Bald geht’s los!', `„${ev.title}" startet in 2 Stunden`, `/#event/${ev.id}`);
+        const title = "⏰ Bald geht's los!";
+        const body  = `„${ev.title}" startet in 2 Stunden`;
+        const url   = `/#event/${ev.id}`;
+        showNotif(title, body, url);
+        // Email to self — check settings + send via Netlify Function
+        if (me && _settings?.emailEnabled) {
+          me.getIdToken().then(idToken =>
+            fetch('/.netlify/functions/send-email', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+              body:    JSON.stringify({
+                recipientUid: me.uid,
+                type:         'event_start',
+                title,
+                body,
+                url,
+                senderName:   me.displayName || (me.email ? me.email.split('@')[0] : 'vivo'),
+              }),
+            })
+          ).catch(() => {});
+        }
       }, delay));
     }
   });
