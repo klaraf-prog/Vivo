@@ -416,14 +416,24 @@ function checkPassword() {
 
 function logout() {
   sessionStorage.removeItem('vivo_admin');
+  firebase.auth().signOut().catch(() => {});
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('pw-input').value = '';
 }
 
-function showDashboard() {
+async function showDashboard() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
+  // Sign in anonymously so Firebase rules (auth != null) are satisfied
+  // for restricted nodes like /spaces. The admin password is the real gate.
+  try {
+    if (!firebase.auth().currentUser) {
+      await firebase.auth().signInAnonymously();
+    }
+  } catch (e) {
+    console.warn('Admin anonymous auth failed:', e.message);
+  }
   loadMetrics();
 }
 
