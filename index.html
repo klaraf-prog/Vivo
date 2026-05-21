@@ -3340,6 +3340,23 @@ function buildPollSection(ev) {
     const pct = totalVoters > 0 ? Math.round(voteCount / totalVoters * 100) : 0;
     const iVoted = myVotes.has(optId);
     const safeTime = (opt.time || '').replace(/'/g, "\\'");
+
+    // Build voter name list: logged-in votes stored as `true` (look up from RSVPs/me),
+    // anonymous votes stored as {name, ts}.
+    const uidToName = {};
+    if (ev.rsvps) Object.values(ev.rsvps).forEach(r => { if (r.userId) uidToName[r.userId] = r.name; });
+    if (me) uidToName[me.uid] = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
+    const voterNames = Object.entries(opt.votes || {}).map(([k, v]) => {
+      if (v === true) return uidToName[k] || null;
+      return (v && v.name) ? v.name : null;
+    }).filter(Boolean);
+    const MAX_SHOWN = 4;
+    const namesHtml = voterNames.length
+      ? `<div style="margin-top:6px;font-size:.8125rem;color:var(--muted);line-height:1.4">
+           ${voterNames.slice(0, MAX_SHOWN).map(n => esc(n)).join(', ')}${voterNames.length > MAX_SHOWN ? ` +${voterNames.length - MAX_SHOWN}` : ''}
+         </div>`
+      : '';
+
     return `
     <div class="poll-card${iVoted ? ' i-voted' : ''}">
       <div class="poll-card-head">
@@ -3347,17 +3364,17 @@ function buildPollSection(ev) {
         <div class="poll-card-votes">${voteCount} Stimme${voteCount !== 1 ? 'n' : ''}</div>
       </div>
       <div class="poll-bar-wrap"><div class="poll-bar" style="width:${pct}%"></div></div>
-      <div class="poll-card-actions">
-        <button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm"
+      ${namesHtml}
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm btn-full"
           onclick="togglePollVote('${ev.id}','${optId}')">
           ${iVoted ? '✓ Abgestimmt' : 'Abstimmen'}
         </button>
-        ${isCreator
-          ? `<button class="btn btn-outline btn-sm" style="color:#5CB87A;border-color:#5CB87A"
-               onclick="confirmPollOption('${ev.id}','${optId}','${opt.date}','${safeTime}')">
-               Termin bestätigen ✓
-             </button>`
-          : ''}
+        ${isCreator ? `
+        <button class="btn btn-outline btn-sm btn-full" style="color:#5CB87A;border-color:#5CB87A"
+          onclick="confirmPollOption('${ev.id}','${optId}','${opt.date}','${safeTime}')">
+          Termin bestätigen ✓
+        </button>` : ''}
       </div>
     </div>`;
   }).join('');
