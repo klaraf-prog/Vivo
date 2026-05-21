@@ -424,8 +424,20 @@ async function checkPassword() {
     document.getElementById('pw-input').focus();
     return;
   }
-  // Authenticate with Firebase anonymously so database rules (auth != null) are satisfied.
-  try { await firebase.auth().signInAnonymously(); } catch(e) { console.warn('anon auth:', e); }
+  const btn = document.querySelector('.login-box button');
+  btn.disabled = true; btn.textContent = 'Anmelden…';
+  try {
+    await firebase.auth().signInAnonymously();
+  } catch(e) {
+    console.error('anon auth:', e);
+    showLoginError('Firebase-Verbindung fehlgeschlagen. Bitte Internetverbindung prüfen.');
+    btn.disabled = false; btn.textContent = 'Anmelden';
+    return;
+  }
+  btn.disabled = false; btn.textContent = 'Anmelden';
+  // sessionStorage is set AFTER signInAnonymously so that the onAuthStateChanged
+  // callback triggered by the sign-in sees no admin flag and exits early — preventing
+  // a duplicate showDashboard() call.
   sessionStorage.setItem('vivo_admin', '1');
   showDashboard();
 }
@@ -902,13 +914,31 @@ async function loadMetrics() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-// Re-authenticate anonymously on page load if the admin session is still active.
+// On page load: if the admin session flag is set, ensure Firebase auth is active
+// before loading data. onAuthStateChanged fires twice when signInAnonymously is
+// called (once with null, once with the new user), so we guard with a flag.
+let _dashboardReady = false;
+
 firebase.auth().onAuthStateChanged(async user => {
   if (sessionStorage.getItem('vivo_admin') !== '1') return;
-  if (!user) {
-    try { await firebase.auth().signInAnonymously(); } catch(e) { console.warn('anon auth:', e); }
+  if (_dashboardReady) return; // already handled
+
+  if (user) {
+    // Auth is confirmed — safe to load data.
+    _dashboardReady = true;
+    showDashboard();
+  } else {
+    // No active session (e.g. mobile browser cleared localStorage).
+    // Sign in anonymously; the resulting auth-state change will re-enter this
+    // callback with user set, triggering showDashboard() from the branch above.
+    try {
+      await firebase.auth().signInAnonymously();
+    } catch(e) {
+      console.error('anon auth failed:', e);
+      showLoginError('Firebase-Verbindung fehlgeschlagen. Bitte neu einloggen.');
+      sessionStorage.removeItem('vivo_admin');
+    }
   }
-  showDashboard();
 });
 </script>
 </body>
