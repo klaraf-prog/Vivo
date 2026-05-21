@@ -224,12 +224,6 @@
     <h2>Admin Dashboard</h2>
     <input type="password" id="pw-input" placeholder="Admin-Passwort"
       onkeydown="if(event.key==='Enter') checkPassword()">
-    <hr style="border:none;border-top:1px solid var(--border)">
-    <p style="font-size:.8125rem;color:var(--muted);text-align:center;margin:-8px 0 -4px">Firebase-Konto zur Authentifizierung</p>
-    <input type="email"    id="fb-email" placeholder="E-Mail"   autocomplete="email"
-      onkeydown="if(event.key==='Enter') checkPassword()">
-    <input type="password" id="fb-pw"    placeholder="Passwort" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter') checkPassword()">
     <button onclick="checkPassword()">Anmelden</button>
     <p class="login-error" id="login-error"></p>
   </div>
@@ -390,7 +384,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -422,50 +415,23 @@ function showLoginError(msg) {
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
-async function checkPassword() {
+function checkPassword() {
   const adminPw = document.getElementById('pw-input').value;
-  const email   = document.getElementById('fb-email').value.trim();
-  const fbPw    = document.getElementById('fb-pw').value;
-  const btn     = document.querySelector('.login-box button');
-
   if (adminPw !== ADMIN_PASSWORD) {
     showLoginError('Falsches Admin-Passwort.');
     document.getElementById('pw-input').value = '';
     document.getElementById('pw-input').focus();
     return;
   }
-  if (!email || !fbPw) {
-    showLoginError('Bitte Firebase E-Mail und Passwort eingeben.');
-    return;
-  }
-
-  btn.disabled = true; btn.textContent = 'Anmelden…';
-  try {
-    await firebase.auth().signInWithEmailAndPassword(email, fbPw);
-    sessionStorage.setItem('vivo_admin', '1');
-    showDashboard();
-  } catch (e) {
-    const msgs = {
-      'auth/invalid-credential':   'Ungültige Firebase-Zugangsdaten.',
-      'auth/user-not-found':       'Firebase-Nutzer nicht gefunden.',
-      'auth/wrong-password':       'Falsches Firebase-Passwort.',
-      'auth/invalid-email':        'Ungültige E-Mail-Adresse.',
-      'auth/too-many-requests':    'Zu viele Versuche. Kurz warten.',
-    };
-    showLoginError(msgs[e.code] || ('Firebase-Fehler: ' + e.message));
-  } finally {
-    btn.disabled = false; btn.textContent = 'Anmelden';
-  }
+  sessionStorage.setItem('vivo_admin', '1');
+  showDashboard();
 }
 
 function logout() {
   sessionStorage.removeItem('vivo_admin');
-  firebase.auth().signOut().catch(() => {});
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('pw-input').value = '';
-  document.getElementById('fb-email').value = '';
-  document.getElementById('fb-pw').value    = '';
 }
 
 function showDashboard() {
@@ -932,13 +898,9 @@ async function loadMetrics() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-// On page load: if Firebase says the user is still signed in AND the admin
-// session flag is set, skip the login form entirely.
-firebase.auth().onAuthStateChanged(user => {
-  if (user && sessionStorage.getItem('vivo_admin') === '1') {
-    showDashboard();
-  }
-});
+if (sessionStorage.getItem('vivo_admin') === '1') {
+  showDashboard();
+}
 </script>
 </body>
 </html>
