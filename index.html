@@ -876,11 +876,6 @@
 </head>
 <body>
 
-<button id="lang-toggle" onclick="toggleLang()" style="
-  position:fixed;top:12px;right:16px;z-index:200;
-  background:none;border:none;font-size:1.25rem;cursor:pointer;
-  padding:4px;line-height:1;opacity:0.8
-">🇩🇪</button>
 
 <!-- ═══════════════════════════ LOADING ═══════════════════════════ -->
 <div id="loading">
@@ -950,7 +945,10 @@
 <div id="screen-home" class="screen">
   <div class="home-bar">
     <span class="logo" onclick="navHome()" style="cursor:pointer">vivo</span>
-    <button class="avatar" id="avatar-btn" onclick="openProfileScreen()"></button>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button id="lang-toggle" onclick="toggleLang()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;padding:4px;line-height:1;opacity:0.8">🇩🇪</button>
+      <button class="avatar" id="avatar-btn" onclick="openProfileScreen()"></button>
+    </div>
   </div>
 
   <div class="home-body">
