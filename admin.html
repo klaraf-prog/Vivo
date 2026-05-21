@@ -384,6 +384,7 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -415,7 +416,7 @@ function showLoginError(msg) {
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
-function checkPassword() {
+async function checkPassword() {
   const adminPw = document.getElementById('pw-input').value;
   if (adminPw !== ADMIN_PASSWORD) {
     showLoginError('Falsches Admin-Passwort.');
@@ -423,12 +424,15 @@ function checkPassword() {
     document.getElementById('pw-input').focus();
     return;
   }
+  // Authenticate with Firebase anonymously so database rules (auth != null) are satisfied.
+  try { await firebase.auth().signInAnonymously(); } catch(e) { console.warn('anon auth:', e); }
   sessionStorage.setItem('vivo_admin', '1');
   showDashboard();
 }
 
 function logout() {
   sessionStorage.removeItem('vivo_admin');
+  firebase.auth().signOut().catch(() => {});
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('pw-input').value = '';
@@ -898,9 +902,14 @@ async function loadMetrics() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-if (sessionStorage.getItem('vivo_admin') === '1') {
+// Re-authenticate anonymously on page load if the admin session is still active.
+firebase.auth().onAuthStateChanged(async user => {
+  if (sessionStorage.getItem('vivo_admin') !== '1') return;
+  if (!user) {
+    try { await firebase.auth().signInAnonymously(); } catch(e) { console.warn('anon auth:', e); }
+  }
   showDashboard();
-}
+});
 </script>
 </body>
 </html>
