@@ -3422,8 +3422,22 @@ async function togglePollVote(eventId, optionId) {
     }
   } else {
     try {
-      if (alreadyVoted) { await voteRef.remove(); }
-      else               { await voteRef.set(true); }
+      if (alreadyVoted) {
+        await voteRef.remove();
+      } else {
+        await voteRef.set(true);
+        // Auto-RSVP as "vielleicht" if this user has no existing RSVP for this event.
+        const existingRsvp = window._ev?.rsvps
+          ? Object.values(window._ev.rsvps).find(r => r.userId === me.uid)
+          : null;
+        if (!existingRsvp) {
+          const name = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
+          const newRef = await db.ref('events/' + eventId + '/rsvps').push({
+            name, status: 'vielleicht', userId: me.uid, pollDriven: true, ts: Date.now(),
+          });
+          await db.ref('userEvents/' + me.uid + '/' + eventId).set('vielleicht');
+        }
+      }
     } catch(e) {
       console.error('poll vote error:', e);
       toast('Fehler beim Abstimmen');
@@ -3435,23 +3449,67 @@ async function confirmPollOption(eventId, optionId, date, time) {
   if (!me) return;
   if (!confirm('Diesen Termin für alle bestätigen?')) return;
   try {
+    // 1. Lock the date and close the poll atomically.
     await db.ref('events/' + eventId).update({ date, time: time || null });
     await db.ref('events/' + eventId + '/poll').update({ active: false, confirmedOption: optionId });
-    const [rSnap, evSnap] = await Promise.all([
+
+    // 2. Read poll votes and RSVPs (event snapshot already updated above).
+    const [pollOptSnap, rsvpsSnap, evSnap] = await Promise.all([
+      db.ref('events/' + eventId + '/poll/options').once('value'),
       db.ref('events/' + eventId + '/rsvps').once('value'),
       db.ref('events/' + eventId).once('value'),
     ]);
-    const evData = evSnap.val();
-    rSnap.forEach(child => {
-      const r = child.val();
-      if (r.userId && r.userId !== me.uid) {
-        notifyUser(r.userId, 'event_edited',
-          '📅 Termin steht fest!',
-          `"${evData ? evData.title : ''}" findet statt: ${fmtDate(date, time || null)}`,
-          '/#event/' + eventId
-        );
-      }
+    const evTitle = evSnap.val()?.title || '';
+    const dateStr = fmtDate(date, time || null);
+
+    // Build: who voted for the winning option vs. other options.
+    // Anonymous session IDs start with 'a_' — skip them, they can't receive notifications.
+    const winVoters  = new Set();
+    const loseVoters = new Set();
+    pollOptSnap.forEach(optSnap => {
+      const votes = optSnap.val()?.votes || {};
+      Object.keys(votes).forEach(uid => {
+        if (uid.startsWith('a_')) return;
+        if (optSnap.key === optionId) winVoters.add(uid);
+        else loseVoters.add(uid);
+      });
     });
+    // Anyone who voted for the winner shouldn't be in loseVoters.
+    winVoters.forEach(uid => loseVoters.delete(uid));
+
+    // Build RSVP index: uid → rsvpKey (for status updates).
+    const rsvpKeyByUid = {};
+    rsvpsSnap.forEach(child => {
+      const r = child.val();
+      if (r.userId) rsvpKeyByUid[r.userId] = child.key;
+    });
+
+    // 3. Promote winning voters to "dabei" in one multi-path update.
+    const updates = {};
+    winVoters.forEach(uid => {
+      if (uid === me.uid) return; // creator handles their own RSVP
+      if (rsvpKeyByUid[uid]) {
+        updates['events/' + eventId + '/rsvps/' + rsvpKeyByUid[uid] + '/status'] = 'dabei';
+      }
+      updates['userEvents/' + uid + '/' + eventId] = 'dabei';
+    });
+    if (Object.keys(updates).length) await db.ref().update(updates);
+
+    // 4. Notify everyone who did NOT vote for the winning option
+    //    (those who voted for other options + those with an RSVP but no winning vote).
+    const allKnownUids = new Set([
+      ...Object.keys(rsvpKeyByUid),
+      ...loseVoters,
+    ]);
+    allKnownUids.forEach(uid => {
+      if (uid === me.uid || winVoters.has(uid)) return;
+      notifyUser(uid, 'event_edited',
+        '📅 Termin steht fest!',
+        `„${evTitle}" findet statt am ${dateStr} — bist du dabei?`,
+        '/#event/' + eventId
+      );
+    });
+
     toast('Termin bestätigt! Alle werden benachrichtigt.');
   } catch (err) {
     console.error('confirmPollOption:', err);
@@ -3669,7 +3727,10 @@ function renderEv(ev, body) {
 
   const isCreator = me && ev.createdBy === me.uid;
 
-  const rsvpSection = me ? `
+  // Hide RSVP form entirely while a poll is running — voting acts as implicit RSVP.
+  const pollActive = !!(ev.poll && ev.poll.active);
+
+  const rsvpSection = pollActive ? '' : me ? `
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('rsvp_your_answer')}</div>
       <div class="rsvp-box">
