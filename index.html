@@ -3449,11 +3449,11 @@ async function confirmPollOption(eventId, optionId, date, time) {
   if (!me) return;
   if (!confirm('Diesen Termin für alle bestätigen?')) return;
   try {
-    // 1. Lock the date and close the poll atomically.
+    // 1. Close the poll and set the confirmed date.
     await db.ref('events/' + eventId).update({ date, time: time || null });
     await db.ref('events/' + eventId + '/poll').update({ active: false, confirmedOption: optionId });
 
-    // 2. Read poll votes and RSVPs (event snapshot already updated above).
+    // 2. Read all poll options, existing RSVPs, and event metadata in parallel.
     const [pollOptSnap, rsvpsSnap, evSnap] = await Promise.all([
       db.ref('events/' + eventId + '/poll/options').once('value'),
       db.ref('events/' + eventId + '/rsvps').once('value'),
@@ -3462,47 +3462,96 @@ async function confirmPollOption(eventId, optionId, date, time) {
     const evTitle = evSnap.val()?.title || '';
     const dateStr = fmtDate(date, time || null);
 
-    // Build: who voted for the winning option vs. other options.
-    // Anonymous session IDs start with 'a_' — skip them, they can't receive notifications.
-    const winVoters  = new Set();
-    const loseVoters = new Set();
+    // Parse votes into two maps:
+    //   winVotes  — voterKey → vote value for the confirmed option
+    //   loseKeys  — Set of voterKeys who only voted for other options
+    // Vote value is `true` for logged-in users, {name, ts} for anonymous.
+    const winVotes  = {}; // voterKey → true | {name, ts}
+    const loseKeys  = new Set();
     pollOptSnap.forEach(optSnap => {
       const votes = optSnap.val()?.votes || {};
-      Object.keys(votes).forEach(uid => {
-        if (uid.startsWith('a_')) return;
-        if (optSnap.key === optionId) winVoters.add(uid);
-        else loseVoters.add(uid);
+      Object.entries(votes).forEach(([key, val]) => {
+        if (optSnap.key === optionId) {
+          winVotes[key] = val;
+          loseKeys.delete(key); // promoted to winner
+        } else if (!winVotes[key]) {
+          loseKeys.add(key);
+        }
       });
     });
-    // Anyone who voted for the winner shouldn't be in loseVoters.
-    winVoters.forEach(uid => loseVoters.delete(uid));
 
-    // Build RSVP index: uid → rsvpKey (for status updates).
-    const rsvpKeyByUid = {};
+    // Build existing RSVP index: voterKey → rsvp push-key.
+    const rsvpPushKey = {};
     rsvpsSnap.forEach(child => {
       const r = child.val();
-      if (r.userId) rsvpKeyByUid[r.userId] = child.key;
+      if (r.userId) rsvpPushKey[r.userId] = child.key;
     });
 
-    // 3. Promote winning voters to "dabei" in one multi-path update.
+    // 3. Build a single multi-path update that promotes all winning voters to "dabei".
+    //
+    //    Logged-in user  (vote === true):
+    //      • Update existing RSVP status, OR create one by reading their display name.
+    //      • Update userEvents.
+    //
+    //    Anonymous with name  (vote === {name, ts}):
+    //      • Key starting with 'a_' = local session ID — create a nameless-userId RSVP.
+    //      • Other key = Firebase anonymous UID — also update userEvents.
+    //      • In both cases create an RSVP entry so they appear in the attendee list.
     const updates = {};
-    winVoters.forEach(uid => {
-      if (uid === me.uid) return; // creator handles their own RSVP
-      if (rsvpKeyByUid[uid]) {
-        updates['events/' + eventId + '/rsvps/' + rsvpKeyByUid[uid] + '/status'] = 'dabei';
-      }
-      updates['userEvents/' + uid + '/' + eventId] = 'dabei';
+
+    // Collect logged-in winner UIDs who have no existing RSVP so we can batch-fetch names.
+    const needsName = [];
+    Object.entries(winVotes).forEach(([key, val]) => {
+      if (val === true && !rsvpPushKey[key]) needsName.push(key);
     });
+    const nameMap = {};
+    await Promise.all(needsName.map(async uid => {
+      const s = await db.ref('users/' + uid + '/displayName').once('value');
+      nameMap[uid] = s.val() || 'Unbekannt';
+    }));
+
+    Object.entries(winVotes).forEach(([key, val]) => {
+      if (val === true) {
+        // ── Logged-in user ──
+        if (rsvpPushKey[key]) {
+          updates['events/' + eventId + '/rsvps/' + rsvpPushKey[key] + '/status'] = 'dabei';
+        } else {
+          const newKey = db.ref('events/' + eventId + '/rsvps').push().key;
+          updates['events/' + eventId + '/rsvps/' + newKey] = {
+            name: nameMap[key], status: 'dabei', userId: key, ts: Date.now(),
+          };
+          rsvpPushKey[key] = newKey; // keep index consistent for notification filter below
+        }
+        updates['userEvents/' + key + '/' + eventId] = 'dabei';
+
+      } else if (val && val.name) {
+        // ── Anonymous voter with a name ──
+        const isFirebaseUid = !key.startsWith('a_');
+        const existingKey   = isFirebaseUid ? rsvpPushKey[key] : null;
+        if (existingKey) {
+          updates['events/' + eventId + '/rsvps/' + existingKey + '/status'] = 'dabei';
+        } else {
+          const newKey = db.ref('events/' + eventId + '/rsvps').push().key;
+          const entry  = { name: val.name, status: 'dabei', ts: Date.now() };
+          if (isFirebaseUid) entry.userId = key;
+          updates['events/' + eventId + '/rsvps/' + newKey] = entry;
+          if (isFirebaseUid) rsvpPushKey[key] = newKey;
+        }
+        if (isFirebaseUid) updates['userEvents/' + key + '/' + eventId] = 'dabei';
+      }
+    });
+
     if (Object.keys(updates).length) await db.ref().update(updates);
 
-    // 4. Notify everyone who did NOT vote for the winning option
-    //    (those who voted for other options + those with an RSVP but no winning vote).
-    const allKnownUids = new Set([
-      ...Object.keys(rsvpKeyByUid),
-      ...loseVoters,
+    // 4. Notify everyone who did NOT vote for the winning option:
+    //    losing voters + any RSVP holders who didn't vote for the winner.
+    //    Exclude the creator, winners, and non-Firebase keys (a_...).
+    const toNotify = new Set([
+      ...[...loseKeys].filter(k => !k.startsWith('a_')),
+      ...Object.keys(rsvpPushKey),
     ]);
-    allKnownUids.forEach(uid => {
-      if (uid === me.uid || winVoters.has(uid)) return;
+    toNotify.forEach(uid => {
+      if (uid === me.uid || winVotes[uid]) return;
       notifyUser(uid, 'event_edited',
         '📅 Termin steht fest!',
         `„${evTitle}" findet statt am ${dateStr} — bist du dabei?`,
