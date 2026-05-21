@@ -1935,6 +1935,20 @@ function scheduleEventStartNotifs(events) {
 // ─── Auth listener ──────────────────────────────────────────────────────────
 
 auth.onAuthStateChanged(async user => {
+  // Anonymous Firebase auth (used as fallback for poll votes when rules require auth)
+  // — treat as unauthenticated for all UI purposes to avoid breaking the anon experience.
+  if (user && user.isAnonymous) {
+    me = null;
+    document.getElementById('loading').style.display = 'none';
+    const onEventScreen = document.getElementById('screen-event')?.style?.display !== 'none';
+    if (!onEventScreen) {
+      const r = route();
+      if (r.screen === 'event') { loadEventScreen(r.id); showScreen('event'); }
+      else showScreen('login');
+    }
+    return;
+  }
+
   me = user;
   document.getElementById('loading').style.display = 'none';
 
@@ -3264,6 +3278,13 @@ function getPollSessionId() {
   return id;
 }
 
+// Voter key: use stored anonymous Firebase UID (from signInAnonymously fallback)
+// so vote detection stays consistent across page re-renders.
+function getVoterKey() {
+  if (me) return me.uid;
+  return localStorage.getItem('vivo_anon_uid') || getPollSessionId();
+}
+
 // Show login screen while keeping the current URL hash so onAuthStateChanged
 // routes straight back to this event after login.
 function showLoginForPoll() {
@@ -3293,24 +3314,22 @@ function buildPollSection(ev) {
   const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
   const totalVoters = allVoterIds.size;
 
-  // Detect own votes — uid for logged-in, localStorage session ID for anonymous.
-  // Read from the already-loaded snapshot (window._ev) so no extra Firebase read is needed.
-  const voterKey = me ? me.uid : getPollSessionId();
+  // Detect own votes — use persistent voter key so detection survives re-renders.
+  const voterKey = getVoterKey();
   const myVotes = new Set();
   options.forEach(([optId, o]) => { if (o.votes && o.votes[voterKey]) myVotes.add(optId); });
 
-  // Name input shown ABOVE the options for anonymous users — mirrors the anonymous RSVP UX
+  // Name input shown ABOVE the options for anonymous users.
+  // Uses only inline styles to avoid any CSS class conflicts.
   const anonName = !me ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
   const anonHeader = !me ? `
-    <div class="rsvp-box" style="margin-bottom:12px">
-      <p class="rsvp-as-label" style="margin-bottom:8px">Abstimmen als…</p>
-      <div class="field" style="margin-bottom:8px">
-        <input type="text" id="poll-anon-inp" value="${esc(anonName)}"
-          placeholder="Dein Name, z.B. Max Mustermann"
-          oninput="localStorage.setItem('vivo_poll_anon_name',this.value)"
-          style="padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9375rem;color:var(--text);background:#fff;width:100%;box-sizing:border-box">
-      </div>
-      <p style="font-size:.8125rem;color:var(--muted);margin:0;text-align:center">
+    <div style="background:#fff;border-radius:12px;border:1px solid #E8E0D4;padding:16px;margin-bottom:12px">
+      <p style="font-size:.875rem;color:#8A847D;margin:0 0 8px;font-weight:500">Abstimmen als…</p>
+      <input type="text" id="poll-anon-inp" value="${esc(anonName)}"
+        placeholder="Dein Name, z.B. Max Mustermann"
+        oninput="localStorage.setItem('vivo_poll_anon_name',this.value)"
+        style="display:block;width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #E8E0D4;border-radius:8px;font-size:.9375rem;color:#1A1714;background:#fff;margin-bottom:10px;font-family:inherit;outline:none">
+      <p style="font-size:.8125rem;color:#8A847D;margin:0;text-align:center">
         oder <button class="link-btn" onclick="showLoginForPoll()">einloggen</button>
         — dann wird dein Name automatisch verwendet
       </p>
@@ -3352,7 +3371,7 @@ function buildPollSection(ev) {
 }
 
 async function togglePollVote(eventId, optionId) {
-  const voterKey = me ? me.uid : getPollSessionId();
+  const voterKey = getVoterKey();
   const voteRef  = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
 
   // Use already-loaded snapshot to determine voted state — avoids an extra Firebase read
@@ -3364,40 +3383,47 @@ async function togglePollVote(eventId, optionId) {
     const name = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
 
     if (alreadyVoted) {
-      try {
-        await voteRef.remove();
-      } catch(e) {
-        console.error('poll unvote error:', e);
-        toast('Fehler beim Entfernen der Stimme');
-      }
+      try { await voteRef.remove(); }
+      catch(e) { console.error('poll unvote error:', e); toast('Fehler beim Entfernen der Stimme'); }
       return;
     }
 
     if (!name) {
       if (nameInp) {
         nameInp.focus();
-        nameInp.style.borderColor = 'var(--pink)';
-        nameInp.style.outline = 'none';
-        setTimeout(() => { nameInp.style.borderColor = ''; }, 2500);
+        nameInp.style.borderColor = '#e74c3c';
+        setTimeout(() => { nameInp.style.borderColor = '#E8E0D4'; }, 2500);
       }
       toast('Bitte gib zuerst deinen Namen ein');
       return;
     }
 
+    localStorage.setItem('vivo_poll_anon_name', name);
+
+    // Try writing directly first; if Firebase rules require auth, fall back to signInAnonymously.
     try {
-      localStorage.setItem('vivo_poll_anon_name', name);
       await voteRef.set({ name, ts: Date.now() });
     } catch(e) {
-      console.error('poll vote error:', e);
-      toast('Fehler beim Abstimmen' + (e.code ? ': ' + e.code : ''));
+      if (e.code === 'PERMISSION_DENIED' || String(e).includes('PERMISSION_DENIED')) {
+        try {
+          const cred = await auth.signInAnonymously();
+          // Store the UID so getVoterKey() returns it consistently on re-renders.
+          localStorage.setItem('vivo_anon_uid', cred.user.uid);
+          const authRef = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + cred.user.uid);
+          await authRef.set({ name, ts: Date.now() });
+        } catch(e2) {
+          console.error('poll vote anon auth error:', e2);
+          toast('Abstimmen fehlgeschlagen: ' + (e2.message || e2.code || 'Fehler'));
+        }
+      } else {
+        console.error('poll vote error:', e);
+        toast('Fehler beim Abstimmen');
+      }
     }
   } else {
     try {
-      if (alreadyVoted) {
-        await voteRef.remove();
-      } else {
-        await voteRef.set(true);
-      }
+      if (alreadyVoted) { await voteRef.remove(); }
+      else               { await voteRef.set(true); }
     } catch(e) {
       console.error('poll vote error:', e);
       toast('Fehler beim Abstimmen');
@@ -3617,18 +3643,25 @@ function renderEv(ev, body) {
 
   // find my existing RSVP
   let myStatus = null;
+  let myNote = '';
   if (me && ev.rsvps) {
     const found = Object.values(ev.rsvps).find(r => r.userId === me.uid);
-    if (found) myStatus = found.status;
+    if (found) { myStatus = found.status; myNote = found.note || ''; }
   }
 
-  const mkRow = r => `
+  const mkRow = r => {
+    const showNote = (me && ev.createdBy === me.uid) && r.note;
+    return `
     <div class="att-row">
       <div class="att-info">
         <div class="att-av">${(r.name||'?')[0].toUpperCase()}</div>
-        <span class="att-name">${esc(r.name)}</span>
+        <div>
+          <span class="att-name">${esc(r.name)}</span>
+          ${showNote ? `<span style="display:block;font-size:.8125rem;color:var(--muted);margin-top:1px">${esc(r.note)}</span>` : ''}
+        </div>
       </div>
     </div>`;
+  };
   const attEmpty = `<div class="att-sec-empty">${t('att_nobody')}</div>`;
   const dabeiRows    = dabei.length ? dabei.map(mkRow).join('') : attEmpty;
   const vlRows       = vl.length   ? vl.map(mkRow).join('')    : attEmpty;
@@ -3640,13 +3673,22 @@ function renderEv(ev, body) {
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('rsvp_your_answer')}</div>
       <div class="rsvp-box">
-        <p class="rsvp-as-label">${t('rsvp_as')} <strong>${esc(me.displayName || me.email.split('@')[0])}</strong></p>
+        <p class="rsvp-as-label">${t('rsvp_as')} <strong>${esc(me.displayName || (me.email ? me.email.split('@')[0] : 'Du'))}</strong></p>
         <div class="rsvp-btns">
           <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>${t('status_dabei')}</button>
           <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>${t('status_vielleicht')}</button>
           <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>${t('status_nein')}</button>
         </div>
         ${myStatus ? `<p class="rsvp-hint">${t('rsvp_hint_change')}</p>` : ''}
+        ${myStatus ? `
+        <div style="margin-top:12px">
+          <textarea id="rsvp-note-inp" rows="2"
+            placeholder="Kurze Notiz für den Ersteller (optional)…"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff">${esc(myNote)}</textarea>
+          <button class="btn btn-outline btn-sm btn-full" style="margin-top:6px" onclick="saveRsvpNote('${ev.id}')">
+            ${myNote ? 'Notiz aktualisieren' : 'Notiz hinzufügen'}
+          </button>
+        </div>` : ''}
       </div>
     </div>` : `
     <div class="ev-sec" style="margin-top:8px">
@@ -3662,6 +3704,9 @@ function renderEv(ev, body) {
             <label>${t('rsvp_your_name')}</label>
             <input type="text" id="rsvp-inp" placeholder="${t('rsvp_name_placeholder')}">
           </div>
+          <textarea id="rsvp-note-inp" rows="2"
+            placeholder="Kurze Notiz für den Ersteller (optional)…"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff"></textarea>
           <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">${t('rsvp_send')}</button>
         </div>
         ${myStatus ? `<p class="rsvp-hint">${t('rsvp_change_hint')}</p>` : ''}
@@ -3767,7 +3812,7 @@ async function submitRsvp(eventId) {
 
   let name;
   if (me) {
-    name = me.displayName || me.email.split('@')[0];
+    name = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
   } else {
     const inp = document.getElementById('rsvp-inp');
     name = inp ? inp.value.trim() : '';
@@ -3788,8 +3833,11 @@ async function submitRsvp(eventId) {
       if (Object.keys(upd).length) await ref.update(upd);
     }
 
+    const noteEl = document.getElementById('rsvp-note-inp');
+    const note = noteEl ? noteEl.value.trim() : '';
     const rsvp = { name, status, ts: Date.now() };
     if (me) rsvp.userId = me.uid;
+    if (note) rsvp.note = note;
     const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
     const rsvpKey = newRef.key;
 
@@ -3827,6 +3875,20 @@ async function submitRsvp(eventId) {
     console.error('submitRsvp:', err);
     toast(t('toast_rsvp_error'));
     if (btn) { btn.disabled = false; btn.textContent = t('rsvp_send'); }
+  }
+}
+
+async function saveRsvpNote(eventId) {
+  if (!me) return;
+  const noteEl = document.getElementById('rsvp-note-inp');
+  const note = noteEl ? noteEl.value.trim() : '';
+  const ref = db.ref('events/' + eventId + '/rsvps');
+  const snap = await ref.orderByChild('userId').equalTo(me.uid).once('value');
+  const updates = {};
+  snap.forEach(c => { updates[c.key + '/note'] = note || null; });
+  if (Object.keys(updates).length) {
+    await ref.update(updates);
+    toast('Notiz gespeichert ✓');
   }
 }
 
