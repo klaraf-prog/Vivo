@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "resend": "^3.5.0"
+    "resend": "^3.5.0",
+    "web-push": "^3.6.7"
   }
 }

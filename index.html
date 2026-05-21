@@ -1136,6 +1136,21 @@
       </div>
     </div>
 
+    <!-- Motivation -->
+    <div class="settings-section">
+      <p class="settings-section-title">Motivations-Erinnerungen</p>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span>Aktivitäts-Erinnerungen</span>
+          <small>Erinnert dich, ein Event zu planen, wenn du länger nichts unternommen hast</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-motivation" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
   </div>
 
   <div class="prof-foot">
@@ -1733,6 +1748,44 @@ auth.getRedirectResult().catch(err => {
 
 // ─── Push Notifications ─────────────────────────────────────────────────────
 
+// VAPID public key for Web Push subscriptions (private key lives in Netlify env vars).
+const VAPID_PUBLIC_KEY = 'BLWvtRMsyv0ZpjC_BWYvxSzGaslRfQis7762TiJ-GPjk3BHY5VoBPrj8pFVl78Th-N52bdJ5g2eZrEhEGgcdRAA';
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+// Subscribe this browser to Web Push and store the subscription in Firebase.
+async function subscribeToPush() {
+  if (!_swRegistration || !me) return;
+  try {
+    const existing = await _swRegistration.pushManager.getSubscription();
+    const sub = existing || await _swRegistration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    await db.ref('users/' + me.uid + '/pushSub').set(sub.toJSON());
+  } catch(e) { console.warn('push subscribe:', e); }
+}
+
+// Remove the push subscription when the user disables push.
+async function unsubscribeFromPush() {
+  if (!me) return;
+  db.ref('users/' + me.uid + '/pushSub').remove().catch(() => {});
+  if (_swRegistration) {
+    const sub = await _swRegistration.pushManager.getSubscription().catch(() => null);
+    if (sub) sub.unsubscribe().catch(() => {});
+  }
+}
+
+// Record that the user was active now (suppresses motivation notifications for 5 days).
+function trackActivity() {
+  if (!me) return;
+  db.ref('users/' + me.uid + '/lastActivityTs').set(Date.now()).catch(() => {});
+}
+
 (async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
@@ -2005,8 +2058,13 @@ auth.onAuthStateChanged(async user => {
 
   if (user) {
     startNotifListener();
-    db.ref('users/' + user.uid + '/settings').once('value')
-      .then(s => { _settings = s.val() || {}; }).catch(() => {});
+    db.ref('users/' + user.uid + '/settings').once('value').then(s => {
+      _settings = s.val() || {};
+      // Ensure push subscription is stored in Firebase whenever push is already granted.
+      if (_settings.pushEnabled !== false && 'Notification' in window && Notification.permission === 'granted') {
+        subscribeToPush();
+      }
+    }).catch(() => {});
   } else {
     _settings = null;
     stopNotifListener();
@@ -2198,25 +2256,35 @@ async function openSettingsScreen() {
   document.getElementById('s-type-changes').checked  = types.eventChanges  !== false;
   document.getElementById('s-type-friends').checked  = types.newFriends    !== false;
 
+  // Motivation (default on)
+  document.getElementById('s-motivation').checked = s.motivationNotifs !== false;
+
   showScreen('settings');
 }
 
 function onPushToggle(el) {
-  if (!el.checked) return; // turning off is always allowed
+  if (!el.checked) {
+    unsubscribeFromPush();
+    return;
+  }
   if (!('Notification' in window)) { el.checked = false; return; }
   if (Notification.permission === 'denied') {
     el.checked = false;
     document.getElementById('s-push-denied').style.display = 'block';
     return;
   }
-  if (Notification.permission === 'default') {
-    el.checked = false; // will re-check if granted
-    Notification.requestPermission().then(result => {
-      el.checked = result === 'granted';
-      document.getElementById('s-push-denied').style.display =
-        result === 'denied' ? 'block' : 'none';
-    });
+  if (Notification.permission === 'granted') {
+    subscribeToPush();
+    return;
   }
+  // 'default' — ask for permission
+  el.checked = false;
+  Notification.requestPermission().then(result => {
+    el.checked = result === 'granted';
+    document.getElementById('s-push-denied').style.display =
+      result === 'denied' ? 'block' : 'none';
+    if (result === 'granted') subscribeToPush();
+  });
 }
 
 function onEmailToggle(el) {
@@ -2233,9 +2301,10 @@ async function saveSettings() {
   const email   = document.getElementById('s-email-inp').value.trim();
 
   const settings = {
-    pushEnabled:  pushOn,
-    emailEnabled: emailOn,
-    emailAddress: emailOn && email ? email : (me.email || null),
+    pushEnabled:       pushOn,
+    emailEnabled:      emailOn,
+    emailAddress:      emailOn && email ? email : (me.email || null),
+    motivationNotifs:  document.getElementById('s-motivation').checked,
     types: {
       invites:      document.getElementById('s-type-invites').checked,
       rsvps:        document.getElementById('s-type-rsvps').checked,
@@ -3665,6 +3734,7 @@ async function createEvent() {
       });
     }
 
+    trackActivity();
     document.getElementById('suc-emoji').textContent = pickedEmoji;
     const np = document.getElementById('notif-prompt');
     if (np) np.style.display = ('Notification' in window && Notification.permission === 'default') ? 'block' : 'none';
@@ -3996,6 +4066,7 @@ async function submitRsvp(eventId) {
       toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined_guest') }[status]);
       setTimeout(showSignupUpsell, 700);
     } else {
+      trackActivity();
       toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined') }[status]);
     }
   } catch(err) {
