@@ -2946,6 +2946,18 @@ function dateStr(y, m, d) {
 }
 
 function calEvStatus(ev) {
+  // RSVP record is most authoritative
+  if (me && ev.rsvps) {
+    const myRsvp = Object.values(ev.rsvps).find(r => r.userId === me.uid);
+    if (myRsvp) {
+      if (myRsvp.status === 'dabei')     return 'dabei';
+      if (myRsvp.status === 'nein')      return 'nein';
+      return 'vielleicht';
+    }
+  }
+  // Creator without an explicit RSVP entry = dabei
+  if (me && ev.createdBy === me.uid) return 'dabei';
+  // Fall back to userEvents status
   const st = ev._st;
   if (st === 'dabei') return 'dabei';
   if (st === 'nein')  return 'nein';
