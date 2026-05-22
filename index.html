@@ -999,6 +999,16 @@
         <div class="events-stack" id="pending-list"></div>
       </div>
 
+      <div class="section" id="declined-sec" style="display:none">
+        <div class="section-head" onclick="toggleDeclinedEvents()" style="cursor:pointer;user-select:none">
+          <h2 data-i18n="home_declined">Abgesagt</h2>
+          <svg id="declined-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);flex-shrink:0">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="events-stack" id="declined-list" style="display:none"></div>
+      </div>
+
       <div class="section" id="past-sec" style="display:none">
         <div class="section-head" onclick="togglePastEvents()" style="cursor:pointer;user-select:none">
           <h2 data-i18n="home_past">Vergangene Events</h2>
@@ -1570,6 +1580,7 @@ const LANG = {
     btn_create_event: 'Event erstellen & teilen ✨',
     home_my_events: 'Deine Events',
     home_pending: 'Ausstehend',
+    home_declined: 'Abgesagt',
     home_past: 'Vergangene Events',
     home_empty_my: 'Noch keine kommenden Events.',
     home_empty_start: 'Noch keine Events. Erstelle dein erstes!',
@@ -1675,6 +1686,7 @@ const LANG = {
     btn_create_event: 'Create & share event ✨',
     home_my_events: 'Your Events',
     home_pending: 'Pending',
+    home_declined: 'Declined',
     home_past: 'Past Events',
     home_empty_my: 'No upcoming events.',
     home_empty_start: 'No events yet. Create your first!',
@@ -3329,11 +3341,13 @@ async function loadHome() {
   loadFriends();
   loadSpaces();
 
-  const myEl   = document.getElementById('my-list');
-  const pEl    = document.getElementById('pending-list');
-  const pastEl = document.getElementById('past-list');
-  const pSec   = document.getElementById('pending-sec');
-  const pastSec = document.getElementById('past-sec');
+  const myEl      = document.getElementById('my-list');
+  const pEl       = document.getElementById('pending-list');
+  const pastEl    = document.getElementById('past-list');
+  const declEl    = document.getElementById('declined-list');
+  const pSec      = document.getElementById('pending-sec');
+  const pastSec   = document.getElementById('past-sec');
+  const declSec   = document.getElementById('declined-sec');
   myEl.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
 
   const ref = db.ref('userEvents/' + me.uid);
@@ -3374,7 +3388,7 @@ async function loadHome() {
     }
 
     const snaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
-    const myEvs = [], pEvs = [], pastEvs = [];
+    const myEvs = [], pEvs = [], pastEvs = [], declEvs = [];
 
     snaps.forEach((s, i) => {
       if (!s.exists()) return;
@@ -3384,18 +3398,20 @@ async function loadHome() {
         pastEvs.push(ev);
       } else if (ev._st === 'pending' || ev._st === 'space') {
         pEvs.push(ev);
+      } else if (ev._st === 'nein') {
+        declEvs.push(ev);
       } else {
-        myEvs.push(ev); // created / dabei / vielleicht / nein (grayed out)
+        myEvs.push(ev);
       }
     });
 
-    const toMs  = ev => ev.date ? new Date(ev.date + 'T' + (ev.time || '12:00')).getTime() : 9e15;
+    const toMs = ev => ev.date ? new Date(ev.date + 'T' + (ev.time || '12:00')).getTime() : 9e15;
     const asc  = (a, b) => toMs(a) - toMs(b);
     const desc = (a, b) => -asc(a, b);
-    myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
+    myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc); declEvs.sort(asc);
 
     // Cache all events for calendar view
-    _calEvents = [...myEvs, ...pEvs, ...pastEvs];
+    _calEvents = [...myEvs, ...pEvs, ...declEvs, ...pastEvs];
     if (_calView === 'cal') renderCalendar();
 
     scheduleEventStartNotifs([...myEvs, ...pEvs]);
@@ -3410,6 +3426,13 @@ async function loadHome() {
       pEl.innerHTML = pEvs.map(ev => cardHTML(ev, true)).join('');
     } else {
       pSec.style.display = 'none';
+    }
+
+    if (declEvs.length) {
+      declSec.style.display = 'block';
+      declEl.innerHTML = declEvs.map(ev => cardHTML(ev, false)).join('');
+    } else {
+      declSec.style.display = 'none';
     }
 
     if (pastEvs.length) {
@@ -3437,6 +3460,14 @@ function togglePastEvents() {
   chevron.classList.toggle('open', nowOpen);
 }
 
+function toggleDeclinedEvents() {
+  const list    = document.getElementById('declined-list');
+  const chevron = document.getElementById('declined-chevron');
+  const nowOpen = list.style.display === 'none';
+  list.style.display = nowOpen ? '' : 'none';
+  chevron.classList.toggle('open', nowOpen);
+}
+
 function cardHTML(ev, showRsvp) {
   const rsvps     = ev.rsvps ? Object.values(ev.rsvps) : [];
   const dabei     = rsvps.filter(r => r.status === 'dabei');
@@ -3444,9 +3475,10 @@ function cardHTML(ev, showRsvp) {
   const isCreator = me && ev.createdBy === me.uid;
   const isDeclined = ev._st === 'nein';
 
+  const chipName = r => (me && r.userId === me.uid) ? 'Du' : esc(r.name);
   const chips = [
-    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${esc(r.name)}</span>`),
-    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${esc(r.name)}</span>`),
+    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${chipName(r)}</span>`),
+    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${chipName(r)}</span>`),
   ].join('') || `<span style="font-size:.8125rem;color:var(--muted)">${t('no_rsvps')}</span>`;
 
   const rsvpRow = showRsvp ? `
@@ -4188,13 +4220,15 @@ function renderEv(ev, body) {
   }
 
   const mkRow = r => {
+    const isMe    = me && r.userId === me.uid;
+    const display = isMe ? 'Du' : (r.name || '?');
     const showNote = (me && ev.createdBy === me.uid) && r.note;
     return `
     <div class="att-row">
       <div class="att-info">
-        <div class="att-av">${(r.name||'?')[0].toUpperCase()}</div>
+        <div class="att-av">${display[0].toUpperCase()}</div>
         <div>
-          <span class="att-name">${esc(r.name)}</span>
+          <span class="att-name">${isMe ? 'Du' : esc(r.name)}</span>
           ${showNote ? `<span style="display:block;font-size:.8125rem;color:var(--muted);margin-top:1px">${esc(r.note)}</span>` : ''}
         </div>
       </div>
