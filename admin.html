@@ -619,7 +619,7 @@ function renderCharts(userList, eventList) {
 // ─── TEST USER MANAGEMENT ────────────────────────────────────────────────────
 async function toggleTestUser(uid, currentlyTest) {
   try {
-    await db.ref('users/' + uid + '/isTestUser').set(currentlyTest ? null : true);
+    await db.ref('testUsers/' + uid).set(currentlyTest ? null : true);
     loadMetrics();
   } catch(e) {
     alert('Fehler: ' + e.message);
@@ -638,17 +638,22 @@ async function loadMetrics() {
     const weekAgo  = now - week;
     const monthAgo = now - month;
 
-    const [usersSnap, eventsSnap, spacesSnap, spaceEventsSnap] = await Promise.all([
+    const [usersSnap, eventsSnap, spacesSnap, spaceEventsSnap, testUsersSnap] = await Promise.all([
       db.ref('users').once('value'),
       db.ref('events').once('value'),
       db.ref('spaces').once('value'),
       db.ref('spaceEvents').once('value'),
+      db.ref('testUsers').once('value'),
     ]);
 
     // ── USERS ────────────────────────────────────────────────────────────────
-    const usersVal  = usersSnap.val()  || {};
-    const eventsVal = eventsSnap.val() || {};
-    const userList  = Object.entries(usersVal).map(([uid, u]) => ({ uid, ...u }));
+    const usersVal     = usersSnap.val()     || {};
+    const eventsVal    = eventsSnap.val()    || {};
+    const testUsersVal = testUsersSnap.val() || {};
+    const userList  = Object.entries(usersVal).map(([uid, u]) => ({
+      uid, ...u,
+      isTestUser: !!testUsersVal[uid],
+    }));
     const eventList = Object.entries(eventsVal).map(([id, ev]) => ({ id, ...ev }));
 
     // ── TEST-USER FILTER ─────────────────────────────────────────────────────
