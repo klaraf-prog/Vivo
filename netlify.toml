@@ -3,3 +3,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
+
+# Motivations-Benachrichtigungen — läuft stündlich in UTC 15–18 (= 17–20 Uhr CET/CEST)
+[functions."motivate"]
+  schedule = "0 15,16,17,18 * * *"

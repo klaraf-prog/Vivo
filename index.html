@@ -185,6 +185,24 @@
     .settings-email-field { display: none; padding: 12px 0 4px; }
     .settings-email-field.open { display: block; }
     .settings-denied-hint { font-size: .8125rem; color: var(--pink); margin-top: 6px; display: none; }
+    /* ── DATE POLL ── */
+    .poll-divider { border-top: 1.5px solid var(--border); margin: 8px 0; }
+    .poll-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0 10px; }
+    .poll-toggle-label strong { font-size:.9375rem; font-weight:600; color:var(--text); display:block; }
+    .poll-toggle-label small  { font-size:.8125rem; color:var(--muted); }
+    .poll-opt-row { display:flex; align-items:flex-end; gap:8px; margin-bottom:10px; }
+    .poll-opt-row .field { margin:0; }
+    .poll-opt-remove { flex-shrink:0; background:none; border:none; color:var(--pink); font-size:1.25rem; cursor:pointer; padding:0 2px; line-height:1; margin-bottom:6px; }
+    .poll-card { background:#fff; border:1.5px solid var(--border); border-radius:var(--r-sm); padding:14px 16px; margin-bottom:10px; }
+    .poll-card.i-voted { border-color:var(--amber); background:#FFF8EC; }
+    .poll-card.confirmed { border-color:#5CB87A; background:#F0FAF4; }
+    .poll-card-head { display:flex; align-items:center; justify-content:space-between; }
+    .poll-card-date { font-weight:600; font-size:.9375rem; }
+    .poll-card-votes { font-size:.875rem; color:var(--muted); }
+    .poll-bar-wrap { background:var(--bg); border-radius:6px; height:6px; margin-top:8px; }
+    .poll-bar { background:var(--amber); border-radius:6px; height:6px; transition:width .3s; }
+    .poll-card-actions { display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; }
+    .link-btn { background:none; border:none; padding:0; color:var(--amber); font-weight:600; cursor:pointer; font-size:inherit; text-decoration:underline; }
     .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
     .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
 
@@ -438,6 +456,147 @@
     .ecard.declined .ecard-title { color: var(--muted); }
     .ecard.declined .ecard-emoji { opacity: .45; }
     .ecard.declined .attendee-chips { opacity: .6; }
+
+    /* View toggle (list / calendar) */
+    .view-toggle {
+      display: flex; gap: 4px;
+      background: #F0EDE8; border-radius: 8px; padding: 3px;
+    }
+    .view-toggle button {
+      border: none; background: transparent; cursor: pointer;
+      border-radius: 6px; padding: 5px 7px;
+      color: var(--muted); transition: all .15s; line-height: 0;
+    }
+    .view-toggle button.active {
+      background: #fff; color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+
+    /* Calendar view */
+    #cal-view { display: none; padding: 0 0 80px; }
+    #cal-view.visible { display: block; }
+    #list-sections.hidden { display: none; }
+
+    .cal-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 10px; max-width: var(--max); margin: 0 auto; width: 100%;
+      box-sizing: border-box;
+    }
+    .cal-nav-btn {
+      border: none; background: transparent; cursor: pointer;
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text); font-size: 1.25rem; line-height: 1;
+      transition: background .15s;
+    }
+    .cal-nav-btn:hover { background: #F0EDE8; }
+    .cal-month-label { font-size: 1rem; font-weight: 700; color: var(--text); }
+
+    /* Outer wrapper: 12px padding each side, never wider than viewport */
+    #cal-weeks-wrap, .cal-dow-row {
+      width: 100%; max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 12px;
+      box-sizing: border-box;
+    }
+
+    /* DOW header */
+    .cal-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); }
+    .cal-dow {
+      text-align: center; padding: 4px 0 6px;
+      font-size: .6875rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
+      color: var(--muted);
+    }
+
+    /* Week rows */
+    #cal-weeks-wrap { display: flex; flex-direction: column; }
+    .cal-week-row {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      width: 100%; box-sizing: border-box;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .cal-week-row.first-row {
+      border-top: 1px solid var(--border);
+      border-radius: var(--r) var(--r) 0 0; overflow: hidden;
+    }
+    .cal-week-row.last-row { border-radius: 0 0 var(--r) var(--r); overflow: hidden; }
+
+    /* Individual cell — must not grow beyond its column */
+    .cal-cell {
+      background: #fff; min-width: 0; overflow: hidden;
+      padding: 4px 2px 4px;
+      display: flex; flex-direction: column; gap: 2px;
+      min-height: 62px;
+      border-right: 1px solid var(--border);
+      cursor: pointer; transition: background .12s;
+    }
+    .cal-cell:last-child  { border-right: none; }
+    .cal-cell:hover       { background: #FDFCF9; }
+    .cal-cell.other-month { background: #FAFAF8; }
+    .cal-cell.other-month:hover { background: #F5F3EF; }
+    .cal-cell.selected    { background: #FFFBF2; }
+
+    /* Day number */
+    .cal-day-num {
+      font-size: .6875rem; font-weight: 600;
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1px; color: var(--muted); flex-shrink: 0;
+    }
+    .cal-cell.other-month .cal-day-num { color: #C5C0B8; }
+    .cal-cell.today .cal-day-num { background: var(--amber); color: #fff; }
+
+    /* Event bars — fill column width, clip text hard */
+    .cal-bar {
+      border-radius: 3px; padding: 1px 3px;
+      font-size: .5625rem; font-weight: 600; line-height: 1.5;
+      white-space: nowrap; overflow: hidden;
+      /* clip, not ellipsis — no extra space needed */
+      text-overflow: clip;
+      width: 100%; min-width: 0; box-sizing: border-box;
+      cursor: pointer; display: block;
+      transition: filter .12s;
+    }
+    .cal-bar:hover      { filter: brightness(.93); }
+    .cal-bar.dabei      { background: #D1FAE5; color: #065F46; }
+    .cal-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
+    .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .cal-more { font-size: .5625rem; color: var(--muted); padding: 0 2px; line-height: 1.4; }
+
+    /* Day detail panel */
+    .cal-day-detail { width: 100%; max-width: var(--max); margin: 0 auto; box-sizing: border-box; padding: 0 12px; }
+    .cal-detail-inner {
+      border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 var(--r) var(--r);
+      background: #fff; overflow: hidden;
+    }
+    .cal-detail-header {
+      padding: 10px 14px 6px;
+      font-size: .8125rem; font-weight: 700; color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .cal-detail-empty { padding: 14px; font-size: .875rem; color: var(--muted); text-align: center; }
+    .cal-detail-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background .12s;
+    }
+    .cal-detail-item:last-child { border-bottom: none; }
+    .cal-detail-item:hover { background: #FDFCF9; }
+    .cal-detail-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cal-detail-dot.dabei      { background: #10B981; }
+    .cal-detail-dot.vielleicht { background: #F59E0B; }
+    .cal-detail-dot.nein       { background: #9CA3AF; }
+    .cal-detail-info { flex: 1; min-width: 0; }
+    .cal-detail-title {
+      font-size: .9375rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cal-detail-meta { font-size: .8rem; color: var(--muted); margin-top: 1px; }
 
     /* Bottom tab bar */
     .tab-bar {
@@ -785,8 +944,8 @@
 <div id="screen-home" class="screen">
   <div class="home-bar">
     <span class="logo" onclick="navHome()" style="cursor:pointer">vivo</span>
-    <div style="display:flex;align-items:center;gap:10px">
-      <button id="lang-toggle" onclick="toggleLang()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;padding:2px;line-height:1;opacity:0.75;flex-shrink:0">🇩🇪</button>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button id="lang-toggle" onclick="toggleLang()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;padding:4px;line-height:1;opacity:0.8">🇩🇪</button>
       <button class="avatar" id="avatar-btn" onclick="openProfileScreen()"></button>
     </div>
   </div>
@@ -794,12 +953,42 @@
   <div class="home-body">
     <!-- Events tab -->
     <div class="tab-panel active" id="tab-events">
-      <div class="section">
-        <div class="section-head"><h2 data-i18n="home_my_events">Deine Events</h2></div>
-        <div class="events-stack" id="my-list">
-          <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
+      <!-- View toggle -->
+      <div class="section" style="padding-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h2 style="font-size:.8125rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)" data-i18n="home_my_events">Deine Events</h2>
+          <div class="view-toggle">
+            <button id="view-list-btn" class="active" onclick="setEventsView('list')" title="Listenansicht">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="3" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>
+            </button>
+            <button id="view-cal-btn" onclick="setEventsView('cal')" title="Kalenderansicht">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- Calendar view -->
+      <div id="cal-view">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="calShift(-1)" aria-label="Vorheriger Monat">&#8249;</button>
+          <span class="cal-month-label" id="cal-title"></span>
+          <button class="cal-nav-btn" onclick="calShift(1)" aria-label="Nächster Monat">&#8250;</button>
+        </div>
+        <div class="cal-dow-row" id="cal-dow-row"></div>
+        <div id="cal-weeks-wrap">
+          <!-- week rows injected by JS -->
+        </div>
+        <!-- day detail panel injected below the selected week row -->
+      </div>
+
+      <!-- List sections -->
+      <div id="list-sections">
+        <div class="section">
+          <div class="events-stack" id="my-list">
+            <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
+          </div>
+        </div>
 
       <div class="section" id="pending-sec" style="display:none">
         <div class="section-head">
@@ -807,6 +996,16 @@
           <div class="badge" id="pending-count">0</div>
         </div>
         <div class="events-stack" id="pending-list"></div>
+      </div>
+
+      <div class="section" id="declined-sec" style="display:none">
+        <div class="section-head" onclick="toggleDeclinedEvents()" style="cursor:pointer;user-select:none">
+          <h2 data-i18n="home_declined">Abgesagt</h2>
+          <svg id="declined-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);flex-shrink:0">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="events-stack" id="declined-list" style="display:none"></div>
       </div>
 
       <div class="section" id="past-sec" style="display:none">
@@ -818,7 +1017,8 @@
         </div>
         <div class="events-stack" id="past-list" style="display:none"></div>
       </div>
-    </div>
+      </div><!-- /#list-sections -->
+    </div><!-- /#tab-events -->
 
     <!-- Friends tab -->
     <div class="tab-panel" id="tab-friends">
@@ -893,6 +1093,23 @@
           <input type="time" id="ev-time">
         </div>
       </div>
+      <div class="poll-divider"></div>
+      <div class="poll-toggle-row">
+        <div class="poll-toggle-label">
+          <strong>Termin abstimmen lassen</strong>
+          <small>Mehrere Datums-Optionen zur Wahl stellen</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="poll-toggle" onchange="togglePollSection(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="poll-section" style="display:none">
+        <div id="poll-options-list"></div>
+        <button type="button" class="btn btn-outline btn-sm btn-full" style="margin-top:2px" onclick="addPollOption()">+ Datum-Option hinzufügen</button>
+        <p style="font-size:.8125rem;color:var(--muted);margin-top:8px;line-height:1.4">Das Datum wird nach der Abstimmung vom Ersteller bestätigt.</p>
+      </div>
+      <div class="poll-divider"></div>
       <div class="field">
         <label data-i18n="create_location_label">Ort</label>
         <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin" data-i18n-placeholder="create_location_placeholder">
@@ -1093,6 +1310,21 @@
         <span class="settings-row-label"><span>Neue Freunde</span></span>
         <label class="toggle">
           <input type="checkbox" id="s-type-friends" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Motivation -->
+    <div class="settings-section">
+      <p class="settings-section-title">Motivations-Erinnerungen</p>
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <span>Aktivitäts-Erinnerungen</span>
+          <small>Erinnert dich, ein Event zu planen, wenn du länger nichts unternommen hast</small>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="s-motivation" checked>
           <span class="toggle-track"></span>
         </label>
       </div>
@@ -1347,6 +1579,7 @@ const LANG = {
     btn_create_event: 'Event erstellen & teilen ✨',
     home_my_events: 'Deine Events',
     home_pending: 'Ausstehend',
+    home_declined: 'Abgesagt',
     home_past: 'Vergangene Events',
     home_empty_my: 'Noch keine kommenden Events.',
     home_empty_start: 'Noch keine Events. Erstelle dein erstes!',
@@ -1452,6 +1685,7 @@ const LANG = {
     btn_create_event: 'Create & share event ✨',
     home_my_events: 'Your Events',
     home_pending: 'Pending',
+    home_declined: 'Declined',
     home_past: 'Past Events',
     home_empty_my: 'No upcoming events.',
     home_empty_start: 'No events yet. Create your first!',
@@ -1587,6 +1821,8 @@ let createdId    = null;  // last created event ID (for share sheet)
 let pickedEmoji  = '🎉';
 let _editMode    = false;
 let _editEventId = null;
+let _pollEnabled = false;
+let _pollOptions = []; // [{date:'', time:''}]
 let evUnsubscribe = null; // real-time event listener cleanup
 let _pendingRsvp      = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
 let _pendingConnect   = null;  // { theirUid, theirUsername, theirName } – set before login
@@ -1693,6 +1929,44 @@ auth.getRedirectResult().catch(err => {
 
 // ─── Push Notifications ─────────────────────────────────────────────────────
 
+// VAPID public key for Web Push subscriptions (private key lives in Netlify env vars).
+const VAPID_PUBLIC_KEY = 'BLWvtRMsyv0ZpjC_BWYvxSzGaslRfQis7762TiJ-GPjk3BHY5VoBPrj8pFVl78Th-N52bdJ5g2eZrEhEGgcdRAA';
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+// Subscribe this browser to Web Push and store the subscription in Firebase.
+async function subscribeToPush() {
+  if (!_swRegistration || !me) return;
+  try {
+    const existing = await _swRegistration.pushManager.getSubscription();
+    const sub = existing || await _swRegistration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    await db.ref('users/' + me.uid + '/pushSub').set(sub.toJSON());
+  } catch(e) { console.warn('push subscribe:', e); }
+}
+
+// Remove the push subscription when the user disables push.
+async function unsubscribeFromPush() {
+  if (!me) return;
+  db.ref('users/' + me.uid + '/pushSub').remove().catch(() => {});
+  if (_swRegistration) {
+    const sub = await _swRegistration.pushManager.getSubscription().catch(() => null);
+    if (sub) sub.unsubscribe().catch(() => {});
+  }
+}
+
+// Record that the user was active now (suppresses motivation notifications for 5 days).
+function trackActivity() {
+  if (!me) return;
+  db.ref('users/' + me.uid + '/lastActivityTs').set(Date.now()).catch(() => {});
+}
+
 (async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
@@ -1756,7 +2030,8 @@ async function notifyUser(uid, type, title, body, url = '/') {
           title,
           body,
           url,
-          senderName: me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+          senderName:  me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+          appOrigin:   location.origin,
         }),
       })
     ).catch(e => console.warn('send-email function:', e));
@@ -1791,6 +2066,68 @@ function shouldShowNotif(type) {
   return key ? types[key] !== false : true;
 }
 
+async function nudgeMembers(eventId) {
+  if (!me || !window._ev) return;
+  const ev = window._ev;
+
+  // 1-hour cooldown per event to prevent spam
+  const ck = 'vivo_nudge_' + eventId;
+  const last = parseInt(localStorage.getItem(ck) || '0');
+  const remaining = 60 * 60 * 1000 - (Date.now() - last);
+  if (remaining > 0) {
+    toast('Bitte noch ' + Math.ceil(remaining / 60000) + ' Min. warten');
+    return;
+  }
+
+  const btn = document.getElementById('nudge-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    // Find creator's spaces that contain this event
+    const spacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
+    const mySpaceIds = spacesSnap.val() ? Object.keys(spacesSnap.val()) : [];
+    if (!mySpaceIds.length) { toast('Event gehört zu keinem Space'); return; }
+
+    const checks = await Promise.all(
+      mySpaceIds.map(sid => db.ref('spaceEvents/' + sid + '/' + eventId).once('value'))
+    );
+    const matchIds = mySpaceIds.filter((_, i) => checks[i].exists());
+    if (!matchIds.length) { toast('Event ist in keinem deiner Spaces'); return; }
+
+    // Collect all members across matching spaces
+    const memberSnaps = await Promise.all(
+      matchIds.map(sid => db.ref('spaces/' + sid + '/members').once('value'))
+    );
+    const allMembers = new Set();
+    memberSnaps.forEach(s => { if (s.val()) Object.keys(s.val()).forEach(uid => allMembers.add(uid)); });
+
+    // Who already responded?
+    const rsvpedUids = new Set(
+      ev.rsvps ? Object.values(ev.rsvps).filter(r => r.userId).map(r => r.userId) : []
+    );
+
+    const pending = [...allMembers].filter(uid => uid !== me.uid && !rsvpedUids.has(uid));
+    if (!pending.length) { toast('Alle haben schon geantwortet! 🎉'); return; }
+
+    const myName = me.displayName || me.email.split('@')[0];
+    await Promise.all(pending.map(uid =>
+      notifyUser(uid, 'nudge',
+        myName + ' erinnert dich 👋',
+        'Hast du dich schon zu "' + ev.title + '" gemeldet?',
+        '/#event/' + eventId
+      )
+    ));
+
+    localStorage.setItem(ck, String(Date.now()));
+    toast(pending.length + ' Erinnerung' + (pending.length === 1 ? '' : 'en') + ' verschickt');
+  } catch(err) {
+    console.error('nudgeMembers:', err);
+    toast('Fehler beim Senden');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔔 Space-Mitglieder erinnern'; }
+  }
+}
+
 function scheduleEventStartNotifs(events) {
   _startTimers.forEach(clearTimeout);
   _startTimers = [];
@@ -1818,7 +2155,8 @@ function scheduleEventStartNotifs(events) {
                 title,
                 body,
                 url,
-                senderName:   me.displayName || (me.email ? me.email.split('@')[0] : 'vivo'),
+                senderName:  me.displayName || (me.email ? me.email.split('@')[0] : 'vivo'),
+                appOrigin:   location.origin,
               }),
             })
           ).catch(() => {});
@@ -1831,6 +2169,20 @@ function scheduleEventStartNotifs(events) {
 // ─── Auth listener ──────────────────────────────────────────────────────────
 
 auth.onAuthStateChanged(async user => {
+  // Anonymous Firebase auth (used as fallback for poll votes when rules require auth)
+  // — treat as unauthenticated for all UI purposes to avoid breaking the anon experience.
+  if (user && user.isAnonymous) {
+    me = null;
+    document.getElementById('loading').style.display = 'none';
+    const onEventScreen = document.getElementById('screen-event')?.style?.display !== 'none';
+    if (!onEventScreen) {
+      const r = route();
+      if (r.screen === 'event') { loadEventScreen(r.id); showScreen('event'); }
+      else showScreen('login');
+    }
+    return;
+  }
+
   me = user;
   document.getElementById('loading').style.display = 'none';
 
@@ -1887,8 +2239,13 @@ auth.onAuthStateChanged(async user => {
 
   if (user) {
     startNotifListener();
-    db.ref('users/' + user.uid + '/settings').once('value')
-      .then(s => { _settings = s.val() || {}; }).catch(() => {});
+    db.ref('users/' + user.uid + '/settings').once('value').then(s => {
+      _settings = s.val() || {};
+      // Ensure push subscription is stored in Firebase whenever push is already granted.
+      if (_settings.pushEnabled !== false && 'Notification' in window && Notification.permission === 'granted') {
+        subscribeToPush();
+      }
+    }).catch(() => {});
   } else {
     _settings = null;
     stopNotifListener();
@@ -2080,25 +2437,35 @@ async function openSettingsScreen() {
   document.getElementById('s-type-changes').checked  = types.eventChanges  !== false;
   document.getElementById('s-type-friends').checked  = types.newFriends    !== false;
 
+  // Motivation (default on)
+  document.getElementById('s-motivation').checked = s.motivationNotifs !== false;
+
   showScreen('settings');
 }
 
 function onPushToggle(el) {
-  if (!el.checked) return; // turning off is always allowed
+  if (!el.checked) {
+    unsubscribeFromPush();
+    return;
+  }
   if (!('Notification' in window)) { el.checked = false; return; }
   if (Notification.permission === 'denied') {
     el.checked = false;
     document.getElementById('s-push-denied').style.display = 'block';
     return;
   }
-  if (Notification.permission === 'default') {
-    el.checked = false; // will re-check if granted
-    Notification.requestPermission().then(result => {
-      el.checked = result === 'granted';
-      document.getElementById('s-push-denied').style.display =
-        result === 'denied' ? 'block' : 'none';
-    });
+  if (Notification.permission === 'granted') {
+    subscribeToPush();
+    return;
   }
+  // 'default' — ask for permission
+  el.checked = false;
+  Notification.requestPermission().then(result => {
+    el.checked = result === 'granted';
+    document.getElementById('s-push-denied').style.display =
+      result === 'denied' ? 'block' : 'none';
+    if (result === 'granted') subscribeToPush();
+  });
 }
 
 function onEmailToggle(el) {
@@ -2115,9 +2482,10 @@ async function saveSettings() {
   const email   = document.getElementById('s-email-inp').value.trim();
 
   const settings = {
-    pushEnabled:  pushOn,
-    emailEnabled: emailOn,
-    emailAddress: emailOn && email ? email : (me.email || null),
+    pushEnabled:       pushOn,
+    emailEnabled:      emailOn,
+    emailAddress:      emailOn && email ? email : (me.email || null),
+    motivationNotifs:  document.getElementById('s-motivation').checked,
     types: {
       invites:      document.getElementById('s-type-invites').checked,
       rsvps:        document.getElementById('s-type-rsvps').checked,
@@ -2279,6 +2647,21 @@ function openEditEvent(ev) {
   document.getElementById('invites-spaces-row').style.display = 'none';
   document.getElementById('invites-friends-row').style.display= 'none';
 
+  // Restore poll state
+  const evPoll = ev.poll;
+  _pollEnabled = !!(evPoll && evPoll.active);
+  _pollOptions = [];
+  if (_pollEnabled && evPoll.options) {
+    _pollOptions = Object.entries(evPoll.options).map(([k, v]) => ({ _key: k, date: v.date || '', time: v.time || '' }));
+  }
+  const pt2 = document.getElementById('poll-toggle');
+  if (pt2) pt2.checked = _pollEnabled;
+  const ps2 = document.getElementById('poll-section');
+  if (ps2) ps2.style.display = _pollEnabled ? 'block' : 'none';
+  const dr2 = document.querySelector('#screen-create .form-row');
+  if (dr2) dr2.style.opacity = _pollEnabled ? '.4' : '';
+  renderPollOptions();
+
   // Update UI for edit mode
   const h1 = document.querySelector('#screen-create h1');
   if (h1) h1.textContent = t('ev_edit');
@@ -2420,6 +2803,176 @@ function switchHomeTab(tab) {
   document.getElementById('tab-friends').classList.toggle('active', tab === 'friends');
   document.getElementById('tab-btn-events').classList.toggle('active', tab === 'events');
   document.getElementById('tab-btn-friends').classList.toggle('active', tab === 'friends');
+}
+
+// ── Calendar view ─────────────────────────────────────────────────────────────
+
+const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni',
+                   'Juli','August','September','Oktober','November','Dezember'];
+const DOW_SHORT = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+let _calView    = 'list';
+let _calYear    = new Date().getFullYear();
+let _calMonth   = new Date().getMonth(); // 0-based
+let _calEvents  = [];   // flat list of all user events, refreshed by loadHome
+let _calSelDate = null; // currently expanded date string 'YYYY-MM-DD'
+
+function setEventsView(mode) {
+  _calView = mode;
+  document.getElementById('view-list-btn').classList.toggle('active', mode === 'list');
+  document.getElementById('view-cal-btn').classList.toggle('active', mode === 'cal');
+  document.getElementById('cal-view').classList.toggle('visible', mode === 'cal');
+  document.getElementById('list-sections').classList.toggle('hidden', mode === 'cal');
+  if (mode === 'cal') renderCalendar();
+}
+
+function calShift(delta) {
+  _calMonth += delta;
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  if (_calMonth > 11) { _calMonth = 0;  _calYear++; }
+  _calSelDate = null;
+  renderCalendar();
+}
+
+function renderCalendar() {
+  document.getElementById('cal-title').textContent = MONTHS_DE[_calMonth] + ' ' + _calYear;
+
+  // DOW header (static, only render once)
+  const dowRow = document.getElementById('cal-dow-row');
+  if (!dowRow.children.length) {
+    dowRow.innerHTML = DOW_SHORT.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  }
+
+  const today        = new Date();
+  const todayStr     = dateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const startOffset  = (new Date(_calYear, _calMonth, 1).getDay() + 6) % 7; // Mon=0
+  const daysInMonth  = new Date(_calYear, _calMonth + 1, 0).getDate();
+  const daysInPrev   = new Date(_calYear, _calMonth, 0).getDate();
+
+  // Map dateStr → [ev, …]
+  const evByDate = {};
+  for (const ev of _calEvents) {
+    if (!ev.date) continue;
+    (evByDate[ev.date] = evByDate[ev.date] || []).push(ev);
+  }
+
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  const numWeeks   = totalCells / 7;
+
+  // Build weeks array: each week = array of 7 {day, ds, other}
+  const weeks = [];
+  for (let w = 0; w < numWeeks; w++) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const i = w * 7 + d;
+      let day, ds, other = false;
+      if (i < startOffset) {
+        day = daysInPrev - startOffset + 1 + i;
+        const pm = _calMonth === 0 ? 12 : _calMonth;
+        const py = _calMonth === 0 ? _calYear - 1 : _calYear;
+        ds = dateStr(py, pm, day); other = true;
+      } else if (i >= startOffset + daysInMonth) {
+        day = i - startOffset - daysInMonth + 1;
+        const nm = _calMonth === 11 ? 1 : _calMonth + 2;
+        const ny = _calMonth === 11 ? _calYear + 1 : _calYear;
+        ds = dateStr(ny, nm, day); other = true;
+      } else {
+        day = i - startOffset + 1;
+        ds  = dateStr(_calYear, _calMonth + 1, day);
+      }
+      week.push({ day, ds, other });
+    }
+    weeks.push(week);
+  }
+
+  // Find which week contains _calSelDate (for inserting detail panel)
+  const selWeekIdx = _calSelDate
+    ? weeks.findIndex(w => w.some(c => c.ds === _calSelDate))
+    : -1;
+
+  const lastWeekIdx = weeks.length - 1;
+  let html = '';
+  for (let w = 0; w < weeks.length; w++) {
+    const rowClass = (w === 0 ? ' first-row' : '') + (w === lastWeekIdx ? ' last-row' : '');
+    html += `<div class="cal-week-row${rowClass}">`;
+    for (const cell of weeks[w]) {
+      const isToday  = cell.ds === todayStr;
+      const isSel    = cell.ds === _calSelDate;
+      const evs      = evByDate[cell.ds] || [];
+      const barsHtml = evs.slice(0, 3).map(ev => {
+        const st    = calEvStatus(ev);
+        const title = esc(ev.title || '');
+        return `<div class="cal-bar ${st}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${title}</div>`;
+      }).join('');
+      const moreHtml = evs.length > 3
+        ? `<div class="cal-more">+${evs.length - 3}</div>` : '';
+      html += `<div class="cal-cell${cell.other ? ' other-month' : ''}${isToday ? ' today' : ''}${isSel ? ' selected' : ''}"
+        onclick="calSelectDay('${cell.ds}')">
+        <div class="cal-day-num">${cell.day}</div>
+        ${barsHtml}${moreHtml}
+      </div>`;
+    }
+    html += `</div>`; // .cal-week-row
+
+    // Inject detail panel right after the week that holds the selected date
+    if (w === selWeekIdx && _calSelDate) {
+      const selEvs = evByDate[_calSelDate] || [];
+      const [sy, sm, sd] = _calSelDate.split('-');
+      const label = `${parseInt(sd)}. ${MONTHS_DE[parseInt(sm)-1]} ${sy}`;
+      let detailHtml = `<div class="cal-day-detail"><div class="cal-detail-inner">`;
+      detailHtml += `<div class="cal-detail-header">${label}</div>`;
+      if (!selEvs.length) {
+        detailHtml += `<div class="cal-detail-empty">Keine Events</div>`;
+      } else {
+        for (const ev of selEvs) {
+          const st    = calEvStatus(ev);
+          const title = esc(ev.title || '');
+          const time  = ev.time ? ` · ${ev.time} Uhr` : '';
+          const loc   = ev.location ? ` · ${esc(ev.location)}` : '';
+          detailHtml += `<div class="cal-detail-item" onclick="openEv('${ev.id}')">
+            <div class="cal-detail-dot ${st}"></div>
+            <div class="cal-detail-info">
+              <div class="cal-detail-title">${ev.emoji ? ev.emoji + ' ' : ''}${title}</div>
+              <div class="cal-detail-meta">${time}${loc}</div>
+            </div>
+          </div>`;
+        }
+      }
+      detailHtml += `</div></div>`;
+      html += detailHtml;
+    }
+  }
+
+  document.getElementById('cal-weeks-wrap').innerHTML = html;
+}
+
+function calSelectDay(ds) {
+  // Toggle: clicking the same day again closes the panel
+  _calSelDate = (_calSelDate === ds) ? null : ds;
+  renderCalendar();
+}
+
+function dateStr(y, m, d) {
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function calEvStatus(ev) {
+  // RSVP record is most authoritative
+  if (me && ev.rsvps) {
+    const myRsvp = Object.values(ev.rsvps).find(r => r.userId === me.uid);
+    if (myRsvp) {
+      if (myRsvp.status === 'dabei')     return 'dabei';
+      if (myRsvp.status === 'nein')      return 'nein';
+      return 'vielleicht';
+    }
+  }
+  // Creator without an explicit RSVP entry = dabei
+  if (me && ev.createdBy === me.uid) return 'dabei';
+  // Fall back to userEvents status
+  const st = ev._st;
+  if (st === 'dabei') return 'dabei';
+  if (st === 'nein')  return 'nein';
+  return 'vielleicht';
 }
 
 let friendsOff = null;
@@ -2787,11 +3340,13 @@ async function loadHome() {
   loadFriends();
   loadSpaces();
 
-  const myEl   = document.getElementById('my-list');
-  const pEl    = document.getElementById('pending-list');
-  const pastEl = document.getElementById('past-list');
-  const pSec   = document.getElementById('pending-sec');
-  const pastSec = document.getElementById('past-sec');
+  const myEl      = document.getElementById('my-list');
+  const pEl       = document.getElementById('pending-list');
+  const pastEl    = document.getElementById('past-list');
+  const declEl    = document.getElementById('declined-list');
+  const pSec      = document.getElementById('pending-sec');
+  const pastSec   = document.getElementById('past-sec');
+  const declSec   = document.getElementById('declined-sec');
   myEl.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
 
   const ref = db.ref('userEvents/' + me.uid);
@@ -2832,7 +3387,7 @@ async function loadHome() {
     }
 
     const snaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
-    const myEvs = [], pEvs = [], pastEvs = [];
+    const myEvs = [], pEvs = [], pastEvs = [], declEvs = [];
 
     snaps.forEach((s, i) => {
       if (!s.exists()) return;
@@ -2842,14 +3397,21 @@ async function loadHome() {
         pastEvs.push(ev);
       } else if (ev._st === 'pending' || ev._st === 'space') {
         pEvs.push(ev);
+      } else if (ev._st === 'nein') {
+        declEvs.push(ev);
       } else {
-        myEvs.push(ev); // created / dabei / vielleicht / nein (grayed out)
+        myEvs.push(ev);
       }
     });
 
-    const asc  = (a, b) => new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00'));
+    const toMs = ev => ev.date ? new Date(ev.date + 'T' + (ev.time || '12:00')).getTime() : 9e15;
+    const asc  = (a, b) => toMs(a) - toMs(b);
     const desc = (a, b) => -asc(a, b);
-    myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
+    myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc); declEvs.sort(asc);
+
+    // Cache all events for calendar view
+    _calEvents = [...myEvs, ...pEvs, ...declEvs, ...pastEvs];
+    if (_calView === 'cal') renderCalendar();
 
     scheduleEventStartNotifs([...myEvs, ...pEvs]);
 
@@ -2865,6 +3427,13 @@ async function loadHome() {
       pSec.style.display = 'none';
     }
 
+    if (declEvs.length) {
+      declSec.style.display = 'block';
+      declEl.innerHTML = declEvs.map(ev => cardHTML(ev, false)).join('');
+    } else {
+      declSec.style.display = 'none';
+    }
+
     if (pastEvs.length) {
       pastSec.style.display = 'block';
       pastEl.innerHTML = pastEvs.map(ev => cardHTML(ev, false)).join('');
@@ -2877,6 +3446,7 @@ async function loadHome() {
 }
 
 function isEventPast(ev) {
+  if (!ev.date) return false; // poll events with no confirmed date are never past
   const d = new Date(ev.date + 'T' + (ev.time || '23:59') + ':00');
   return d < new Date();
 }
@@ -2889,6 +3459,14 @@ function togglePastEvents() {
   chevron.classList.toggle('open', nowOpen);
 }
 
+function toggleDeclinedEvents() {
+  const list    = document.getElementById('declined-list');
+  const chevron = document.getElementById('declined-chevron');
+  const nowOpen = list.style.display === 'none';
+  list.style.display = nowOpen ? '' : 'none';
+  chevron.classList.toggle('open', nowOpen);
+}
+
 function cardHTML(ev, showRsvp) {
   const rsvps     = ev.rsvps ? Object.values(ev.rsvps) : [];
   const dabei     = rsvps.filter(r => r.status === 'dabei');
@@ -2896,9 +3474,10 @@ function cardHTML(ev, showRsvp) {
   const isCreator = me && ev.createdBy === me.uid;
   const isDeclined = ev._st === 'nein';
 
+  const chipName = r => (me && r.userId === me.uid) ? 'Du' : esc(r.name);
   const chips = [
-    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${esc(r.name)}</span>`),
-    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${esc(r.name)}</span>`),
+    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${chipName(r)}</span>`),
+    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${chipName(r)}</span>`),
   ].join('') || `<span style="font-size:.8125rem;color:var(--muted)">${t('no_rsvps')}</span>`;
 
   const rsvpRow = showRsvp ? `
@@ -2922,7 +3501,7 @@ function cardHTML(ev, showRsvp) {
         <div class="ecard-info">
           <div class="ecard-title">${esc(ev.title)}</div>
           <div class="ecard-meta">
-            <span>📅 ${fmtDate(ev.date, ev.time)}</span>
+            <span>📅 ${ev.poll && ev.poll.active ? 'Datum offen' : fmtDate(ev.date, ev.time)}</span>
             ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
           </div>
         </div>
@@ -3016,6 +3595,15 @@ function initCreateForm() {
   document.getElementById('invites-wrap').style.display        = 'none';
   document.getElementById('invites-spaces-row').style.display  = 'none';
   document.getElementById('invites-friends-row').style.display = 'none';
+  // Reset poll
+  _pollEnabled = false;
+  _pollOptions = [];
+  const pollToggle = document.getElementById('poll-toggle');
+  if (pollToggle) pollToggle.checked = false;
+  const pollSection = document.getElementById('poll-section');
+  if (pollSection) pollSection.style.display = 'none';
+  const dateRow = document.querySelector('#screen-create .form-row');
+  if (dateRow) dateRow.style.opacity = '';
   // Restore create-mode UI (in case coming back from edit mode)
   const h1 = document.querySelector('#screen-create h1');
   if (h1) h1.setAttribute('data-i18n', 'nav_create');
@@ -3036,14 +3624,24 @@ async function updateEvent() {
 
   try {
     const editId = _editEventId;
+    const validPollOpts2 = _pollEnabled ? _pollOptions.filter(o => o.date) : [];
     await db.ref('events/' + editId).update({
       emoji:    pickedEmoji,
       title,
-      date:     document.getElementById('ev-date').value || new Date().toISOString().split('T')[0],
-      time:     document.getElementById('ev-time').value     || null,
+      date:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-date').value || new Date().toISOString().split('T')[0]),
+      time:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-time').value || null),
       location: document.getElementById('ev-location').value.trim() || null,
       details:  document.getElementById('ev-details').value.trim()  || null,
     });
+    if (validPollOpts2.length > 0) {
+      const pollOptions2 = {};
+      validPollOpts2.forEach((opt, i) => {
+        pollOptions2[opt._key || ('opt_' + Date.now() + '_' + i)] = { date: opt.date, time: opt.time || null };
+      });
+      await db.ref('events/' + editId + '/poll').update({ active: true, options: pollOptions2 });
+    } else if (_pollEnabled === false) {
+      await db.ref('events/' + editId + '/poll/active').set(false);
+    }
     toast(t('toast_event_saved'));
 
     // Notify attendees (dabei / vielleicht) about the edit
@@ -3063,11 +3661,369 @@ async function updateEvent() {
     _editMode = false; _editEventId = null;
     location.hash = 'event/' + editId;
     showScreen('event');
-    loadEventScreen(id);
+    loadEventScreen(editId);
   } catch(err) {
     console.error('updateEvent:', err);
     toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
     btn.disabled = false; btn.textContent = t('ev_save_changes');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATE POLL
+// ─────────────────────────────────────────────────────────────────────────────
+function togglePollSection(on) {
+  _pollEnabled = on;
+  document.getElementById('poll-section').style.display = on ? 'block' : 'none';
+  const dateRow = document.querySelector('#screen-create .form-row');
+  if (dateRow) dateRow.style.opacity = on ? '.4' : '';
+  if (on && _pollOptions.length === 0) { _pollOptions.push({ date: '', time: '' }); _pollOptions.push({ date: '', time: '' }); }
+  renderPollOptions();
+}
+
+function addPollOption() {
+  _pollOptions.push({ date: '', time: '' });
+  renderPollOptions();
+}
+
+function removePollOption(idx) {
+  _pollOptions.splice(idx, 1);
+  renderPollOptions();
+}
+
+function renderPollOptions() {
+  const list = document.getElementById('poll-options-list');
+  if (!list) return;
+  list.innerHTML = _pollOptions.map((opt, i) => `
+    <div class="poll-opt-row">
+      <div class="field" style="flex:2">
+        <label style="font-size:.8125rem;font-weight:600">Datum ${i + 1}</label>
+        <input type="date" value="${opt.date}" oninput="_pollOptions[${i}].date=this.value"
+          style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9375rem;color:var(--text);background:#fff">
+      </div>
+      <div class="field" style="flex:1.2">
+        <label style="font-size:.8125rem;font-weight:600">Uhrzeit</label>
+        <input type="time" value="${opt.time}" oninput="_pollOptions[${i}].time=this.value"
+          style="width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:.9375rem;color:var(--text);background:#fff">
+      </div>
+      ${_pollOptions.length > 1
+        ? `<button type="button" class="poll-opt-remove" onclick="removePollOption(${i})" title="Entfernen">×</button>`
+        : '<div style="width:24px"></div>'}
+    </div>`).join('');
+}
+
+// Returns a stable anonymous session ID stored in localStorage
+function getPollSessionId() {
+  let id = localStorage.getItem('vivo_poll_sid');
+  if (!id) {
+    id = 'a_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+    localStorage.setItem('vivo_poll_sid', id);
+  }
+  return id;
+}
+
+// Voter key: use stored anonymous Firebase UID (from signInAnonymously fallback)
+// so vote detection stays consistent across page re-renders.
+function getVoterKey() {
+  if (me) return me.uid;
+  return localStorage.getItem('vivo_anon_uid') || getPollSessionId();
+}
+
+// Show login screen while keeping the current URL hash so onAuthStateChanged
+// routes straight back to this event after login.
+function showLoginForPoll() {
+  showScreen('login');
+}
+
+function buildPollSection(ev) {
+  if (!ev.poll) return '';
+  const poll = ev.poll;
+  const isCreator = me && ev.createdBy === me.uid;
+
+  // Confirmed state
+  if (!poll.active && poll.confirmedOption) {
+    const opt = poll.options && poll.options[poll.confirmedOption];
+    return `
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Abstimmung abgeschlossen ✓</div>
+      <div class="poll-card confirmed">
+        <div class="poll-card-date">Termin: ${fmtDate(opt ? opt.date : ev.date, opt ? opt.time : ev.time)}</div>
+      </div>
+    </div>`;
+  }
+
+  if (!poll.active) return '';
+
+  const options = poll.options ? Object.entries(poll.options) : [];
+  const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
+  const totalVoters = allVoterIds.size;
+
+  // Detect own votes — use persistent voter key so detection survives re-renders.
+  const voterKey = getVoterKey();
+  const myVotes = new Set();
+  options.forEach(([optId, o]) => { if (o.votes && o.votes[voterKey]) myVotes.add(optId); });
+
+  // Name input shown ABOVE the options for anonymous users.
+  // Uses only inline styles to avoid any CSS class conflicts.
+  const anonName = !me ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
+  const anonHeader = !me ? `
+    <div style="background:#fff;border-radius:12px;border:1px solid #E8E0D4;padding:16px;margin-bottom:12px">
+      <p style="font-size:.875rem;color:#8A847D;margin:0 0 8px;font-weight:500">Abstimmen als…</p>
+      <input type="text" id="poll-anon-inp" value="${esc(anonName)}"
+        placeholder="Dein Name, z.B. Max Mustermann"
+        oninput="localStorage.setItem('vivo_poll_anon_name',this.value)"
+        style="display:block;width:100%;box-sizing:border-box;padding:11px 14px;border:1.5px solid #E8E0D4;border-radius:8px;font-size:.9375rem;color:#1A1714;background:#fff;margin-bottom:10px;font-family:inherit;outline:none">
+      <p style="font-size:.8125rem;color:#8A847D;margin:0;text-align:center">
+        oder <button class="link-btn" onclick="showLoginForPoll()">einloggen</button>
+        — dann wird dein Name automatisch verwendet
+      </p>
+    </div>` : '';
+
+  const cards = options.map(([optId, opt]) => {
+    const voteCount = opt.votes ? Object.keys(opt.votes).length : 0;
+    const pct = totalVoters > 0 ? Math.round(voteCount / totalVoters * 100) : 0;
+    const iVoted = myVotes.has(optId);
+    const safeTime = (opt.time || '').replace(/'/g, "\\'");
+
+    // Build voter name list: logged-in votes stored as `true` (look up from RSVPs/me),
+    // anonymous votes stored as {name, ts}.
+    const uidToName = {};
+    if (ev.rsvps) Object.values(ev.rsvps).forEach(r => { if (r.userId) uidToName[r.userId] = r.name; });
+    if (me) uidToName[me.uid] = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
+    const voterNames = Object.entries(opt.votes || {}).map(([k, v]) => {
+      if (v === true) return uidToName[k] || null;
+      return (v && v.name) ? v.name : null;
+    }).filter(Boolean);
+    const MAX_SHOWN = 4;
+    const namesHtml = voterNames.length
+      ? `<div style="margin-top:6px;font-size:.8125rem;color:var(--muted);line-height:1.4">
+           ${voterNames.slice(0, MAX_SHOWN).map(n => esc(n)).join(', ')}${voterNames.length > MAX_SHOWN ? ` +${voterNames.length - MAX_SHOWN}` : ''}
+         </div>`
+      : '';
+
+    return `
+    <div class="poll-card${iVoted ? ' i-voted' : ''}">
+      <div class="poll-card-head">
+        <div class="poll-card-date">${fmtDate(opt.date, opt.time)}</div>
+        <div class="poll-card-votes">${voteCount} Stimme${voteCount !== 1 ? 'n' : ''}</div>
+      </div>
+      <div class="poll-bar-wrap"><div class="poll-bar" style="width:${pct}%"></div></div>
+      ${namesHtml}
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm btn-full"
+          onclick="togglePollVote('${ev.id}','${optId}')">
+          ${iVoted ? '✓ Abgestimmt' : 'Abstimmen'}
+        </button>
+        ${isCreator ? `
+        <button class="btn btn-outline btn-sm btn-full" style="color:#5CB87A;border-color:#5CB87A"
+          onclick="confirmPollOption('${ev.id}','${optId}','${opt.date}','${safeTime}')">
+          Termin bestätigen ✓
+        </button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="ev-sec" style="margin-top:8px">
+    <div class="ev-sec-title">Termin abstimmen <span class="att-count">${totalVoters}</span></div>
+    ${anonHeader}
+    ${cards || '<div class="att-sec-empty">Noch keine Optionen</div>'}
+  </div>`;
+}
+
+async function togglePollVote(eventId, optionId) {
+  const voterKey = getVoterKey();
+  const voteRef  = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
+
+  // Use already-loaded snapshot to determine voted state — avoids an extra Firebase read
+  // that could fail for unauthenticated users depending on security rules.
+  const alreadyVoted = !!(window._ev?.poll?.options?.[optionId]?.votes?.[voterKey]);
+
+  if (!me) {
+    const nameInp = document.getElementById('poll-anon-inp');
+    const name = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
+
+    if (alreadyVoted) {
+      try { await voteRef.remove(); }
+      catch(e) { console.error('poll unvote error:', e); toast('Fehler beim Entfernen der Stimme'); }
+      return;
+    }
+
+    if (!name) {
+      if (nameInp) {
+        nameInp.focus();
+        nameInp.style.borderColor = '#e74c3c';
+        setTimeout(() => { nameInp.style.borderColor = '#E8E0D4'; }, 2500);
+      }
+      toast('Bitte gib zuerst deinen Namen ein');
+      return;
+    }
+
+    localStorage.setItem('vivo_poll_anon_name', name);
+
+    // Try writing directly first; if Firebase rules require auth, fall back to signInAnonymously.
+    try {
+      await voteRef.set({ name, ts: Date.now() });
+    } catch(e) {
+      if (e.code === 'PERMISSION_DENIED' || String(e).includes('PERMISSION_DENIED')) {
+        try {
+          const cred = await auth.signInAnonymously();
+          // Store the UID so getVoterKey() returns it consistently on re-renders.
+          localStorage.setItem('vivo_anon_uid', cred.user.uid);
+          const authRef = db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + cred.user.uid);
+          await authRef.set({ name, ts: Date.now() });
+        } catch(e2) {
+          console.error('poll vote anon auth error:', e2);
+          toast('Abstimmen fehlgeschlagen: ' + (e2.message || e2.code || 'Fehler'));
+        }
+      } else {
+        console.error('poll vote error:', e);
+        toast('Fehler beim Abstimmen');
+      }
+    }
+  } else {
+    try {
+      if (alreadyVoted) {
+        await voteRef.remove();
+      } else {
+        await voteRef.set(true);
+        // Auto-RSVP as "vielleicht" if this user has no existing RSVP for this event.
+        const existingRsvp = window._ev?.rsvps
+          ? Object.values(window._ev.rsvps).find(r => r.userId === me.uid)
+          : null;
+        if (!existingRsvp) {
+          const name = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
+          const newRef = await db.ref('events/' + eventId + '/rsvps').push({
+            name, status: 'vielleicht', userId: me.uid, pollDriven: true, ts: Date.now(),
+          });
+          await db.ref('userEvents/' + me.uid + '/' + eventId).set('vielleicht');
+        }
+      }
+    } catch(e) {
+      console.error('poll vote error:', e);
+      toast('Fehler beim Abstimmen');
+    }
+  }
+}
+
+async function confirmPollOption(eventId, optionId, date, time) {
+  if (!me) return;
+  if (!confirm('Diesen Termin für alle bestätigen?')) return;
+  try {
+    // 1. Close the poll and set the confirmed date.
+    await db.ref('events/' + eventId).update({ date, time: time || null });
+    await db.ref('events/' + eventId + '/poll').update({ active: false, confirmedOption: optionId });
+
+    // 2. Read all poll options, existing RSVPs, and event metadata in parallel.
+    const [pollOptSnap, rsvpsSnap, evSnap] = await Promise.all([
+      db.ref('events/' + eventId + '/poll/options').once('value'),
+      db.ref('events/' + eventId + '/rsvps').once('value'),
+      db.ref('events/' + eventId).once('value'),
+    ]);
+    const evTitle = evSnap.val()?.title || '';
+    const dateStr = fmtDate(date, time || null);
+
+    // Parse votes into two maps:
+    //   winVotes  — voterKey → vote value for the confirmed option
+    //   loseKeys  — Set of voterKeys who only voted for other options
+    // Vote value is `true` for logged-in users, {name, ts} for anonymous.
+    const winVotes  = {}; // voterKey → true | {name, ts}
+    const loseKeys  = new Set();
+    pollOptSnap.forEach(optSnap => {
+      const votes = optSnap.val()?.votes || {};
+      Object.entries(votes).forEach(([key, val]) => {
+        if (optSnap.key === optionId) {
+          winVotes[key] = val;
+          loseKeys.delete(key); // promoted to winner
+        } else if (!winVotes[key]) {
+          loseKeys.add(key);
+        }
+      });
+    });
+
+    // Build existing RSVP index: voterKey → rsvp push-key.
+    const rsvpPushKey = {};
+    rsvpsSnap.forEach(child => {
+      const r = child.val();
+      if (r.userId) rsvpPushKey[r.userId] = child.key;
+    });
+
+    // 3. Build a single multi-path update that promotes all winning voters to "dabei".
+    //
+    //    Logged-in user  (vote === true):
+    //      • Update existing RSVP status, OR create one by reading their display name.
+    //      • Update userEvents.
+    //
+    //    Anonymous with name  (vote === {name, ts}):
+    //      • Key starting with 'a_' = local session ID — create a nameless-userId RSVP.
+    //      • Other key = Firebase anonymous UID — also update userEvents.
+    //      • In both cases create an RSVP entry so they appear in the attendee list.
+    const updates = {};
+
+    // Collect logged-in winner UIDs who have no existing RSVP so we can batch-fetch names.
+    const needsName = [];
+    Object.entries(winVotes).forEach(([key, val]) => {
+      if (val === true && !rsvpPushKey[key]) needsName.push(key);
+    });
+    const nameMap = {};
+    await Promise.all(needsName.map(async uid => {
+      const s = await db.ref('users/' + uid + '/displayName').once('value');
+      nameMap[uid] = s.val() || 'Unbekannt';
+    }));
+
+    Object.entries(winVotes).forEach(([key, val]) => {
+      if (val === true) {
+        // ── Logged-in user ──
+        if (rsvpPushKey[key]) {
+          updates['events/' + eventId + '/rsvps/' + rsvpPushKey[key] + '/status'] = 'dabei';
+        } else {
+          const newKey = db.ref('events/' + eventId + '/rsvps').push().key;
+          updates['events/' + eventId + '/rsvps/' + newKey] = {
+            name: nameMap[key], status: 'dabei', userId: key, ts: Date.now(),
+          };
+          rsvpPushKey[key] = newKey; // keep index consistent for notification filter below
+        }
+        updates['userEvents/' + key + '/' + eventId] = 'dabei';
+
+      } else if (val && val.name) {
+        // ── Anonymous voter with a name ──
+        const isFirebaseUid = !key.startsWith('a_');
+        const existingKey   = isFirebaseUid ? rsvpPushKey[key] : null;
+        if (existingKey) {
+          updates['events/' + eventId + '/rsvps/' + existingKey + '/status'] = 'dabei';
+        } else {
+          const newKey = db.ref('events/' + eventId + '/rsvps').push().key;
+          const entry  = { name: val.name, status: 'dabei', ts: Date.now() };
+          if (isFirebaseUid) entry.userId = key;
+          updates['events/' + eventId + '/rsvps/' + newKey] = entry;
+          if (isFirebaseUid) rsvpPushKey[key] = newKey;
+        }
+        if (isFirebaseUid) updates['userEvents/' + key + '/' + eventId] = 'dabei';
+      }
+    });
+
+    if (Object.keys(updates).length) await db.ref().update(updates);
+
+    // 4. Notify everyone who did NOT vote for the winning option:
+    //    losing voters + any RSVP holders who didn't vote for the winner.
+    //    Exclude the creator, winners, and non-Firebase keys (a_...).
+    const toNotify = new Set([
+      ...[...loseKeys].filter(k => !k.startsWith('a_')),
+      ...Object.keys(rsvpPushKey),
+    ]);
+    toNotify.forEach(uid => {
+      if (uid === me.uid || winVotes[uid]) return;
+      notifyUser(uid, 'event_edited',
+        '📅 Termin steht fest!',
+        `„${evTitle}" findet statt am ${dateStr} — bist du dabei?`,
+        '/#event/' + eventId
+      );
+    });
+
+    toast('Termin bestätigt! Alle werden benachrichtigt.');
+  } catch (err) {
+    console.error('confirmPollOption:', err);
+    toast('Fehler: ' + err.message);
   }
 }
 
@@ -3095,11 +4051,12 @@ async function createEvent() {
   btn.textContent = 'Erstelle…';
 
   try {
+    const validPollOpts = _pollEnabled ? _pollOptions.filter(o => o.date) : [];
     const data = {
       emoji:       pickedEmoji,
       title,
-      date:        date || new Date().toISOString().split('T')[0],
-      time:        time || null,
+      date:        validPollOpts.length > 0 ? null : (date || new Date().toISOString().split('T')[0]),
+      time:        validPollOpts.length > 0 ? null : (time || null),
       location:    location || null,
       details:     details  || null,
       createdBy:   me ? me.uid : null,
@@ -3110,6 +4067,14 @@ async function createEvent() {
     const ref = db.ref('events').push();
     await ref.set(data);
     createdId = ref.key;
+
+    if (validPollOpts.length > 0) {
+      const pollOptions = {};
+      validPollOpts.forEach((opt, i) => {
+        pollOptions['opt_' + Date.now() + '_' + i] = { date: opt.date, time: opt.time || null };
+      });
+      await db.ref('events/' + createdId + '/poll').set({ active: true, options: pollOptions, confirmedOption: null });
+    }
 
     if (me) {
       await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
@@ -3144,6 +4109,7 @@ async function createEvent() {
       });
     }
 
+    trackActivity();
     document.getElementById('suc-emoji').textContent = pickedEmoji;
     const np = document.getElementById('notif-prompt');
     if (np) np.style.display = ('Notification' in window && Notification.permission === 'default') ? 'block' : 'none';
@@ -3222,7 +4188,12 @@ function loadEventScreen(id) {
       });
     }
 
-    renderEv(ev, body);
+    try {
+      renderEv(ev, body);
+    } catch(e) {
+      console.error('renderEv error:', e);
+      body.innerHTML = `<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Event konnte nicht geladen werden.</p><p style="font-size:.8rem;color:var(--muted)">${esc(e && e.message || '')}</p></div>`;
+    }
   });
 
   evUnsubscribe = () => ref.off('value', cb);
@@ -3241,18 +4212,27 @@ function renderEv(ev, body) {
 
   // find my existing RSVP
   let myStatus = null;
+  let myNote = '';
   if (me && ev.rsvps) {
     const found = Object.values(ev.rsvps).find(r => r.userId === me.uid);
-    if (found) myStatus = found.status;
+    if (found) { myStatus = found.status; myNote = found.note || ''; }
   }
 
-  const mkRow = r => `
+  const mkRow = r => {
+    const isMe    = me && r.userId === me.uid;
+    const display = isMe ? 'Du' : (r.name || '?');
+    const showNote = (me && ev.createdBy === me.uid) && r.note;
+    return `
     <div class="att-row">
       <div class="att-info">
-        <div class="att-av">${(r.name||'?')[0].toUpperCase()}</div>
-        <span class="att-name">${esc(r.name)}</span>
+        <div class="att-av">${display[0].toUpperCase()}</div>
+        <div>
+          <span class="att-name">${isMe ? 'Du' : esc(r.name)}</span>
+          ${showNote ? `<span style="display:block;font-size:.8125rem;color:var(--muted);margin-top:1px">${esc(r.note)}</span>` : ''}
+        </div>
       </div>
     </div>`;
+  };
   const attEmpty = `<div class="att-sec-empty">${t('att_nobody')}</div>`;
   const dabeiRows    = dabei.length ? dabei.map(mkRow).join('') : attEmpty;
   const vlRows       = vl.length   ? vl.map(mkRow).join('')    : attEmpty;
@@ -3260,17 +4240,29 @@ function renderEv(ev, body) {
 
   const isCreator = me && ev.createdBy === me.uid;
 
-  const rsvpSection = me ? `
+  // Hide RSVP form entirely while a poll is running — voting acts as implicit RSVP.
+  const pollActive = !!(ev.poll && ev.poll.active);
+
+  const rsvpSection = pollActive ? '' : me ? `
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('rsvp_your_answer')}</div>
       <div class="rsvp-box">
-        <p class="rsvp-as-label">${t('rsvp_as')} <strong>${esc(me.displayName || me.email.split('@')[0])}</strong></p>
+        <p class="rsvp-as-label">${t('rsvp_as')} <strong>${esc(me.displayName || (me.email ? me.email.split('@')[0] : 'Du'))}</strong></p>
         <div class="rsvp-btns">
           <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>${t('status_dabei')}</button>
           <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>${t('status_vielleicht')}</button>
           <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>${t('status_nein')}</button>
         </div>
         ${myStatus ? `<p class="rsvp-hint">${t('rsvp_hint_change')}</p>` : ''}
+        ${myStatus ? `
+        <div style="margin-top:12px">
+          <textarea id="rsvp-note-inp" rows="2"
+            placeholder="Kurze Notiz für den Ersteller (optional)…"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff">${esc(myNote)}</textarea>
+          <button class="btn btn-outline btn-sm btn-full" style="margin-top:6px" onclick="saveRsvpNote('${ev.id}')">
+            ${myNote ? 'Notiz aktualisieren' : 'Notiz hinzufügen'}
+          </button>
+        </div>` : ''}
       </div>
     </div>` : `
     <div class="ev-sec" style="margin-top:8px">
@@ -3286,6 +4278,9 @@ function renderEv(ev, body) {
             <label>${t('rsvp_your_name')}</label>
             <input type="text" id="rsvp-inp" placeholder="${t('rsvp_name_placeholder')}">
           </div>
+          <textarea id="rsvp-note-inp" rows="2"
+            placeholder="Kurze Notiz für den Ersteller (optional)…"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff"></textarea>
           <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">${t('rsvp_send')}</button>
         </div>
         ${myStatus ? `<p class="rsvp-hint">${t('rsvp_change_hint')}</p>` : ''}
@@ -3297,7 +4292,7 @@ function renderEv(ev, body) {
       <div class="ev-hero-emoji">${ev.emoji||'🎉'}</div>
       <div class="ev-hero-title">${esc(ev.title)}</div>
       <div class="ev-details">
-        <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtDate(ev.date, ev.time)}</span></div>
+        <div class="ev-row"><div class="ev-icon">📅</div><span>${ev.poll && ev.poll.active ? 'Datum wird noch abgestimmt' : fmtDate(ev.date, ev.time)}</span></div>
         ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
         ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
         <div class="ev-row"><div class="ev-icon">👤</div><span>${t('ev_by')} ${esc(ev.creatorName||'Jemand')}</span></div>
@@ -3319,8 +4314,15 @@ function renderEv(ev, body) {
           </svg>
           ${t('ev_delete')}
         </button>
-      </div>` : ''}
+      </div>
+      ${!isEventPast(ev) ? `
+      <button id="nudge-btn" class="btn btn-outline btn-sm btn-full" style="margin-top:8px;gap:6px"
+        onclick="nudgeMembers('${ev.id}')">
+        🔔 Space-Mitglieder erinnern
+      </button>` : ''}` : ''}
     </div>
+
+    ${buildPollSection(ev)}
 
     <div class="ev-sec">
       <div class="ev-sec-title">${t('att_dabei')} <span class="att-count">${dabei.length}</span></div>
@@ -3337,6 +4339,7 @@ function renderEv(ev, body) {
 
     ${rsvpSection}
 
+    ${ev.date ? `
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('ev_add_calendar')}</div>
       <div class="cal-grid">
@@ -3349,7 +4352,7 @@ function renderEv(ev, body) {
           Apple (.ics)
         </button>
       </div>
-    </div>
+    </div>` : ''}
 
     <div class="ev-sec" style="margin-top:8px">
       <div class="ev-sec-title">${t('ev_share')}</div>
@@ -3383,7 +4386,7 @@ async function submitRsvp(eventId) {
 
   let name;
   if (me) {
-    name = me.displayName || me.email.split('@')[0];
+    name = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
   } else {
     const inp = document.getElementById('rsvp-inp');
     name = inp ? inp.value.trim() : '';
@@ -3404,8 +4407,11 @@ async function submitRsvp(eventId) {
       if (Object.keys(upd).length) await ref.update(upd);
     }
 
+    const noteEl = document.getElementById('rsvp-note-inp');
+    const note = noteEl ? noteEl.value.trim() : '';
     const rsvp = { name, status, ts: Date.now() };
     if (me) rsvp.userId = me.uid;
+    if (note) rsvp.note = note;
     const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
     const rsvpKey = newRef.key;
 
@@ -3437,12 +4443,27 @@ async function submitRsvp(eventId) {
       toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined_guest') }[status]);
       setTimeout(showSignupUpsell, 700);
     } else {
+      trackActivity();
       toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined') }[status]);
     }
   } catch(err) {
     console.error('submitRsvp:', err);
     toast(t('toast_rsvp_error'));
     if (btn) { btn.disabled = false; btn.textContent = t('rsvp_send'); }
+  }
+}
+
+async function saveRsvpNote(eventId) {
+  if (!me) return;
+  const noteEl = document.getElementById('rsvp-note-inp');
+  const note = noteEl ? noteEl.value.trim() : '';
+  const ref = db.ref('events/' + eventId + '/rsvps');
+  const snap = await ref.orderByChild('userId').equalTo(me.uid).once('value');
+  const updates = {};
+  snap.forEach(c => { updates[c.key + '/note'] = note || null; });
+  if (Object.keys(updates).length) {
+    await ref.update(updates);
+    toast('Notiz gespeichert ✓');
   }
 }
 
@@ -3468,9 +4489,15 @@ function shareEvWA() {
   const lines = [
     '👋 Hey!',
     `${ev.emoji||'🎉'} ${ev.title}`,
-    `📅 ${fmtDate(ev.date, '')}`,
   ];
-  if (ev.time)     lines.push(`⏰ ${ev.time} Uhr`);
+  if (ev.poll && ev.poll.active) {
+    lines.push('🗳️ Terminabstimmung läuft — stimm ab für welchen Termin!');
+    const opts = ev.poll.options ? Object.values(ev.poll.options) : [];
+    opts.forEach((opt, i) => { if (opt.date) lines.push(`  ${i+1}. ${fmtDate(opt.date, opt.time)}`); });
+  } else {
+    lines.push(`📅 ${fmtDate(ev.date, '')}`);
+    if (ev.time) lines.push(`⏰ ${ev.time} Uhr`);
+  }
   if (ev.location) lines.push(`📍 ${ev.location}`);
   if (ev.details)  lines.push(ev.details);
   lines.push(`\nKomm dazu 👉 ${evLink(ev.id)}`);
@@ -3514,6 +4541,7 @@ function dlICS() {
 }
 
 function toCalDt(date, time, addMin) {
+  if (!date) return '19700101T000000Z'; // guard against null date
   const d = new Date(date + 'T' + (time || '00:00') + ':00');
   d.setMinutes(d.getMinutes() + addMin);
   return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
