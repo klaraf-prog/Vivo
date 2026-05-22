@@ -1096,8 +1096,8 @@
       <div class="poll-divider"></div>
       <div class="poll-toggle-row">
         <div class="poll-toggle-label">
-          <strong>Termin abstimmen lassen</strong>
-          <small>Mehrere Datums-Optionen zur Wahl stellen</small>
+          <strong data-i18n="poll_toggle_label">Termin abstimmen lassen</strong>
+          <small data-i18n="poll_toggle_sub">Mehrere Datums-Optionen zur Wahl stellen</small>
         </div>
         <label class="toggle">
           <input type="checkbox" id="poll-toggle" onchange="togglePollSection(this.checked)">
@@ -1106,7 +1106,7 @@
       </div>
       <div id="poll-section" style="display:none">
         <div id="poll-options-list"></div>
-        <button type="button" class="btn btn-outline btn-sm btn-full" style="margin-top:2px" onclick="addPollOption()">+ Datum-Option hinzufügen</button>
+        <button type="button" class="btn btn-outline btn-sm btn-full" style="margin-top:2px" onclick="addPollOption()" data-i18n="poll_add_option">+ Datum-Option hinzufügen</button>
         <p style="font-size:.8125rem;color:var(--muted);margin-top:8px;line-height:1.4">Das Datum wird nach der Abstimmung vom Ersteller bestätigt.</p>
       </div>
       <div class="poll-divider"></div>
@@ -1240,34 +1240,34 @@
     <button class="back-btn" onclick="showScreen('profile')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <h1>Einstellungen</h1>
+    <h1 data-i18n="settings_title">Einstellungen</h1>
   </div>
 
   <div class="settings-body">
 
     <!-- Push Notifications -->
     <div class="settings-section">
-      <p class="settings-section-title">Push-Benachrichtigungen</p>
+      <p class="settings-section-title" data-i18n="settings_push_section">Push-Benachrichtigungen</p>
       <div class="settings-row">
         <div class="settings-row-label">
-          <span>Push aktivieren</span>
-          <small>Benachrichtigungen im Browser</small>
+          <span data-i18n="settings_push_label">Push aktivieren</span>
+          <small data-i18n="settings_push_sub">Benachrichtigungen im Browser</small>
         </div>
         <label class="toggle">
           <input type="checkbox" id="s-push-enabled" onchange="onPushToggle(this)">
           <span class="toggle-track"></span>
         </label>
       </div>
-      <p class="settings-denied-hint" id="s-push-denied">Push-Benachrichtigungen wurden im Browser blockiert. Bitte in den Browser-Einstellungen erlauben.</p>
+      <p class="settings-denied-hint" id="s-push-denied" data-i18n="settings_push_denied">Push-Benachrichtigungen wurden im Browser blockiert. Bitte in den Browser-Einstellungen erlauben.</p>
     </div>
 
     <!-- E-Mail Notifications -->
     <div class="settings-section">
-      <p class="settings-section-title">E-Mail-Benachrichtigungen</p>
+      <p class="settings-section-title" data-i18n="settings_email_section">E-Mail-Benachrichtigungen</p>
       <div class="settings-row">
         <div class="settings-row-label">
-          <span>E-Mail aktivieren</span>
-          <small>Benachrichtigungen per E-Mail erhalten</small>
+          <span data-i18n="settings_email_label">E-Mail aktivieren</span>
+          <small data-i18n="settings_email_sub">Benachrichtigungen per E-Mail erhalten</small>
         </div>
         <label class="toggle">
           <input type="checkbox" id="s-email-enabled" onchange="onEmailToggle(this)">
@@ -1276,7 +1276,7 @@
       </div>
       <div class="settings-email-field" id="s-email-wrap">
         <div class="field" style="margin:0">
-          <label>E-Mail-Adresse</label>
+          <label data-i18n="settings_email_addr">E-Mail-Adresse</label>
           <input type="email" id="s-email-inp" placeholder="deine@email.de" autocomplete="email">
         </div>
       </div>
@@ -1284,30 +1284,30 @@
 
     <!-- Notification Types -->
     <div class="settings-section">
-      <p class="settings-section-title">Benachrichtigungstypen</p>
+      <p class="settings-section-title" data-i18n="settings_types_section">Benachrichtigungstypen</p>
       <div class="settings-row">
-        <span class="settings-row-label"><span>Event-Einladungen</span></span>
+        <span class="settings-row-label"><span data-i18n="settings_type_invites">Event-Einladungen</span></span>
         <label class="toggle">
           <input type="checkbox" id="s-type-invites" checked>
           <span class="toggle-track"></span>
         </label>
       </div>
       <div class="settings-row">
-        <span class="settings-row-label"><span>Zusagen zu meinen Events</span></span>
+        <span class="settings-row-label"><span data-i18n="settings_type_rsvps">Zusagen zu meinen Events</span></span>
         <label class="toggle">
           <input type="checkbox" id="s-type-rsvps" checked>
           <span class="toggle-track"></span>
         </label>
       </div>
       <div class="settings-row">
-        <span class="settings-row-label"><span>Event-Änderungen</span></span>
+        <span class="settings-row-label"><span data-i18n="settings_type_changes">Event-Änderungen</span></span>
         <label class="toggle">
           <input type="checkbox" id="s-type-changes" checked>
           <span class="toggle-track"></span>
         </label>
       </div>
       <div class="settings-row">
-        <span class="settings-row-label"><span>Neue Freunde</span></span>
+        <span class="settings-row-label"><span data-i18n="settings_type_friends">Neue Freunde</span></span>
         <label class="toggle">
           <input type="checkbox" id="s-type-friends" checked>
           <span class="toggle-track"></span>
@@ -1317,11 +1317,11 @@
 
     <!-- Motivation -->
     <div class="settings-section">
-      <p class="settings-section-title">Motivations-Erinnerungen</p>
+      <p class="settings-section-title" data-i18n="settings_motivation_section">Motivations-Erinnerungen</p>
       <div class="settings-row">
         <div class="settings-row-label">
-          <span>Aktivitäts-Erinnerungen</span>
-          <small>Erinnert dich, ein Event zu planen, wenn du länger nichts unternommen hast</small>
+          <span data-i18n="settings_motivation_label">Aktivitäts-Erinnerungen</span>
+          <small data-i18n="settings_motivation_sub">Erinnert dich, ein Event zu planen, wenn du länger nichts unternommen hast</small>
         </div>
         <label class="toggle">
           <input type="checkbox" id="s-motivation" checked>
@@ -1334,7 +1334,7 @@
 
   <div class="prof-foot">
     <div class="inner">
-      <button class="btn btn-primary btn-full" id="save-settings-btn" onclick="saveSettings()">Speichern</button>
+      <button class="btn btn-primary btn-full" id="save-settings-btn" onclick="saveSettings()" data-i18n="settings_save">Speichern</button>
     </div>
   </div>
 </div>
@@ -1600,6 +1600,10 @@ const LANG = {
     rsvp_name_placeholder: 'Wie heißt du?',
     rsvp_send: 'Antwort senden',
     rsvp_change_hint: 'Antwort ändern? Wähle oben.',
+    rsvp_note_placeholder: 'Kurze Notiz für den Ersteller (optional)…',
+    rsvp_note_add: 'Notiz hinzufügen',
+    rsvp_note_update: 'Notiz aktualisieren',
+    rsvp_note_saved: 'Notiz gespeichert ✓',
     who_is_coming: 'Wer ist dabei',
     create_title_label: 'Titel *',
     create_title_placeholder: 'z.B. Grillabend 🔥',
@@ -1613,6 +1617,17 @@ const LANG = {
     create_invites_optional: '(optional)',
     create_spaces_sublabel: '🏠 Friend Spaces',
     create_friends_sublabel: '👤 Einzelne Freunde',
+    poll_toggle_label: 'Termin abstimmen lassen',
+    poll_toggle_sub: 'Mehrere Datums-Optionen zur Wahl stellen',
+    poll_add_option: '+ Datum-Option hinzufügen',
+    poll_date_open: 'Datum offen',
+    poll_vote_as: 'Abstimmen als…',
+    poll_voted: '✓ Abgestimmt',
+    poll_vote_btn: 'Abstimmen',
+    poll_confirm_btn: 'Termin bestätigen ✓',
+    poll_section_title: 'Termin abstimmen',
+    poll_confirmed_toast: 'Termin bestätigt! Alle werden benachrichtigt.',
+    poll_error: 'Fehler beim Abstimmen',
     profile_title: 'Profil',
     profile_name_label: 'Anzeigename',
     profile_name_placeholder: 'Dein Name',
@@ -1622,6 +1637,33 @@ const LANG = {
     profile_email_label: 'E-Mail',
     profile_share: 'Profil teilen 🔗',
     profile_privacy: 'Datenschutzerklärung',
+    settings_title: 'Einstellungen',
+    settings_push_section: 'Push-Benachrichtigungen',
+    settings_push_label: 'Push aktivieren',
+    settings_push_sub: 'Benachrichtigungen im Browser',
+    settings_push_denied: 'Push-Benachrichtigungen wurden im Browser blockiert. Bitte in den Browser-Einstellungen erlauben.',
+    settings_email_section: 'E-Mail-Benachrichtigungen',
+    settings_email_label: 'E-Mail aktivieren',
+    settings_email_sub: 'Benachrichtigungen per E-Mail erhalten',
+    settings_email_addr: 'E-Mail-Adresse',
+    settings_types_section: 'Benachrichtigungstypen',
+    settings_type_invites: 'Event-Einladungen',
+    settings_type_rsvps: 'Zusagen zu meinen Events',
+    settings_type_changes: 'Event-Änderungen',
+    settings_type_friends: 'Neue Freunde',
+    settings_motivation_section: 'Motivations-Erinnerungen',
+    settings_motivation_label: 'Aktivitäts-Erinnerungen',
+    settings_motivation_sub: 'Erinnert dich, ein Event zu planen, wenn du länger nichts unternommen hast',
+    settings_save: 'Speichern',
+    settings_saved: 'Einstellungen gespeichert',
+    nudge_btn: '🔔 Space-Mitglieder erinnern',
+    nudge_wait: 'Bitte noch {min} Min. warten',
+    nudge_no_space: 'Event gehört zu keinem Space',
+    nudge_not_in_space: 'Event ist in keinem deiner Spaces',
+    nudge_all_replied: 'Alle haben schon geantwortet! 🎉',
+    nudge_sent: '{n} Erinnerung verschickt',
+    nudge_sent_plural: '{n} Erinnerungen verschickt',
+    nudge_error: 'Fehler beim Senden',
     login_title: 'vivo',
     login_email: 'E-Mail',
     login_password: 'Passwort',
@@ -1675,6 +1717,23 @@ const LANG = {
     ev_edit_btn: 'Bearbeiten',
     ev_save_changes: 'Änderungen speichern',
     toast_event_saved: 'Änderungen gespeichert ✓',
+    // Push notification texts (used for recipient-language notifications)
+    notif_invite_title: '{name} hat dich zu {event} eingeladen 🎉',
+    notif_invite_body: 'Tippe um zu antworten',
+    notif_rsvp_dabei_title: '{name} hat bei {event} zugesagt ✅',
+    notif_rsvp_vielleicht_title: '{name} hat bei {event} mit Vielleicht geantwortet 🤔',
+    notif_rsvp_nein_title: '{name} hat bei {event} abgesagt ❌',
+    notif_rsvp_body: 'Tippe um das Event zu sehen',
+    notif_event_start_title: '{event} startet in 2 Stunden 🔔',
+    notif_event_start_body: 'Bald geht\'s los!',
+    notif_event_edited_title: '{name} hat {event} aktualisiert ✏️',
+    notif_event_edited_body: 'Tippe um die Änderungen zu sehen',
+    notif_friend_title: '{name} und du seid jetzt befreundet 👋',
+    notif_friend_body: 'Ihr seid jetzt auf vivo verbunden',
+    notif_nudge_title: '{name} erinnert dich 👋',
+    notif_nudge_body: 'Hast du dich schon zu {event} gemeldet?',
+    notif_poll_confirmed_title: '📅 Termin steht fest!',
+    notif_poll_confirmed_body: '{event} findet statt am {date} — bist du dabei?',
   },
   en: {
     nav_home: 'Events',
@@ -1706,6 +1765,10 @@ const LANG = {
     rsvp_name_placeholder: "What's your name?",
     rsvp_send: 'Send reply',
     rsvp_change_hint: 'Change answer? Select above.',
+    rsvp_note_placeholder: 'Short note for the organiser (optional)…',
+    rsvp_note_add: 'Add note',
+    rsvp_note_update: 'Update note',
+    rsvp_note_saved: 'Note saved ✓',
     who_is_coming: "Who's coming",
     create_title_label: 'Title *',
     create_title_placeholder: 'e.g. BBQ night 🔥',
@@ -1719,6 +1782,17 @@ const LANG = {
     create_invites_optional: '(optional)',
     create_spaces_sublabel: '🏠 Friend Spaces',
     create_friends_sublabel: '👤 Individual friends',
+    poll_toggle_label: 'Put date to a vote',
+    poll_toggle_sub: 'Let guests vote on multiple date options',
+    poll_add_option: '+ Add date option',
+    poll_date_open: 'Date open',
+    poll_vote_as: 'Vote as…',
+    poll_voted: '✓ Voted',
+    poll_vote_btn: 'Vote',
+    poll_confirm_btn: 'Confirm date ✓',
+    poll_section_title: 'Vote on date',
+    poll_confirmed_toast: 'Date confirmed! Everyone will be notified.',
+    poll_error: 'Error voting',
     profile_title: 'Profile',
     profile_name_label: 'Display name',
     profile_name_placeholder: 'Your name',
@@ -1728,6 +1802,33 @@ const LANG = {
     profile_email_label: 'Email',
     profile_share: 'Share profile 🔗',
     profile_privacy: 'Privacy Policy',
+    settings_title: 'Settings',
+    settings_push_section: 'Push notifications',
+    settings_push_label: 'Enable push',
+    settings_push_sub: 'Browser notifications',
+    settings_push_denied: 'Push notifications are blocked in your browser. Please allow them in browser settings.',
+    settings_email_section: 'Email notifications',
+    settings_email_label: 'Enable email',
+    settings_email_sub: 'Receive notifications by email',
+    settings_email_addr: 'Email address',
+    settings_types_section: 'Notification types',
+    settings_type_invites: 'Event invitations',
+    settings_type_rsvps: 'RSVPs to my events',
+    settings_type_changes: 'Event changes',
+    settings_type_friends: 'New friends',
+    settings_motivation_section: 'Activity reminders',
+    settings_motivation_label: 'Activity reminders',
+    settings_motivation_sub: 'Reminds you to plan an event when you\'ve been quiet for a while',
+    settings_save: 'Save',
+    settings_saved: 'Settings saved',
+    nudge_btn: '🔔 Remind space members',
+    nudge_wait: 'Please wait {min} more min.',
+    nudge_no_space: 'Event doesn\'t belong to a space',
+    nudge_not_in_space: 'Event is not in any of your spaces',
+    nudge_all_replied: 'Everyone has already replied! 🎉',
+    nudge_sent: '{n} reminder sent',
+    nudge_sent_plural: '{n} reminders sent',
+    nudge_error: 'Error sending',
     login_title: 'vivo',
     login_email: 'Email',
     login_password: 'Password',
@@ -1781,6 +1882,23 @@ const LANG = {
     ev_edit_btn: 'Edit',
     ev_save_changes: 'Save changes',
     toast_event_saved: 'Changes saved ✓',
+    // Push notification texts
+    notif_invite_title: '{name} invited you to {event} 🎉',
+    notif_invite_body: 'Tap to reply',
+    notif_rsvp_dabei_title: '{name} is going to {event} ✅',
+    notif_rsvp_vielleicht_title: '{name} said maybe to {event} 🤔',
+    notif_rsvp_nein_title: '{name} can\'t make {event} ❌',
+    notif_rsvp_body: 'Tap to view the event',
+    notif_event_start_title: '{event} starts in 2 hours 🔔',
+    notif_event_start_body: 'It\'s almost time!',
+    notif_event_edited_title: '{name} updated {event} ✏️',
+    notif_event_edited_body: 'Tap to see the changes',
+    notif_friend_title: '{name} and you are now friends 👋',
+    notif_friend_body: 'You\'re now connected on vivo',
+    notif_nudge_title: '{name} is reminding you 👋',
+    notif_nudge_body: 'Have you replied to {event} yet?',
+    notif_poll_confirmed_title: '📅 Date confirmed!',
+    notif_poll_confirmed_body: '{event} is on {date} — are you in?',
   }
 };
 
@@ -1788,6 +1906,22 @@ let _lang = localStorage.getItem('vivo_lang') || 'de';
 
 function t(key) {
   return (LANG[_lang] && LANG[_lang][key]) || (LANG.de && LANG.de[key]) || key;
+}
+
+// Translate for a specific language (for notifications sent to other users).
+// vars: { name, event, date, n, min } — replaces {placeholder} tokens.
+function tFor(lang, key, vars = {}) {
+  const str = (LANG[lang] && LANG[lang][key]) || (LANG.de && LANG.de[key]) || key;
+  return str.replace(/\{(\w+)\}/g, (_, k) => vars[k] !== undefined ? vars[k] : '{' + k + '}');
+}
+
+// Read a user's preferred language from Firebase (falls back to 'de').
+async function getUserLang(uid) {
+  try {
+    const snap = await db.ref('users/' + uid + '/settings/lang').once('value');
+    const l = snap.val();
+    return (l && LANG[l]) ? l : 'de';
+  } catch(e) { return 'de'; }
 }
 
 function applyLang() {
@@ -1996,29 +2130,35 @@ async function showNotif(title, body, url = '/') {
   } catch(e) { console.warn('showNotif:', e); }
 }
 
-async function notifyUser(uid, type, title, body, url = '/') {
+// notifKeys: { titleKey, bodyKey, vars } — if provided, title/body are ignored and
+// the text is built from LANG using the recipient's stored language preference.
+async function notifyUser(uid, type, title, body, url = '/', notifKeys = null) {
   if (!uid || !me) return;
 
   const typeMap = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
   const typeKey = typeMap[type];
 
-  // Read recipient's settings before sending anything.
-  // Fail open: if the read fails (e.g. Firebase rules not yet updated), send anyway.
+  // Read recipient's settings (includes lang preference).
   let s = {};
   try {
     const snap = await db.ref('users/' + uid + '/settings').once('value');
     s = snap.val() || {};
   } catch(e) { console.warn('notifyUser: could not read settings for', uid, e); }
 
-  // Push notification
-  const pushOn  = s.pushEnabled  !== false;
-  const typeOn  = !typeKey || !(s.types) || s.types[typeKey] !== false;
+  // Translate notification text into recipient's language.
+  if (notifKeys) {
+    const lang = (s.lang && LANG[s.lang]) ? s.lang : 'de';
+    title = tFor(lang, notifKeys.titleKey, notifKeys.vars || {});
+    body  = tFor(lang, notifKeys.bodyKey,  notifKeys.vars || {});
+  }
+
+  const pushOn = s.pushEnabled !== false;
+  const typeOn = !typeKey || !(s.types) || s.types[typeKey] !== false;
   if (pushOn && typeOn) {
     db.ref('notifications/' + uid).push({ type, title, body, url, ts: Date.now() })
       .catch(e => console.warn('notifyUser push write:', e));
   }
 
-  // Email notification via Netlify Function
   if (s.emailEnabled && typeOn && s.emailAddress) {
     me.getIdToken().then(idToken =>
       fetch('/.netlify/functions/send-email', {
@@ -2026,12 +2166,9 @@ async function notifyUser(uid, type, title, body, url = '/') {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
         body:    JSON.stringify({
           recipientUid: uid,
-          type,
-          title,
-          body,
-          url,
-          senderName:  me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
-          appOrigin:   location.origin,
+          type, title, body, url,
+          senderName: me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand'),
+          appOrigin:  location.origin,
         }),
       })
     ).catch(e => console.warn('send-email function:', e));
@@ -2075,7 +2212,7 @@ async function nudgeMembers(eventId) {
   const last = parseInt(localStorage.getItem(ck) || '0');
   const remaining = 60 * 60 * 1000 - (Date.now() - last);
   if (remaining > 0) {
-    toast('Bitte noch ' + Math.ceil(remaining / 60000) + ' Min. warten');
+    toast(t('nudge_wait').replace('{min}', Math.ceil(remaining / 60000)));
     return;
   }
 
@@ -2086,13 +2223,13 @@ async function nudgeMembers(eventId) {
     // Find creator's spaces that contain this event
     const spacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
     const mySpaceIds = spacesSnap.val() ? Object.keys(spacesSnap.val()) : [];
-    if (!mySpaceIds.length) { toast('Event gehört zu keinem Space'); return; }
+    if (!mySpaceIds.length) { toast(t('nudge_no_space')); return; }
 
     const checks = await Promise.all(
       mySpaceIds.map(sid => db.ref('spaceEvents/' + sid + '/' + eventId).once('value'))
     );
     const matchIds = mySpaceIds.filter((_, i) => checks[i].exists());
-    if (!matchIds.length) { toast('Event ist in keinem deiner Spaces'); return; }
+    if (!matchIds.length) { toast(t('nudge_not_in_space')); return; }
 
     // Collect all members across matching spaces
     const memberSnaps = await Promise.all(
@@ -2107,24 +2244,24 @@ async function nudgeMembers(eventId) {
     );
 
     const pending = [...allMembers].filter(uid => uid !== me.uid && !rsvpedUids.has(uid));
-    if (!pending.length) { toast('Alle haben schon geantwortet! 🎉'); return; }
+    if (!pending.length) { toast(t('nudge_all_replied')); return; }
 
-    const myName = me.displayName || me.email.split('@')[0];
+    const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
     await Promise.all(pending.map(uid =>
-      notifyUser(uid, 'nudge',
-        myName + ' erinnert dich 👋',
-        'Hast du dich schon zu "' + ev.title + '" gemeldet?',
-        '/#event/' + eventId
-      )
+      notifyUser(uid, 'nudge', '', '', '/#event/' + eventId, {
+        titleKey: 'notif_nudge_title',
+        bodyKey:  'notif_nudge_body',
+        vars: { name: myName, event: ev.title },
+      })
     ));
 
     localStorage.setItem(ck, String(Date.now()));
-    toast(pending.length + ' Erinnerung' + (pending.length === 1 ? '' : 'en') + ' verschickt');
+    toast(pending.length === 1 ? t('nudge_sent').replace('{n}', 1) : t('nudge_sent_plural').replace('{n}', pending.length));
   } catch(err) {
     console.error('nudgeMembers:', err);
-    toast('Fehler beim Senden');
+    toast(t('nudge_error'));
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🔔 Space-Mitglieder erinnern'; }
+    if (btn) { btn.disabled = false; btn.textContent = t('nudge_btn'); }
   }
 }
 
@@ -2139,8 +2276,8 @@ function scheduleEventStartNotifs(events) {
     const delay   = fireAt - now;
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // only schedule if within 24 h
       _startTimers.push(setTimeout(() => {
-        const title = "⏰ Bald geht's los!";
-        const body  = `„${ev.title}" startet in 2 Stunden`;
+        const title = tFor(_lang, 'notif_event_start_title', { event: ev.title });
+        const body  = tFor(_lang, 'notif_event_start_body',  { event: ev.title });
         const url   = `/#event/${ev.id}`;
         showNotif(title, body, url);
         // Email to self — check settings + send via Netlify Function
@@ -2486,6 +2623,7 @@ async function saveSettings() {
     emailEnabled:      emailOn,
     emailAddress:      emailOn && email ? email : (me.email || null),
     motivationNotifs:  document.getElementById('s-motivation').checked,
+    lang:              _lang,
     types: {
       invites:      document.getElementById('s-type-invites').checked,
       rsvps:        document.getElementById('s-type-rsvps').checked,
@@ -2497,13 +2635,13 @@ async function saveSettings() {
   try {
     await db.ref('users/' + me.uid + '/settings').set(settings);
     _settings = settings;
-    toast('Einstellungen gespeichert');
+    toast(t('settings_saved'));
     showScreen('profile');
   } catch(err) {
     console.error('saveSettings:', err);
     toast('Fehler beim Speichern');
   } finally {
-    btn.disabled = false; btn.textContent = 'Speichern';
+    btn.disabled = false; btn.textContent = t('settings_save');
   }
 }
 
@@ -2765,12 +2903,12 @@ async function connectUser(theirUid, theirUsername, theirName) {
     batch['friends/' + theirUid + '/' + me.uid]  = true;
     await db.ref().update(batch);
     toast('🤝 Verbunden mit ' + theirName + '!');
-    const myName = me.displayName || me.email.split('@')[0];
-    notifyUser(theirUid, 'friend',
-      `${myName} hat dich als Freund hinzugefügt 🤝`,
-      'Ihr seid jetzt auf vivo verbunden',
-      `/#u/${_myUsername || ''}`
-    );
+    const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
+    notifyUser(theirUid, 'friend', '', '', `/#u/${_myUsername || ''}`, {
+      titleKey: 'notif_friend_title',
+      bodyKey:  'notif_friend_body',
+      vars: { name: myName },
+    });
     loadPubProfile(theirUsername);
   } catch(err) {
     console.error('connectUser:', err);
@@ -3501,7 +3639,7 @@ function cardHTML(ev, showRsvp) {
         <div class="ecard-info">
           <div class="ecard-title">${esc(ev.title)}</div>
           <div class="ecard-meta">
-            <span>📅 ${ev.poll && ev.poll.active ? 'Datum offen' : fmtDate(ev.date, ev.time)}</span>
+            <span>📅 ${ev.poll && ev.poll.active ? t('poll_date_open') : fmtDate(ev.date, ev.time)}</span>
             ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
           </div>
         </div>
@@ -3650,11 +3788,12 @@ async function updateEvent() {
       rSnap.forEach(child => {
         const r = child.val();
         if (r.userId && r.userId !== me.uid && r.status !== 'nein') {
-          notifyUser(r.userId, 'event_edited',
-            '✏️ Event wurde bearbeitet',
-            `„${title}" wurde aktualisiert`,
-            `/#event/${editId}`
-          );
+          const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
+          notifyUser(r.userId, 'event_edited', '', '', `/#event/${editId}`, {
+            titleKey: 'notif_event_edited_title',
+            bodyKey:  'notif_event_edited_body',
+            vars: { name: myName, event: title },
+          });
         }
       });
     } catch(e) { /* non-critical */ }
@@ -3768,7 +3907,7 @@ function buildPollSection(ev) {
   const anonName = !me ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
   const anonHeader = !me ? `
     <div style="background:#fff;border-radius:12px;border:1px solid #E8E0D4;padding:16px;margin-bottom:12px">
-      <p style="font-size:.875rem;color:#8A847D;margin:0 0 8px;font-weight:500">Abstimmen als…</p>
+      <p style="font-size:.875rem;color:#8A847D;margin:0 0 8px;font-weight:500">${t('poll_vote_as')}</p>
       <input type="text" id="poll-anon-inp" value="${esc(anonName)}"
         placeholder="Dein Name, z.B. Max Mustermann"
         oninput="localStorage.setItem('vivo_poll_anon_name',this.value)"
@@ -3812,12 +3951,12 @@ function buildPollSection(ev) {
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
         <button class="btn ${iVoted ? 'btn-primary' : 'btn-outline'} btn-sm btn-full"
           onclick="togglePollVote('${ev.id}','${optId}')">
-          ${iVoted ? '✓ Abgestimmt' : 'Abstimmen'}
+          ${iVoted ? t('poll_voted') : t('poll_vote_btn')}
         </button>
         ${isCreator ? `
         <button class="btn btn-outline btn-sm btn-full" style="color:#5CB87A;border-color:#5CB87A"
           onclick="confirmPollOption('${ev.id}','${optId}','${opt.date}','${safeTime}')">
-          Termin bestätigen ✓
+          ${t('poll_confirm_btn')}
         </button>` : ''}
       </div>
     </div>`;
@@ -3825,7 +3964,7 @@ function buildPollSection(ev) {
 
   return `
   <div class="ev-sec" style="margin-top:8px">
-    <div class="ev-sec-title">Termin abstimmen <span class="att-count">${totalVoters}</span></div>
+    <div class="ev-sec-title">${t('poll_section_title')} <span class="att-count">${totalVoters}</span></div>
     ${anonHeader}
     ${cards || '<div class="att-sec-empty">Noch keine Optionen</div>'}
   </div>`;
@@ -4013,14 +4152,14 @@ async function confirmPollOption(eventId, optionId, date, time) {
     ]);
     toNotify.forEach(uid => {
       if (uid === me.uid || winVotes[uid]) return;
-      notifyUser(uid, 'event_edited',
-        '📅 Termin steht fest!',
-        `„${evTitle}" findet statt am ${dateStr} — bist du dabei?`,
-        '/#event/' + eventId
-      );
+      notifyUser(uid, 'event_edited', '', '', '/#event/' + eventId, {
+        titleKey: 'notif_poll_confirmed_title',
+        bodyKey:  'notif_poll_confirmed_body',
+        vars: { event: evTitle, date: dateStr },
+      });
     });
 
-    toast('Termin bestätigt! Alle werden benachrichtigt.');
+    toast(t('poll_confirmed_toast'));
   } catch (err) {
     console.error('confirmPollOption:', err);
     toast('Fehler: ' + err.message);
@@ -4101,11 +4240,11 @@ async function createEvent() {
       ));
       // Notify each invited friend
       _selectedFriends.forEach(uid => {
-        notifyUser(uid, 'invite',
-          `${myName} hat dich eingeladen`,
-          `zum Event „${title}"`,
-          `/#event/${createdId}`
-        );
+        notifyUser(uid, 'invite', '', '', `/#event/${createdId}`, {
+          titleKey: 'notif_invite_title',
+          bodyKey:  'notif_invite_body',
+          vars: { name: myName, event: title },
+        });
       });
     }
 
@@ -4257,10 +4396,10 @@ function renderEv(ev, body) {
         ${myStatus ? `
         <div style="margin-top:12px">
           <textarea id="rsvp-note-inp" rows="2"
-            placeholder="Kurze Notiz für den Ersteller (optional)…"
+            placeholder="${t('rsvp_note_placeholder')}"
             style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff">${esc(myNote)}</textarea>
           <button class="btn btn-outline btn-sm btn-full" style="margin-top:6px" onclick="saveRsvpNote('${ev.id}')">
-            ${myNote ? 'Notiz aktualisieren' : 'Notiz hinzufügen'}
+            ${myNote ? t('rsvp_note_update') : t('rsvp_note_add')}
           </button>
         </div>` : ''}
       </div>
@@ -4279,7 +4418,7 @@ function renderEv(ev, body) {
             <input type="text" id="rsvp-inp" placeholder="${t('rsvp_name_placeholder')}">
           </div>
           <textarea id="rsvp-note-inp" rows="2"
-            placeholder="Kurze Notiz für den Ersteller (optional)…"
+            placeholder="${t('rsvp_note_placeholder')}"
             style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff"></textarea>
           <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">${t('rsvp_send')}</button>
         </div>
@@ -4318,7 +4457,7 @@ function renderEv(ev, body) {
       ${!isEventPast(ev) ? `
       <button id="nudge-btn" class="btn btn-outline btn-sm btn-full" style="margin-top:8px;gap:6px"
         onclick="nudgeMembers('${ev.id}')">
-        🔔 Space-Mitglieder erinnern
+        ${t('nudge_btn')}
       </button>` : ''}` : ''}
     </div>
 
@@ -4424,13 +4563,17 @@ async function submitRsvp(eventId) {
         const evSnap = await db.ref('events/' + eventId).once('value');
         const evData = evSnap.val();
         if (evData && evData.createdBy && evData.createdBy !== me.uid) {
-          const myName = me.displayName || me.email.split('@')[0];
-          const label  = { dabei: 'zugesagt ✅', vielleicht: 'vielleicht 🤔', nein: 'abgesagt ❌' }[status];
-          notifyUser(evData.createdBy, 'rsvp',
-            `${myName} hat ${label}`,
-            `zu deinem Event „${evData.title}"`,
-            `/#event/${eventId}`
-          );
+          const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
+          const titleKey = {
+            dabei:      'notif_rsvp_dabei_title',
+            vielleicht: 'notif_rsvp_vielleicht_title',
+            nein:       'notif_rsvp_nein_title',
+          }[status] || 'notif_rsvp_dabei_title';
+          notifyUser(evData.createdBy, 'rsvp', '', '', `/#event/${eventId}`, {
+            titleKey,
+            bodyKey: 'notif_rsvp_body',
+            vars: { name: myName, event: evData.title },
+          });
         }
       } catch(e) { /* non-critical */ }
     }
@@ -4463,7 +4606,7 @@ async function saveRsvpNote(eventId) {
   snap.forEach(c => { updates[c.key + '/note'] = note || null; });
   if (Object.keys(updates).length) {
     await ref.update(updates);
-    toast('Notiz gespeichert ✓');
+    toast(t('rsvp_note_saved'));
   }
 }
 
