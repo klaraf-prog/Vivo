@@ -622,10 +622,15 @@
     }
     .day-view-title { font-size: 1rem; font-weight: 700; flex: 1; }
     .day-allday-sec { border-bottom: 2px solid var(--border); }
-    .day-allday-lbl {
-      font-size: .75rem; font-weight: 600; color: var(--muted);
-      padding: 8px 16px 4px 64px; letter-spacing: .03em; text-transform: uppercase;
+    .day-allday-bar {
+      border-radius: 5px; padding: 5px 10px; margin: 2px 4px 2px 0;
+      font-size: .875rem; font-weight: 600; line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer; display: block;
     }
+    .day-allday-bar.dabei      { background: #D1FAE5; color: #065F46; }
+    .day-allday-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
+    .day-allday-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
     .day-grid-wrap { position: relative; }
     .day-hour-line {
       display: flex; height: 60px; border-top: 1px solid #F0EDE8;
@@ -3195,7 +3200,7 @@ function calSelectDay(ds) {
 }
 
 const DOW_FULL_DE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-const DAY_START_H = 6;
+const DAY_START_H = 0;
 const DAY_END_H   = 23;
 const DAY_HOUR_PX = 60; // px per hour
 
@@ -3212,7 +3217,6 @@ function openDayView(ds) {
   });
   renderDayGrid(ds, evs);
   document.getElementById('cal-day-overlay').style.display = 'block';
-  document.getElementById('cal-day-overlay').scrollTop = 0;
 }
 
 function closeDayView() {
@@ -3225,36 +3229,31 @@ function renderDayGrid(ds, evs) {
 
   let html = '';
 
-  // All-day / no-time section
+  // All-day / no-time section — colored bars aligned with hour-label column
   if (allDayEvs.length) {
-    html += `<div class="day-allday-sec"><div class="day-allday-lbl">Ganztägig</div>`;
+    html += `<div class="day-allday-sec" style="display:flex;padding:4px 0;align-items:flex-start">`;
+    html += `<span class="day-hour-lbl" style="padding-top:8px;flex-shrink:0">ganztägig</span>`;
+    html += `<div style="flex:1;padding:2px 4px 4px;display:flex;flex-direction:column;gap:3px">`;
     for (const ev of allDayEvs) {
       const st = calEvStatus(ev);
-      html += `<div class="cal-detail-item" onclick="openEv('${ev.id}')">
-        <div class="cal-detail-dot ${st}"></div>
-        <div class="cal-detail-info">
-          <div class="cal-detail-title">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>
-          ${ev.location ? `<div class="cal-detail-meta">📍 ${esc(ev.location)}</div>` : ''}
-        </div>
-      </div>`;
+      html += `<div class="day-allday-bar ${st}" onclick="openEv('${ev.id}')">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
     }
-    html += `</div>`;
+    html += `</div></div>`;
   }
 
   const totalH = (DAY_END_H - DAY_START_H + 1) * DAY_HOUR_PX;
 
-  // Hour grid (flex column for lines + absolute events layer on top)
+  // Hour grid + absolute events layer
   html += `<div class="day-grid-wrap" style="position:relative">`;
   html += `<div>`;
   for (let h = DAY_START_H; h <= DAY_END_H; h++) {
     html += `<div class="day-hour-line">
-      <span class="day-hour-lbl">${h}:00</span>
+      <span class="day-hour-lbl">${String(h).padStart(2,'0')}:00</span>
       <div class="day-hour-body"></div>
     </div>`;
   }
   html += `</div>`;
 
-  // Absolute events layer
   html += `<div class="day-events-layer" style="height:${totalH}px">`;
   for (const ev of timedEvs) {
     const [hStr, mStr] = ev.time.split(':');
@@ -3263,14 +3262,14 @@ function renderDayGrid(ds, evs) {
     const topPx  = (startH - DAY_START_H + startM / 60) * DAY_HOUR_PX;
     if (topPx < 0 || topPx >= totalH) continue;
 
-    let durMin = 60; // default 1 hour
+    let durMin = 60;
     if (ev.timeEnd) {
       const sameDayEnd = !ev.dateEnd || ev.dateEnd === ds;
       if (sameDayEnd) {
         const [eh, em] = ev.timeEnd.split(':');
-        const endTotalMin  = parseInt(eh) * 60 + parseInt(em || '0');
-        const startTotalMin = startH * 60 + startM;
-        if (endTotalMin > startTotalMin) durMin = endTotalMin - startTotalMin;
+        const endMin   = parseInt(eh) * 60 + parseInt(em || '0');
+        const startMin = startH * 60 + startM;
+        if (endMin > startMin) durMin = endMin - startMin;
       }
     }
     const heightPx = Math.max(28, (durMin / 60) * DAY_HOUR_PX);
@@ -3284,18 +3283,26 @@ function renderDayGrid(ds, evs) {
   }
 
   // Current time indicator
-  const now = new Date();
+  const now    = new Date();
   const todayDs = dateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  if (ds === todayDs) {
+  const isToday = ds === todayDs;
+  if (isToday) {
     const nowTop = (now.getHours() - DAY_START_H + now.getMinutes() / 60) * DAY_HOUR_PX;
-    if (nowTop >= 0 && nowTop <= totalH) {
-      html += `<div class="day-now-line" style="top:${nowTop}px"><div class="day-now-dot"></div></div>`;
-    }
+    html += `<div class="day-now-line" style="top:${nowTop}px"><div class="day-now-dot"></div></div>`;
   }
   html += `</div>`; // events layer
   html += `</div>`; // day-grid-wrap
 
   document.getElementById('cal-day-body').innerHTML = html;
+
+  // Auto-scroll to current time (show ~2 h of context above)
+  if (isToday) {
+    requestAnimationFrame(() => {
+      const overlay = document.getElementById('cal-day-overlay');
+      const nowPx = (now.getHours() - DAY_START_H + now.getMinutes() / 60) * DAY_HOUR_PX;
+      overlay.scrollTop = Math.max(0, nowPx - 2 * DAY_HOUR_PX);
+    });
+  }
 }
 
 function dateStr(y, m, d) {
