@@ -598,6 +598,60 @@
     }
     .cal-detail-meta { font-size: .8rem; color: var(--muted); margin-top: 1px; }
 
+    /* Day view overlay (Google Calendar style) */
+    #cal-day-overlay {
+      display: none; position: fixed; inset: 0; z-index: 250;
+      background: #fff; overflow-y: auto; padding-bottom: 80px;
+    }
+    .day-view-hdr {
+      position: sticky; top: 0; z-index: 10; background: #fff;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 10px 16px; gap: 10px;
+    }
+    .day-view-title { font-size: 1rem; font-weight: 700; flex: 1; }
+    .day-allday-sec { border-bottom: 2px solid var(--border); }
+    .day-allday-lbl {
+      font-size: .75rem; font-weight: 600; color: var(--muted);
+      padding: 8px 16px 4px 64px; letter-spacing: .03em; text-transform: uppercase;
+    }
+    .day-grid-wrap { position: relative; }
+    .day-hour-line {
+      display: flex; height: 60px; border-top: 1px solid #F0EDE8;
+    }
+    .day-hour-lbl {
+      width: 48px; flex-shrink: 0; padding: 0 8px 0 0;
+      font-size: .6875rem; color: var(--muted); text-align: right;
+      margin-top: -9px; user-select: none;
+    }
+    .day-hour-body { flex: 1; position: relative; }
+    .day-events-layer {
+      position: absolute; top: 0; left: 48px; right: 0;
+      pointer-events: none;
+    }
+    .day-ev-chip {
+      position: absolute; left: 4px; right: 4px;
+      border-radius: 5px; padding: 3px 7px;
+      font-size: .8125rem; font-weight: 600; line-height: 1.3;
+      overflow: hidden; pointer-events: all; cursor: pointer;
+      box-sizing: border-box;
+    }
+    .day-ev-chip.dabei      { background: #D1FAE5; color: #065F46; }
+    .day-ev-chip.vielleicht { background: #FEF9C3; color: #854D0E; }
+    .day-ev-chip.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .day-ev-time { font-size: .7rem; opacity: .7; }
+    .day-now-line {
+      position: absolute; left: 0; right: 0; height: 2px; background: var(--pink);
+      z-index: 3; pointer-events: none;
+    }
+    .day-now-dot {
+      position: absolute; left: -5px; top: -4px;
+      width: 10px; height: 10px; border-radius: 50%; background: var(--pink);
+    }
+    .day-empty {
+      padding: 48px 24px; text-align: center;
+      font-size: .9375rem; color: var(--muted);
+    }
+
     /* Bottom tab bar */
     .tab-bar {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
@@ -1063,6 +1117,17 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ DAY VIEW OVERLAY ════════════════ -->
+<div id="cal-day-overlay">
+  <div class="day-view-hdr">
+    <button class="back-btn" onclick="closeDayView()" aria-label="Zurück">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="day-view-title" id="cal-day-title"></div>
+  </div>
+  <div id="cal-day-body"></div>
+</div>
+
 <!-- ═══════════════════════════ CREATE ═══════════════════════════ -->
 <div id="screen-create" class="screen">
   <div class="scr-header">
@@ -1084,14 +1149,33 @@
         <label data-i18n="create_title_label">Titel *</label>
         <input type="text" id="ev-title" placeholder="z.B. Grillabend 🔥" maxlength="60" data-i18n-placeholder="create_title_placeholder">
       </div>
-      <div class="form-row">
+      <div class="poll-toggle-row" style="padding:6px 0 2px" id="allday-toggle-row">
+        <div class="poll-toggle-label">
+          <strong data-i18n="create_allday_label">Ganztägig</strong>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ev-allday" onchange="toggleAllDay(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="form-row" id="ev-start-row">
         <div class="field">
           <label data-i18n="create_date_label">Datum</label>
           <input type="date" id="ev-date">
         </div>
-        <div class="field">
+        <div class="field" id="ev-time-field">
           <label data-i18n="create_time_label">Uhrzeit</label>
           <input type="time" id="ev-time">
+        </div>
+      </div>
+      <div class="form-row" id="ev-end-row">
+        <div class="field">
+          <label data-i18n="create_enddate_label">Enddatum</label>
+          <input type="date" id="ev-date-end">
+        </div>
+        <div class="field" id="ev-time-end-field">
+          <label data-i18n="create_endtime_label">Endzeit</label>
+          <input type="time" id="ev-time-end">
         </div>
       </div>
       <div class="poll-divider"></div>
@@ -1608,8 +1692,11 @@ const LANG = {
     who_is_coming: 'Wer ist dabei',
     create_title_label: 'Titel *',
     create_title_placeholder: 'z.B. Grillabend 🔥',
+    create_allday_label: 'Ganztägig',
     create_date_label: 'Datum',
     create_time_label: 'Uhrzeit',
+    create_enddate_label: 'Enddatum',
+    create_endtime_label: 'Endzeit',
     create_location_label: 'Ort',
     create_location_placeholder: 'z.B. Mauerpark, Berlin',
     create_details_label: 'Details',
@@ -1773,8 +1860,11 @@ const LANG = {
     who_is_coming: "Who's coming",
     create_title_label: 'Title *',
     create_title_placeholder: 'e.g. BBQ night 🔥',
+    create_allday_label: 'All day',
     create_date_label: 'Date',
     create_time_label: 'Time',
+    create_enddate_label: 'End date',
+    create_endtime_label: 'End time',
     create_location_label: 'Location',
     create_location_placeholder: 'e.g. Central Park, NYC',
     create_details_label: 'Details',
@@ -2780,6 +2870,13 @@ function openEditEvent(ev) {
   document.getElementById('ev-time').value     = ev.time     || '';
   document.getElementById('ev-location').value = ev.location || '';
   document.getElementById('ev-details').value  = ev.details  || '';
+  // Time range fields
+  const allDayEl2 = document.getElementById('ev-allday');
+  if (allDayEl2) { allDayEl2.checked = !!ev.allDay; toggleAllDay(!!ev.allDay); }
+  const dateEndEl2 = document.getElementById('ev-date-end');
+  if (dateEndEl2) dateEndEl2.value = ev.dateEnd || '';
+  const timeEndEl2 = document.getElementById('ev-time-end');
+  if (timeEndEl2) timeEndEl2.value = ev.timeEnd || '';
 
   // Hide invite section (not relevant for edits)
   document.getElementById('invites-wrap').style.display       = 'none';
@@ -2797,8 +2894,13 @@ function openEditEvent(ev) {
   if (pt2) pt2.checked = _pollEnabled;
   const ps2 = document.getElementById('poll-section');
   if (ps2) ps2.style.display = _pollEnabled ? 'block' : 'none';
-  const dr2 = document.querySelector('#screen-create .form-row');
-  if (dr2) dr2.style.opacity = _pollEnabled ? '.4' : '';
+  const op2 = _pollEnabled ? '.4' : '';
+  const dr2 = document.getElementById('ev-start-row');
+  if (dr2) dr2.style.opacity = op2;
+  const dr2e = document.getElementById('ev-end-row');
+  if (dr2e) dr2e.style.opacity = op2;
+  const dr2a = document.getElementById('allday-toggle-row');
+  if (dr2a) dr2a.style.opacity = op2;
   renderPollOptions();
 
   // Update UI for edit mode
@@ -3024,11 +3126,6 @@ function renderCalendar() {
     weeks.push(week);
   }
 
-  // Find which week contains _calSelDate (for inserting detail panel)
-  const selWeekIdx = _calSelDate
-    ? weeks.findIndex(w => w.some(c => c.ds === _calSelDate))
-    : -1;
-
   const lastWeekIdx = weeks.length - 1;
   let html = '';
   for (let w = 0; w < weeks.length; w++) {
@@ -3053,42 +3150,117 @@ function renderCalendar() {
     }
     html += `</div>`; // .cal-week-row
 
-    // Inject detail panel right after the week that holds the selected date
-    if (w === selWeekIdx && _calSelDate) {
-      const selEvs = evByDate[_calSelDate] || [];
-      const [sy, sm, sd] = _calSelDate.split('-');
-      const label = `${parseInt(sd)}. ${MONTHS_DE[parseInt(sm)-1]} ${sy}`;
-      let detailHtml = `<div class="cal-day-detail"><div class="cal-detail-inner">`;
-      detailHtml += `<div class="cal-detail-header">${label}</div>`;
-      if (!selEvs.length) {
-        detailHtml += `<div class="cal-detail-empty">Keine Events</div>`;
-      } else {
-        for (const ev of selEvs) {
-          const st    = calEvStatus(ev);
-          const title = esc(ev.title || '');
-          const time  = ev.time ? ` · ${ev.time} Uhr` : '';
-          const loc   = ev.location ? ` · ${esc(ev.location)}` : '';
-          detailHtml += `<div class="cal-detail-item" onclick="openEv('${ev.id}')">
-            <div class="cal-detail-dot ${st}"></div>
-            <div class="cal-detail-info">
-              <div class="cal-detail-title">${ev.emoji ? ev.emoji + ' ' : ''}${title}</div>
-              <div class="cal-detail-meta">${time}${loc}</div>
-            </div>
-          </div>`;
-        }
-      }
-      detailHtml += `</div></div>`;
-      html += detailHtml;
-    }
   }
 
   document.getElementById('cal-weeks-wrap').innerHTML = html;
 }
 
 function calSelectDay(ds) {
-  // Toggle: clicking the same day again closes the panel
-  _calSelDate = (_calSelDate === ds) ? null : ds;
-  renderCalendar();
+  openDayView(ds);
+}
+
+const DOW_FULL_DE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const DAY_START_H = 6;
+const DAY_END_H   = 23;
+const DAY_HOUR_PX = 60; // px per hour
+
+function openDayView(ds) {
+  _calSelDate = ds;
+  const [sy, sm, sd] = ds.split('-');
+  const dateObj = new Date(parseInt(sy), parseInt(sm) - 1, parseInt(sd));
+  document.getElementById('cal-day-title').textContent =
+    `${DOW_FULL_DE[dateObj.getDay()]}, ${parseInt(sd)}. ${MONTHS_DE[parseInt(sm)-1]} ${sy}`;
+  const evs = _calEvents.filter(ev => ev.date === ds);
+  renderDayGrid(ds, evs);
+  document.getElementById('cal-day-overlay').style.display = '';
+  document.getElementById('cal-day-overlay').scrollTop = 0;
+}
+
+function closeDayView() {
+  document.getElementById('cal-day-overlay').style.display = 'none';
+}
+
+function renderDayGrid(ds, evs) {
+  const allDayEvs = evs.filter(ev => ev.allDay || !ev.time);
+  const timedEvs  = evs.filter(ev => !ev.allDay && ev.time);
+
+  let html = '';
+
+  // All-day / no-time section
+  if (allDayEvs.length) {
+    html += `<div class="day-allday-sec"><div class="day-allday-lbl">Ganztägig</div>`;
+    for (const ev of allDayEvs) {
+      const st = calEvStatus(ev);
+      html += `<div class="cal-detail-item" onclick="openEv('${ev.id}')">
+        <div class="cal-detail-dot ${st}"></div>
+        <div class="cal-detail-info">
+          <div class="cal-detail-title">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>
+          ${ev.location ? `<div class="cal-detail-meta">📍 ${esc(ev.location)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  const totalH = (DAY_END_H - DAY_START_H + 1) * DAY_HOUR_PX;
+
+  // Hour grid (flex column for lines + absolute events layer on top)
+  html += `<div class="day-grid-wrap" style="position:relative">`;
+  html += `<div>`;
+  for (let h = DAY_START_H; h <= DAY_END_H; h++) {
+    html += `<div class="day-hour-line">
+      <span class="day-hour-lbl">${h}:00</span>
+      <div class="day-hour-body"></div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Absolute events layer
+  html += `<div class="day-events-layer" style="height:${totalH}px">`;
+  for (const ev of timedEvs) {
+    const [hStr, mStr] = ev.time.split(':');
+    const startH = parseInt(hStr);
+    const startM = parseInt(mStr || '0');
+    const topPx  = (startH - DAY_START_H + startM / 60) * DAY_HOUR_PX;
+    if (topPx < 0 || topPx >= totalH) continue;
+
+    let durMin = 60; // default 1 hour
+    if (ev.timeEnd) {
+      const sameDayEnd = !ev.dateEnd || ev.dateEnd === ds;
+      if (sameDayEnd) {
+        const [eh, em] = ev.timeEnd.split(':');
+        const endTotalMin  = parseInt(eh) * 60 + parseInt(em || '0');
+        const startTotalMin = startH * 60 + startM;
+        if (endTotalMin > startTotalMin) durMin = endTotalMin - startTotalMin;
+      }
+    }
+    const heightPx = Math.max(28, (durMin / 60) * DAY_HOUR_PX);
+    const st    = calEvStatus(ev);
+    const title = esc(ev.title || '');
+    const timeLabel = ev.time + (ev.timeEnd ? '–' + ev.timeEnd : '');
+    html += `<div class="day-ev-chip ${st}" style="top:${topPx}px;height:${heightPx}px" onclick="openEv('${ev.id}')">
+      ${ev.emoji ? ev.emoji + ' ' : ''}${title}
+      <div class="day-ev-time">${timeLabel}</div>
+    </div>`;
+  }
+
+  // Current time indicator
+  const now = new Date();
+  const todayDs = dateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  if (ds === todayDs) {
+    const nowTop = (now.getHours() - DAY_START_H + now.getMinutes() / 60) * DAY_HOUR_PX;
+    if (nowTop >= 0 && nowTop <= totalH) {
+      html += `<div class="day-now-line" style="top:${nowTop}px"><div class="day-now-dot"></div></div>`;
+    }
+  }
+  html += `</div>`; // events layer
+  html += `</div>`; // day-grid-wrap
+
+  if (!allDayEvs.length && !timedEvs.length) {
+    html = `<div class="day-empty">Keine Events an diesem Tag</div>`;
+  }
+
+  document.getElementById('cal-day-body').innerHTML = html;
 }
 
 function dateStr(y, m, d) {
@@ -3640,7 +3812,7 @@ function cardHTML(ev, showRsvp) {
         <div class="ecard-info">
           <div class="ecard-title">${esc(ev.title)}</div>
           <div class="ecard-meta">
-            <span>📅 ${ev.poll && ev.poll.active ? t('poll_date_open') : fmtDate(ev.date, ev.time)}</span>
+            <span>📅 ${fmtEventTime(ev)}</span>
             ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
           </div>
         </div>
@@ -3747,7 +3919,14 @@ function initCreateForm() {
   const h1 = document.querySelector('#screen-create h1');
   if (h1) h1.setAttribute('data-i18n', 'nav_create');
   const btn = document.getElementById('create-btn');
-  if (btn) { btn.setAttribute('data-i18n', 'btn_create_event'); applyLang(); }
+  if (btn) { btn.setAttribute('data-i18n', 'btn_create_event'); btn.disabled = false; applyLang(); }
+  // Reset new time-range fields
+  const allDayEl = document.getElementById('ev-allday');
+  if (allDayEl) { allDayEl.checked = false; toggleAllDay(false); }
+  const dateEndEl = document.getElementById('ev-date-end');
+  if (dateEndEl) dateEndEl.value = '';
+  const timeEndEl = document.getElementById('ev-time-end');
+  if (timeEndEl) timeEndEl.value = '';
   const backBtn = document.querySelector('#screen-create .back-btn');
   if (backBtn) backBtn.onclick = navHome;
 }
@@ -3764,11 +3943,17 @@ async function updateEvent() {
   try {
     const editId = _editEventId;
     const validPollOpts2 = _pollEnabled ? _pollOptions.filter(o => o.date) : [];
+    const allDay2  = !!(document.getElementById('ev-allday') && document.getElementById('ev-allday').checked);
+    const dateEnd2 = document.getElementById('ev-date-end') ? (document.getElementById('ev-date-end').value || null) : null;
+    const timeEnd2 = (!allDay2 && document.getElementById('ev-time-end')) ? (document.getElementById('ev-time-end').value || null) : null;
     await db.ref('events/' + editId).update({
       emoji:    pickedEmoji,
       title,
       date:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-date').value || new Date().toISOString().split('T')[0]),
-      time:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-time').value || null),
+      time:     (validPollOpts2.length > 0 || allDay2) ? null : (document.getElementById('ev-time').value || null),
+      allDay:   allDay2 || null,
+      dateEnd:  validPollOpts2.length > 0 ? null : (dateEnd2 || null),
+      timeEnd:  (validPollOpts2.length > 0 || allDay2) ? null : (timeEnd2 || null),
       location: document.getElementById('ev-location').value.trim() || null,
       details:  document.getElementById('ev-details').value.trim()  || null,
     });
@@ -3812,11 +3997,23 @@ async function updateEvent() {
 // ─────────────────────────────────────────────────────────────────────────────
 // DATE POLL
 // ─────────────────────────────────────────────────────────────────────────────
+function toggleAllDay(isAllDay) {
+  const tf = document.getElementById('ev-time-field');
+  const tef = document.getElementById('ev-time-end-field');
+  if (tf)  tf.style.display  = isAllDay ? 'none' : '';
+  if (tef) tef.style.display = isAllDay ? 'none' : '';
+}
+
 function togglePollSection(on) {
   _pollEnabled = on;
   document.getElementById('poll-section').style.display = on ? 'block' : 'none';
-  const dateRow = document.querySelector('#screen-create .form-row');
-  if (dateRow) dateRow.style.opacity = on ? '.4' : '';
+  const op = on ? '.4' : '';
+  const dateRow = document.getElementById('ev-start-row');
+  if (dateRow) dateRow.style.opacity = op;
+  const endRow = document.getElementById('ev-end-row');
+  if (endRow) endRow.style.opacity = op;
+  const allDayRow = document.getElementById('allday-toggle-row');
+  if (allDayRow) allDayRow.style.opacity = op;
   if (on && _pollOptions.length === 0) { _pollOptions.push({ date: '', time: '' }); _pollOptions.push({ date: '', time: '' }); }
   renderPollOptions();
 }
@@ -4177,6 +4374,9 @@ async function createEvent() {
   const time     = document.getElementById('ev-time').value;
   const location = document.getElementById('ev-location').value.trim();
   const details  = document.getElementById('ev-details').value.trim();
+  const allDay   = !!(document.getElementById('ev-allday') && document.getElementById('ev-allday').checked);
+  const dateEnd  = document.getElementById('ev-date-end') ? (document.getElementById('ev-date-end').value || null) : null;
+  const timeEnd  = (!allDay && document.getElementById('ev-time-end')) ? (document.getElementById('ev-time-end').value || null) : null;
   const btn      = document.getElementById('create-btn');
 
   if (!title) {
@@ -4196,7 +4396,10 @@ async function createEvent() {
       emoji:       pickedEmoji,
       title,
       date:        validPollOpts.length > 0 ? null : (date || new Date().toISOString().split('T')[0]),
-      time:        validPollOpts.length > 0 ? null : (time || null),
+      time:        (validPollOpts.length > 0 || allDay) ? null : (time || null),
+      allDay:      allDay || null,
+      dateEnd:     validPollOpts.length > 0 ? null : (dateEnd || null),
+      timeEnd:     (validPollOpts.length > 0 || allDay) ? null : (timeEnd || null),
       location:    location || null,
       details:     details  || null,
       createdBy:   me ? me.uid : null,
@@ -4432,7 +4635,7 @@ function renderEv(ev, body) {
       <div class="ev-hero-emoji">${ev.emoji||'🎉'}</div>
       <div class="ev-hero-title">${esc(ev.title)}</div>
       <div class="ev-details">
-        <div class="ev-row"><div class="ev-icon">📅</div><span>${ev.poll && ev.poll.active ? 'Datum wird noch abgestimmt' : fmtDate(ev.date, ev.time)}</span></div>
+        <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtEventTime(ev)}</span></div>
         ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
         ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
         <div class="ev-row"><div class="ev-icon">👤</div><span>${t('ev_by')} ${esc(ev.creatorName||'Jemand')}</span></div>
@@ -4699,6 +4902,25 @@ function fmtDate(date, time) {
   const d = new Date(date + 'T' + (time || '12:00') + ':00');
   const s = d.toLocaleDateString('de-DE', { weekday:'short', day:'numeric', month:'long' });
   return time ? s + ', ' + time + ' Uhr' : s;
+}
+
+function fmtEventTime(ev) {
+  if (!ev) return '';
+  if (ev.poll && ev.poll.active) return t('poll_date_open');
+  if (!ev.date) return '';
+  const startTime = ev.allDay ? '' : (ev.time || '');
+  const d1 = fmtDate(ev.date, startTime);
+  const hasEnd = ev.dateEnd || ev.timeEnd;
+  if (!hasEnd) return d1;
+  if (ev.allDay) {
+    if (ev.dateEnd && ev.dateEnd !== ev.date) return d1 + ' – ' + fmtDate(ev.dateEnd, '');
+    return d1;
+  }
+  if (ev.dateEnd && ev.dateEnd !== ev.date) {
+    return d1 + ' – ' + fmtDate(ev.dateEnd, ev.timeEnd || '');
+  }
+  if (ev.timeEnd) return d1.replace(' Uhr', '') + '–' + ev.timeEnd + ' Uhr';
+  return d1;
 }
 
 function esc(s) {
