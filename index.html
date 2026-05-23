@@ -1490,6 +1490,12 @@
       <div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>
     </div>
   </div>
+  <button id="space-create-btn" class="tab-create" title="Event erstellen"
+    style="position:fixed;bottom:24px;right:24px;z-index:150">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
 </div>
 
 <!-- ════════════════════════ DATENSCHUTZ ════════════════════════ -->
@@ -1843,6 +1849,8 @@ const LANG = {
     notif_nudge_body: 'Hast du dich schon zu {event} gemeldet?',
     notif_poll_confirmed_title: '📅 Termin steht fest!',
     notif_poll_confirmed_body: '{event} findet statt am {date} — bist du dabei?',
+    notif_space_event_title: '{name} hat ein neues Event in {space} erstellt: {event} 🎉',
+    notif_space_event_body: 'Tippe um das Event zu sehen',
   },
   en: {
     nav_home: 'Events',
@@ -2011,6 +2019,8 @@ const LANG = {
     notif_nudge_body: 'Have you replied to {event} yet?',
     notif_poll_confirmed_title: '📅 Date confirmed!',
     notif_poll_confirmed_body: '{event} is on {date} — are you in?',
+    notif_space_event_title: '{name} created a new event in {space}: {event} 🎉',
+    notif_space_event_body: 'Tap to view the event',
   }
 };
 
@@ -2077,6 +2087,8 @@ let _myUsername       = null;  // cached username from DB
 let _selectedMembers  = new Set(); // uids selected during space creation
 let _selectedSpaces   = new Set(); // space IDs selected during event creation
 let _selectedFriends  = new Set(); // friend UIDs selected during event creation
+let _preSelectSpaceId        = null; // space to auto-select when opening create from a space
+let _preSelectSpaceMemberUids = [];  // space member UIDs to auto-select as invitees
 let _spacesOff        = null;  // real-time spaces listener cleanup
 let _spaceEvOff       = null;  // space events view listener cleanup
 let _swRegistration   = null;  // ServiceWorker registration
@@ -3585,6 +3597,8 @@ async function openSpaceView(spaceId) {
     const lbl = d.displayName || d.username || memberUids[i].slice(0, 8);
     return `<div class="smc"><div class="smc-av" style="background:${avatarColor(lbl)}">${esc(lbl[0].toUpperCase())}</div><span>${esc(lbl)}</span></div>`;
   }).join('');
+  const spaceCreateBtn = document.getElementById('space-create-btn');
+  if (spaceCreateBtn) spaceCreateBtn.onclick = () => showCreateFromSpace(spaceId, space.name, memberUids);
 
   const ref = db.ref('spaceEvents/' + spaceId);
   const cb  = ref.on('value', async snap => {
@@ -3611,6 +3625,12 @@ function updateInvitesWrap() {
   document.getElementById('invites-wrap').style.display = has ? 'block' : 'none';
 }
 
+function showCreateFromSpace(spaceId, spaceName, memberUids) {
+  _preSelectSpaceId         = spaceId;
+  _preSelectSpaceMemberUids = (memberUids || []).filter(uid => !(me && uid === me.uid));
+  showCreate();
+}
+
 async function loadUserSpacesForCreate() {
   _selectedSpaces = new Set();
   const row = document.getElementById('invites-spaces-row');
@@ -3626,9 +3646,14 @@ async function loadUserSpacesForCreate() {
 
   row.style.display = 'block';
   document.getElementById('space-chips').innerHTML = spaces.map(sp => `
-    <button type="button" class="space-chip" onclick="toggleEventSpace('${sp.id}', this)">
+    <button type="button" class="space-chip" data-sid="${sp.id}" onclick="toggleEventSpace('${sp.id}', this)">
       ${esc(sp.name)}
     </button>`).join('');
+  if (_preSelectSpaceId) {
+    const chip = document.querySelector(`#space-chips [data-sid="${_preSelectSpaceId}"]`);
+    if (chip) { _selectedSpaces.add(_preSelectSpaceId); chip.classList.add('on'); }
+    _preSelectSpaceId = null;
+  }
   updateInvitesWrap();
 }
 
@@ -3659,13 +3684,22 @@ async function loadFriendsForCreate() {
 
   row.style.display = 'block';
   document.getElementById('friend-chips').innerHTML = friends.map(f => `
-    <button type="button" class="space-chip" onclick="toggleEventFriend('${f.uid}', this)">
+    <button type="button" class="space-chip" data-uid="${f.uid}" onclick="toggleEventFriend('${f.uid}', this)">
       ${esc(f.name)}
     </button>`).join('');
+  if (_preSelectSpaceMemberUids.length) {
+    document.querySelectorAll('#friend-chips [data-uid]').forEach(chip => {
+      if (_preSelectSpaceMemberUids.includes(chip.dataset.uid)) {
+        _selectedFriends.add(chip.dataset.uid);
+        chip.classList.add('on');
+      }
+    });
+    _preSelectSpaceMemberUids = [];
+  }
   updateInvitesWrap();
 }
 
-async function shareEventToSpaces(eventId, spaceIds) {
+async function shareEventToSpaces(eventId, spaceIds, eventTitle) {
   // Write each spaceEvents entry individually so a rule failure on one
   // space doesn't silently block the others.
   const failed = [];
@@ -3679,14 +3713,28 @@ async function shareEventToSpaces(eventId, spaceIds) {
   }));
   if (failed.length) throw new Error('space_write_failed');
 
-  // Fan out to members' home feeds (best-effort).
+  // Fan out to members' home feeds + push notifications (best-effort).
   try {
+    const myName = me ? (me.displayName || (me.email && me.email.split('@')[0]) || 'Jemand') : 'Jemand';
     const fanout = {};
     await Promise.all(spaceIds.map(async spaceId => {
-      const snap = await db.ref('spaces/' + spaceId + '/members').once('value');
-      const members = snap.val() || {};
+      const [membersSnap, spaceSnap] = await Promise.all([
+        db.ref('spaces/' + spaceId + '/members').once('value'),
+        db.ref('spaces/' + spaceId + '/name').once('value'),
+      ]);
+      const members   = membersSnap.val() || {};
+      const spaceName = spaceSnap.val()   || 'einem Space';
       Object.keys(members).forEach(uid => {
-        if (uid !== me.uid) fanout['userEvents/' + uid + '/' + eventId] = 'space';
+        if (uid !== me.uid) {
+          fanout['userEvents/' + uid + '/' + eventId] = 'space';
+          if (eventTitle) {
+            notifyUser(uid, 'space_event', '', '', `/#event/${eventId}`, {
+              titleKey: 'notif_space_event_title',
+              bodyKey:  'notif_space_event_body',
+              vars: { name: myName, space: spaceName, event: eventTitle },
+            });
+          }
+        }
       });
     }));
     if (Object.keys(fanout).length) await db.ref().update(fanout);
@@ -4485,7 +4533,7 @@ async function createEvent() {
       });
     }
     if (me && _selectedSpaces.size > 0) {
-      try { await shareEventToSpaces(createdId, [..._selectedSpaces]); }
+      try { await shareEventToSpaces(createdId, [..._selectedSpaces], title); }
       catch(e) {
         console.error('shareEventToSpaces:', e);
         toast('⚠️ Event erstellt, aber Space-Zuweisung fehlgeschlagen. Bitte Firebase-Regeln für spaceEvents prüfen.');
