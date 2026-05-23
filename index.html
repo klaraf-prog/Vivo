@@ -554,10 +554,10 @@
       border-radius: 3px; padding: 1px 3px;
       font-size: .5625rem; font-weight: 600; line-height: 1.5;
       white-space: nowrap; overflow: hidden;
-      /* clip, not ellipsis — no extra space needed */
       text-overflow: clip;
       width: 100%; min-width: 0; box-sizing: border-box;
       cursor: pointer; display: block;
+      flex-shrink: 0; /* never compress bars regardless of event count */
       transition: filter .12s;
     }
     .cal-bar:hover      { filter: brightness(.93); }
