@@ -564,6 +564,10 @@
     .cal-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .cal-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    /* Multi-day spanning bars */
+    .cal-bar.span-start { border-radius: 3px 0 0 3px; width: calc(100% + 2px); }
+    .cal-bar.span-mid   { border-radius: 0; margin-left: -2px; width: calc(100% + 4px); }
+    .cal-bar.span-end   { border-radius: 0 3px 3px 0; margin-left: -2px; width: calc(100% + 2px); }
     .cal-more { font-size: .5625rem; color: var(--muted); padding: 0 2px; line-height: 1.4; }
 
     /* Day detail panel */
@@ -1149,33 +1153,30 @@
         <label data-i18n="create_title_label">Titel *</label>
         <input type="text" id="ev-title" placeholder="z.B. Grillabend 🔥" maxlength="60" data-i18n-placeholder="create_title_placeholder">
       </div>
-      <div class="poll-toggle-row" style="padding:6px 0 2px" id="allday-toggle-row">
-        <div class="poll-toggle-label">
-          <strong data-i18n="create_allday_label">Ganztägig</strong>
+      <div id="ev-datetime-card" style="border:1.5px solid var(--border);border-radius:var(--r-sm);overflow:hidden;margin-bottom:2px">
+        <!-- Ganztägig toggle -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)" id="allday-toggle-row">
+          <span style="font-size:.9375rem;font-weight:600" data-i18n="create_allday_label">Ganztägig</span>
+          <label class="toggle">
+            <input type="checkbox" id="ev-allday" onchange="toggleAllDay(this.checked)">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <label class="toggle">
-          <input type="checkbox" id="ev-allday" onchange="toggleAllDay(this.checked)">
-          <span class="toggle-track"></span>
-        </label>
-      </div>
-      <div class="form-row" id="ev-start-row">
-        <div class="field">
-          <label data-i18n="create_date_label">Datum</label>
-          <input type="date" id="ev-date">
+        <!-- Start row -->
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px;border-bottom:1px solid var(--border)" id="ev-start-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="date" id="ev-date" style="border:none;outline:none;font-size:.9375rem;flex:1;min-width:0;background:transparent;color:var(--text)">
+          <div id="ev-time-field" style="flex-shrink:0">
+            <input type="time" id="ev-time" style="border:none;outline:none;font-size:.9375rem;background:transparent;color:var(--text)">
+          </div>
         </div>
-        <div class="field" id="ev-time-field">
-          <label data-i18n="create_time_label">Uhrzeit</label>
-          <input type="time" id="ev-time">
-        </div>
-      </div>
-      <div class="form-row" id="ev-end-row">
-        <div class="field">
-          <label data-i18n="create_enddate_label">Enddatum</label>
-          <input type="date" id="ev-date-end">
-        </div>
-        <div class="field" id="ev-time-end-field">
-          <label data-i18n="create_endtime_label">Endzeit</label>
-          <input type="time" id="ev-time-end">
+        <!-- End row -->
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px" id="ev-end-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <input type="date" id="ev-date-end" style="border:none;outline:none;font-size:.9375rem;flex:1;min-width:0;background:transparent;color:var(--text)">
+          <div id="ev-time-end-field" style="flex-shrink:0">
+            <input type="time" id="ev-time-end" style="border:none;outline:none;font-size:.9375rem;background:transparent;color:var(--text)">
+          </div>
         </div>
       </div>
       <div class="poll-divider"></div>
@@ -2894,13 +2895,8 @@ function openEditEvent(ev) {
   if (pt2) pt2.checked = _pollEnabled;
   const ps2 = document.getElementById('poll-section');
   if (ps2) ps2.style.display = _pollEnabled ? 'block' : 'none';
-  const op2 = _pollEnabled ? '.4' : '';
-  const dr2 = document.getElementById('ev-start-row');
-  if (dr2) dr2.style.opacity = op2;
-  const dr2e = document.getElementById('ev-end-row');
-  if (dr2e) dr2e.style.opacity = op2;
-  const dr2a = document.getElementById('allday-toggle-row');
-  if (dr2a) dr2a.style.opacity = op2;
+  const card2 = document.getElementById('ev-datetime-card');
+  if (card2) card2.style.opacity = _pollEnabled ? '.4' : '';
   renderPollOptions();
 
   // Update UI for edit mode
@@ -3090,11 +3086,24 @@ function renderCalendar() {
   const daysInMonth  = new Date(_calYear, _calMonth + 1, 0).getDate();
   const daysInPrev   = new Date(_calYear, _calMonth, 0).getDate();
 
-  // Map dateStr → [ev, …]
+  // Map dateStr → [{ev, spanStart, spanEnd, multiDay}, …]
   const evByDate = {};
+  const addToDate = (ds, entry) => { (evByDate[ds] = evByDate[ds] || []).push(entry); };
   for (const ev of _calEvents) {
     if (!ev.date) continue;
-    (evByDate[ev.date] = evByDate[ev.date] || []).push(ev);
+    const startDs = ev.date;
+    const endDs   = (ev.dateEnd && ev.dateEnd > startDs) ? ev.dateEnd : startDs;
+    if (startDs === endDs) {
+      addToDate(startDs, { ev, spanStart: false, spanEnd: false, multiDay: false });
+    } else {
+      let cur = new Date(startDs + 'T12:00:00');
+      const endDate = new Date(endDs + 'T12:00:00');
+      while (cur <= endDate) {
+        const ds2 = dateStr(cur.getFullYear(), cur.getMonth() + 1, cur.getDate());
+        addToDate(ds2, { ev, spanStart: ds2 === startDs, spanEnd: ds2 === endDs, multiDay: true });
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
   }
 
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
@@ -3134,14 +3143,21 @@ function renderCalendar() {
     for (const cell of weeks[w]) {
       const isToday  = cell.ds === todayStr;
       const isSel    = cell.ds === _calSelDate;
-      const evs      = evByDate[cell.ds] || [];
-      const barsHtml = evs.slice(0, 3).map(ev => {
+      const entries  = evByDate[cell.ds] || [];
+      const barsHtml = entries.slice(0, 3).map(({ ev, spanStart, spanEnd, multiDay }) => {
         const st    = calEvStatus(ev);
         const title = esc(ev.title || '');
-        return `<div class="cal-bar ${st}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${title}</div>`;
+        let spanCls = '';
+        if (multiDay) {
+          if (spanStart)       spanCls = ' span-start';
+          else if (spanEnd)    spanCls = ' span-end';
+          else                 spanCls = ' span-mid';
+        }
+        const label = (!multiDay || spanStart) ? title : '';
+        return `<div class="cal-bar ${st}${spanCls}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${label}</div>`;
       }).join('');
-      const moreHtml = evs.length > 3
-        ? `<div class="cal-more">+${evs.length - 3}</div>` : '';
+      const moreHtml = entries.length > 3
+        ? `<div class="cal-more">+${entries.length - 3}</div>` : '';
       html += `<div class="cal-cell${cell.other ? ' other-month' : ''}${isToday ? ' today' : ''}${isSel ? ' selected' : ''}"
         onclick="calSelectDay('${cell.ds}')">
         <div class="cal-day-num">${cell.day}</div>
@@ -3170,9 +3186,13 @@ function openDayView(ds) {
   const dateObj = new Date(parseInt(sy), parseInt(sm) - 1, parseInt(sd));
   document.getElementById('cal-day-title').textContent =
     `${DOW_FULL_DE[dateObj.getDay()]}, ${parseInt(sd)}. ${MONTHS_DE[parseInt(sm)-1]} ${sy}`;
-  const evs = _calEvents.filter(ev => ev.date === ds);
+  const evs = _calEvents.filter(ev => {
+    if (!ev.date) return false;
+    if (ev.dateEnd && ev.dateEnd > ev.date) return ds >= ev.date && ds <= ev.dateEnd;
+    return ev.date === ds;
+  });
   renderDayGrid(ds, evs);
-  document.getElementById('cal-day-overlay').style.display = '';
+  document.getElementById('cal-day-overlay').style.display = 'block';
   document.getElementById('cal-day-overlay').scrollTop = 0;
 }
 
@@ -4007,13 +4027,8 @@ function toggleAllDay(isAllDay) {
 function togglePollSection(on) {
   _pollEnabled = on;
   document.getElementById('poll-section').style.display = on ? 'block' : 'none';
-  const op = on ? '.4' : '';
-  const dateRow = document.getElementById('ev-start-row');
-  if (dateRow) dateRow.style.opacity = op;
-  const endRow = document.getElementById('ev-end-row');
-  if (endRow) endRow.style.opacity = op;
-  const allDayRow = document.getElementById('allday-toggle-row');
-  if (allDayRow) allDayRow.style.opacity = op;
+  const card = document.getElementById('ev-datetime-card');
+  if (card) card.style.opacity = on ? '.4' : '';
   if (on && _pollOptions.length === 0) { _pollOptions.push({ date: '', time: '' }); _pollOptions.push({ date: '', time: '' }); }
   renderPollOptions();
 }
