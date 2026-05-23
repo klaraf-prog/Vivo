@@ -640,7 +640,8 @@
       font-size: .6875rem; color: var(--muted); text-align: right;
       margin-top: -9px; user-select: none;
     }
-    .day-hour-body { flex: 1; position: relative; }
+    .day-hour-body { flex: 1; position: relative; cursor: pointer; }
+    .day-hour-line:hover .day-hour-body { background: #FAFAF8; }
     .day-events-layer {
       position: absolute; top: 0; left: 48px; right: 0;
       pointer-events: none;
@@ -3223,6 +3224,18 @@ function closeDayView() {
   document.getElementById('cal-day-overlay').style.display = 'none';
 }
 
+function createFromDayView(ds, h) {
+  closeDayView();
+  showCreate(); // calls initCreateForm() which sets defaults
+  // Override with clicked date + hour
+  document.getElementById('ev-date').value = ds;
+  const hh = String(h).padStart(2, '0');
+  document.getElementById('ev-time').value = hh + ':00';
+  // End time = +1 hour
+  document.getElementById('ev-date-end').value = ds;
+  document.getElementById('ev-time-end').value = String((h + 1) % 24).padStart(2, '0') + ':00';
+}
+
 function renderDayGrid(ds, evs) {
   const allDayEvs = evs.filter(ev => ev.allDay || !ev.time);
   const timedEvs  = evs.filter(ev => !ev.allDay && ev.time);
@@ -3249,7 +3262,7 @@ function renderDayGrid(ds, evs) {
   for (let h = DAY_START_H; h <= DAY_END_H; h++) {
     html += `<div class="day-hour-line">
       <span class="day-hour-lbl">${String(h).padStart(2,'0')}:00</span>
-      <div class="day-hour-body"></div>
+      <div class="day-hour-body" onclick="createFromDayView('${ds}',${h})"></div>
     </div>`;
   }
   html += `</div>`;
@@ -3276,7 +3289,7 @@ function renderDayGrid(ds, evs) {
     const st    = calEvStatus(ev);
     const title = esc(ev.title || '');
     const timeLabel = ev.time + (ev.timeEnd ? '–' + ev.timeEnd : '');
-    html += `<div class="day-ev-chip ${st}" style="top:${topPx}px;height:${heightPx}px" onclick="openEv('${ev.id}')">
+    html += `<div class="day-ev-chip ${st}" style="top:${topPx}px;height:${heightPx}px" onclick="event.stopPropagation();openEv('${ev.id}')">
       ${ev.emoji ? ev.emoji + ' ' : ''}${title}
       <div class="day-ev-time">${timeLabel}</div>
     </div>`;
