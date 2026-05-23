@@ -4574,17 +4574,19 @@ function evLink(id) {
 }
 
 function shareWA() {
-  const title    = document.getElementById('ev-title').value.trim();
-  const date     = document.getElementById('ev-date').value;
-  const time     = document.getElementById('ev-time').value;
+  const title   = document.getElementById('ev-title').value.trim();
+  const date    = document.getElementById('ev-date').value;
+  const time    = document.getElementById('ev-time').value;
+  const dateEnd = (document.getElementById('ev-date-end') || {}).value || '';
   const location = document.getElementById('ev-location').value.trim();
   const details  = document.getElementById('ev-details').value.trim();
 
-  const lines = [
-    '👋 Hey!',
-    `${pickedEmoji} ${title}`,
-    `📅 ${fmtDate(date, '')}`,
-  ];
+  const lines = ['👋 Hey!', `${pickedEmoji} ${title}`];
+  if (dateEnd && dateEnd !== date) {
+    lines.push(`📅 ${fmtDate(date, '')} – ${fmtDate(dateEnd, '')}`);
+  } else {
+    lines.push(`📅 ${fmtDate(date, '')}`);
+  }
   if (time) lines.push(`⏰ ${time} Uhr`);
   if (location) lines.push(`📍 ${location}`);
   if (details) lines.push(details);
@@ -4945,6 +4947,9 @@ function shareEvWA() {
     lines.push('🗳️ Terminabstimmung läuft — stimm ab für welchen Termin!');
     const opts = ev.poll.options ? Object.values(ev.poll.options) : [];
     opts.forEach((opt, i) => { if (opt.date) lines.push(`  ${i+1}. ${fmtDate(opt.date, opt.time)}`); });
+  } else if (ev.dateEnd && ev.dateEnd !== ev.date) {
+    lines.push(`📅 ${fmtDate(ev.date, '')} – ${fmtDate(ev.dateEnd, '')}`);
+    if (ev.time) lines.push(`⏰ ${ev.time} Uhr`);
   } else {
     lines.push(`📅 ${fmtDate(ev.date, '')}`);
     if (ev.time) lines.push(`⏰ ${ev.time} Uhr`);
@@ -5016,13 +5021,12 @@ function fmtEventTime(ev) {
   const d1 = fmtDate(ev.date, startTime);
   const hasEnd = ev.dateEnd || ev.timeEnd;
   if (!hasEnd) return d1;
-  if (ev.allDay) {
-    if (ev.dateEnd && ev.dateEnd !== ev.date) return d1 + ' – ' + fmtDate(ev.dateEnd, '');
-    return d1;
-  }
+  // Multi-day: two lines
   if (ev.dateEnd && ev.dateEnd !== ev.date) {
-    return d1 + ' – ' + fmtDate(ev.dateEnd, ev.timeEnd || '');
+    const d2 = fmtDate(ev.dateEnd, ev.allDay ? '' : (ev.timeEnd || ''));
+    return d1 + ' –<br>' + d2;
   }
+  // Same day with end time: single line
   if (ev.timeEnd) return d1.replace(' Uhr', '') + '–' + ev.timeEnd + ' Uhr';
   return d1;
 }
