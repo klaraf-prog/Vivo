@@ -529,7 +529,7 @@
       background: #fff; min-width: 0; overflow: hidden;
       padding: 4px 2px 4px;
       display: flex; flex-direction: column; gap: 2px;
-      min-height: 62px;
+      height: 80px;
       border-right: 1px solid var(--border);
       cursor: pointer; transition: background .12s;
     }
@@ -554,16 +554,28 @@
       border-radius: 3px; padding: 1px 3px;
       font-size: .5625rem; font-weight: 600; line-height: 1.5;
       white-space: nowrap; overflow: hidden;
-      /* clip, not ellipsis — no extra space needed */
       text-overflow: clip;
       width: 100%; min-width: 0; box-sizing: border-box;
       cursor: pointer; display: block;
+      flex-shrink: 0; /* never compress bars regardless of event count */
       transition: filter .12s;
     }
     .cal-bar:hover      { filter: brightness(.93); }
     .cal-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .cal-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    /* Multi-day spanning bars — base: extend flush to both cell edges */
+    .cal-bar.span-start { border-radius: 3px 0 0 3px; margin-left: -2px; width: calc(100% + 4px); }
+    /* Continuation days: thin strip, no text */
+    .cal-bar.span-mid, .cal-bar.span-end { height: 5px; padding: 0; line-height: 0; font-size: 0; }
+    .cal-bar.span-mid   { border-radius: 0;           margin-left: -2px; width: calc(100% + 4px); }
+    .cal-bar.span-end   { border-radius: 0 3px 3px 0; margin-left: -2px; width: calc(100% + 4px); }
+    /* First column (Monday): keep left padding — don't bleed into calendar border */
+    .cal-week-row > .cal-cell:first-child .cal-bar.span-start,
+    .cal-week-row > .cal-cell:first-child .cal-bar.span-mid  { margin-left: 0; width: calc(100% + 2px); }
+    /* Last column (Sunday): keep right padding — don't bleed into calendar border */
+    .cal-week-row > .cal-cell:last-child .cal-bar.span-mid,
+    .cal-week-row > .cal-cell:last-child .cal-bar.span-end   { width: calc(100% + 2px); }
     .cal-more { font-size: .5625rem; color: var(--muted); padding: 0 2px; line-height: 1.4; }
 
     /* Day detail panel */
@@ -597,6 +609,66 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .cal-detail-meta { font-size: .8rem; color: var(--muted); margin-top: 1px; }
+
+    /* Day view overlay (Google Calendar style) */
+    #cal-day-overlay {
+      display: none; position: fixed; inset: 0; z-index: 250;
+      background: #fff; overflow-y: auto; padding-bottom: 80px;
+    }
+    .day-view-hdr {
+      position: sticky; top: 0; z-index: 10; background: #fff;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 10px 16px; gap: 10px;
+    }
+    .day-view-title { font-size: 1rem; font-weight: 700; flex: 1; }
+    .day-allday-sec { border-bottom: 2px solid var(--border); }
+    .day-allday-bar {
+      border-radius: 5px; padding: 5px 10px; margin: 2px 4px 2px 0;
+      font-size: .875rem; font-weight: 600; line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer; display: block;
+    }
+    .day-allday-bar.dabei      { background: #D1FAE5; color: #065F46; }
+    .day-allday-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
+    .day-allday-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .day-grid-wrap { position: relative; }
+    .day-hour-line {
+      display: flex; height: 60px; border-top: 1px solid #F0EDE8;
+    }
+    .day-hour-lbl {
+      width: 48px; flex-shrink: 0; padding: 0 8px 0 0;
+      font-size: .6875rem; color: var(--muted); text-align: right;
+      margin-top: -9px; user-select: none;
+    }
+    .day-hour-body { flex: 1; position: relative; cursor: pointer; }
+    .day-hour-line:hover .day-hour-body { background: #FAFAF8; }
+    .day-events-layer {
+      position: absolute; top: 0; left: 48px; right: 0;
+      pointer-events: none;
+    }
+    .day-ev-chip {
+      position: absolute; left: 4px; right: 4px;
+      border-radius: 5px; padding: 3px 7px;
+      font-size: .8125rem; font-weight: 600; line-height: 1.3;
+      overflow: hidden; pointer-events: all; cursor: pointer;
+      box-sizing: border-box;
+    }
+    .day-ev-chip.dabei      { background: #D1FAE5; color: #065F46; }
+    .day-ev-chip.vielleicht { background: #FEF9C3; color: #854D0E; }
+    .day-ev-chip.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .day-ev-time { font-size: .7rem; opacity: .7; }
+    .day-now-line {
+      position: absolute; left: 0; right: 0; height: 2px; background: var(--pink);
+      z-index: 3; pointer-events: none;
+    }
+    .day-now-dot {
+      position: absolute; left: -5px; top: -4px;
+      width: 10px; height: 10px; border-radius: 50%; background: var(--pink);
+    }
+    .day-empty {
+      padding: 48px 24px; text-align: center;
+      font-size: .9375rem; color: var(--muted);
+    }
 
     /* Bottom tab bar */
     .tab-bar {
@@ -1062,6 +1134,23 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ DAY VIEW OVERLAY ════════════════ -->
+<div id="cal-day-overlay">
+  <div class="day-view-hdr">
+    <button class="back-btn" onclick="closeDayView()" aria-label="Zurück">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="day-view-title" id="cal-day-title"></div>
+  </div>
+  <div id="cal-day-body"></div>
+  <button class="tab-create" onclick="closeDayView();showCreate()" title="Event erstellen"
+    style="position:fixed;bottom:24px;right:24px;z-index:260">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
+</div>
+
 <!-- ═══════════════════════════ CREATE ═══════════════════════════ -->
 <div id="screen-create" class="screen">
   <div class="scr-header">
@@ -1083,14 +1172,30 @@
         <label data-i18n="create_title_label">Titel *</label>
         <input type="text" id="ev-title" placeholder="z.B. Grillabend 🔥" maxlength="60" data-i18n-placeholder="create_title_placeholder">
       </div>
-      <div class="form-row">
-        <div class="field">
-          <label data-i18n="create_date_label">Datum</label>
-          <input type="date" id="ev-date">
+      <div id="ev-datetime-card" style="border:1.5px solid var(--border);border-radius:var(--r-sm);overflow:hidden;margin-bottom:2px">
+        <!-- Ganztägig toggle -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)" id="allday-toggle-row">
+          <span style="font-size:.9375rem;font-weight:600" data-i18n="create_allday_label">Ganztägig</span>
+          <label class="toggle">
+            <input type="checkbox" id="ev-allday" onchange="toggleAllDay(this.checked)">
+            <span class="toggle-track"></span>
+          </label>
         </div>
-        <div class="field">
-          <label data-i18n="create_time_label">Uhrzeit</label>
-          <input type="time" id="ev-time">
+        <!-- Start row -->
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px;border-bottom:1px solid var(--border)" id="ev-start-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="date" id="ev-date" style="border:none;outline:none;font-size:.9375rem;flex:1;min-width:0;background:transparent;color:var(--text)">
+          <div id="ev-time-field" style="flex-shrink:0">
+            <input type="time" id="ev-time" style="border:none;outline:none;font-size:.9375rem;background:transparent;color:var(--text)">
+          </div>
+        </div>
+        <!-- End row -->
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px" id="ev-end-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <input type="date" id="ev-date-end" style="border:none;outline:none;font-size:.9375rem;flex:1;min-width:0;background:transparent;color:var(--text)">
+          <div id="ev-time-end-field" style="flex-shrink:0">
+            <input type="time" id="ev-time-end" style="border:none;outline:none;font-size:.9375rem;background:transparent;color:var(--text)">
+          </div>
         </div>
       </div>
       <div class="poll-divider"></div>
@@ -1384,6 +1489,12 @@
       <div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>
     </div>
   </div>
+  <button id="space-create-btn" class="tab-create" title="Event erstellen"
+    style="position:fixed;bottom:24px;right:24px;z-index:150">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
 </div>
 
 <!-- ════════════════════════ DATENSCHUTZ ════════════════════════ -->
@@ -1607,8 +1718,11 @@ const LANG = {
     who_is_coming: 'Wer ist dabei',
     create_title_label: 'Titel *',
     create_title_placeholder: 'z.B. Grillabend 🔥',
+    create_allday_label: 'Ganztägig',
     create_date_label: 'Datum',
     create_time_label: 'Uhrzeit',
+    create_enddate_label: 'Enddatum',
+    create_endtime_label: 'Endzeit',
     create_location_label: 'Ort',
     create_location_placeholder: 'z.B. Mauerpark, Berlin',
     create_details_label: 'Details',
@@ -1718,22 +1832,24 @@ const LANG = {
     ev_save_changes: 'Änderungen speichern',
     toast_event_saved: 'Änderungen gespeichert ✓',
     // Push notification texts (used for recipient-language notifications)
-    notif_invite_title: '{name} hat dich zu {event} eingeladen 🎉',
-    notif_invite_body: 'Tippe um zu antworten',
-    notif_rsvp_dabei_title: '{name} hat bei {event} zugesagt ✅',
-    notif_rsvp_vielleicht_title: '{name} hat bei {event} mit Vielleicht geantwortet 🤔',
-    notif_rsvp_nein_title: '{name} hat bei {event} abgesagt ❌',
-    notif_rsvp_body: 'Tippe um das Event zu sehen',
-    notif_event_start_title: '{event} startet in 2 Stunden 🔔',
-    notif_event_start_body: 'Bald geht\'s los!',
-    notif_event_edited_title: '{name} hat {event} aktualisiert ✏️',
-    notif_event_edited_body: 'Tippe um die Änderungen zu sehen',
+    notif_invite_title: '{name} hat dich eingeladen 🎉',
+    notif_invite_body: '{event} · {datetime}',
+    notif_rsvp_dabei_title: '{name} hat zugesagt ✅',
+    notif_rsvp_vielleicht_title: '{name} hat mit Vielleicht geantwortet 🤔',
+    notif_rsvp_nein_title: '{name} hat abgesagt ❌',
+    notif_rsvp_body: '{event} · {datetime}',
+    notif_event_start_title: 'Bald geht\'s los 🔔',
+    notif_event_start_body: '{event} · {datetime}',
+    notif_event_edited_title: '{name} hat das Event aktualisiert ✏️',
+    notif_event_edited_body: '{event} · {datetime}',
     notif_friend_title: '{name} und du seid jetzt befreundet 👋',
     notif_friend_body: 'Ihr seid jetzt auf vivo verbunden',
     notif_nudge_title: '{name} erinnert dich 👋',
-    notif_nudge_body: 'Hast du dich schon zu {event} gemeldet?',
+    notif_nudge_body: '{event} · {datetime}',
     notif_poll_confirmed_title: '📅 Termin steht fest!',
-    notif_poll_confirmed_body: '{event} findet statt am {date} — bist du dabei?',
+    notif_poll_confirmed_body: '{event} · {date}',
+    notif_space_event_title: '{name} hat ein Event in {space} erstellt 🎉',
+    notif_space_event_body: '{event} · {datetime}',
   },
   en: {
     nav_home: 'Events',
@@ -1772,8 +1888,11 @@ const LANG = {
     who_is_coming: "Who's coming",
     create_title_label: 'Title *',
     create_title_placeholder: 'e.g. BBQ night 🔥',
+    create_allday_label: 'All day',
     create_date_label: 'Date',
     create_time_label: 'Time',
+    create_enddate_label: 'End date',
+    create_endtime_label: 'End time',
     create_location_label: 'Location',
     create_location_placeholder: 'e.g. Central Park, NYC',
     create_details_label: 'Details',
@@ -1883,22 +2002,24 @@ const LANG = {
     ev_save_changes: 'Save changes',
     toast_event_saved: 'Changes saved ✓',
     // Push notification texts
-    notif_invite_title: '{name} invited you to {event} 🎉',
-    notif_invite_body: 'Tap to reply',
-    notif_rsvp_dabei_title: '{name} is going to {event} ✅',
-    notif_rsvp_vielleicht_title: '{name} said maybe to {event} 🤔',
-    notif_rsvp_nein_title: '{name} can\'t make {event} ❌',
-    notif_rsvp_body: 'Tap to view the event',
-    notif_event_start_title: '{event} starts in 2 hours 🔔',
-    notif_event_start_body: 'It\'s almost time!',
-    notif_event_edited_title: '{name} updated {event} ✏️',
-    notif_event_edited_body: 'Tap to see the changes',
+    notif_invite_title: '{name} invited you 🎉',
+    notif_invite_body: '{event} · {datetime}',
+    notif_rsvp_dabei_title: '{name} is going ✅',
+    notif_rsvp_vielleicht_title: '{name} said maybe 🤔',
+    notif_rsvp_nein_title: '{name} can\'t make it ❌',
+    notif_rsvp_body: '{event} · {datetime}',
+    notif_event_start_title: 'Starting soon 🔔',
+    notif_event_start_body: '{event} · {datetime}',
+    notif_event_edited_title: '{name} updated the event ✏️',
+    notif_event_edited_body: '{event} · {datetime}',
     notif_friend_title: '{name} and you are now friends 👋',
     notif_friend_body: 'You\'re now connected on vivo',
     notif_nudge_title: '{name} is reminding you 👋',
-    notif_nudge_body: 'Have you replied to {event} yet?',
+    notif_nudge_body: '{event} · {datetime}',
     notif_poll_confirmed_title: '📅 Date confirmed!',
-    notif_poll_confirmed_body: '{event} is on {date} — are you in?',
+    notif_poll_confirmed_body: '{event} · {date}',
+    notif_space_event_title: '{name} created an event in {space} 🎉',
+    notif_space_event_body: '{event} · {datetime}',
   }
 };
 
@@ -1965,6 +2086,8 @@ let _myUsername       = null;  // cached username from DB
 let _selectedMembers  = new Set(); // uids selected during space creation
 let _selectedSpaces   = new Set(); // space IDs selected during event creation
 let _selectedFriends  = new Set(); // friend UIDs selected during event creation
+let _preSelectSpaceId        = null; // space to auto-select when opening create from a space
+let _preSelectSpaceMemberUids = [];  // space member UIDs to auto-select as invitees
 let _spacesOff        = null;  // real-time spaces listener cleanup
 let _spaceEvOff       = null;  // space events view listener cleanup
 let _swRegistration   = null;  // ServiceWorker registration
@@ -2251,7 +2374,7 @@ async function nudgeMembers(eventId) {
       notifyUser(uid, 'nudge', '', '', '/#event/' + eventId, {
         titleKey: 'notif_nudge_title',
         bodyKey:  'notif_nudge_body',
-        vars: { name: myName, event: ev.title },
+        vars: { name: myName, event: ev.title, datetime: fmtDate(ev.date, ev.time) },
       })
     ));
 
@@ -2277,7 +2400,7 @@ function scheduleEventStartNotifs(events) {
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // only schedule if within 24 h
       _startTimers.push(setTimeout(() => {
         const title = tFor(_lang, 'notif_event_start_title', { event: ev.title });
-        const body  = tFor(_lang, 'notif_event_start_body',  { event: ev.title });
+        const body  = tFor(_lang, 'notif_event_start_body',  { event: ev.title, datetime: fmtDate(ev.date, ev.time) });
         const url   = `/#event/${ev.id}`;
         showNotif(title, body, url);
         // Email to self — check settings + send via Netlify Function
@@ -2779,6 +2902,13 @@ function openEditEvent(ev) {
   document.getElementById('ev-time').value     = ev.time     || '';
   document.getElementById('ev-location').value = ev.location || '';
   document.getElementById('ev-details').value  = ev.details  || '';
+  // Time range fields
+  const allDayEl2 = document.getElementById('ev-allday');
+  if (allDayEl2) { allDayEl2.checked = !!ev.allDay; toggleAllDay(!!ev.allDay); }
+  const dateEndEl2 = document.getElementById('ev-date-end');
+  if (dateEndEl2) dateEndEl2.value = ev.dateEnd || '';
+  const timeEndEl2 = document.getElementById('ev-time-end');
+  if (timeEndEl2) timeEndEl2.value = ev.timeEnd || '';
 
   // Hide invite section (not relevant for edits)
   document.getElementById('invites-wrap').style.display       = 'none';
@@ -2796,8 +2926,8 @@ function openEditEvent(ev) {
   if (pt2) pt2.checked = _pollEnabled;
   const ps2 = document.getElementById('poll-section');
   if (ps2) ps2.style.display = _pollEnabled ? 'block' : 'none';
-  const dr2 = document.querySelector('#screen-create .form-row');
-  if (dr2) dr2.style.opacity = _pollEnabled ? '.4' : '';
+  const card2 = document.getElementById('ev-datetime-card');
+  if (card2) card2.style.opacity = _pollEnabled ? '.4' : '';
   renderPollOptions();
 
   // Update UI for edit mode
@@ -2987,11 +3117,24 @@ function renderCalendar() {
   const daysInMonth  = new Date(_calYear, _calMonth + 1, 0).getDate();
   const daysInPrev   = new Date(_calYear, _calMonth, 0).getDate();
 
-  // Map dateStr → [ev, …]
+  // Map dateStr → [{ev, spanStart, spanEnd, multiDay}, …]
   const evByDate = {};
+  const addToDate = (ds, entry) => { (evByDate[ds] = evByDate[ds] || []).push(entry); };
   for (const ev of _calEvents) {
     if (!ev.date) continue;
-    (evByDate[ev.date] = evByDate[ev.date] || []).push(ev);
+    const startDs = ev.date;
+    const endDs   = (ev.dateEnd && ev.dateEnd > startDs) ? ev.dateEnd : startDs;
+    if (startDs === endDs) {
+      addToDate(startDs, { ev, spanStart: false, spanEnd: false, multiDay: false });
+    } else {
+      let cur = new Date(startDs + 'T12:00:00');
+      const endDate = new Date(endDs + 'T12:00:00');
+      while (cur <= endDate) {
+        const ds2 = dateStr(cur.getFullYear(), cur.getMonth() + 1, cur.getDate());
+        addToDate(ds2, { ev, spanStart: ds2 === startDs, spanEnd: ds2 === endDs, multiDay: true });
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
   }
 
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
@@ -3023,11 +3166,6 @@ function renderCalendar() {
     weeks.push(week);
   }
 
-  // Find which week contains _calSelDate (for inserting detail panel)
-  const selWeekIdx = _calSelDate
-    ? weeks.findIndex(w => w.some(c => c.ds === _calSelDate))
-    : -1;
-
   const lastWeekIdx = weeks.length - 1;
   let html = '';
   for (let w = 0; w < weeks.length; w++) {
@@ -3036,14 +3174,26 @@ function renderCalendar() {
     for (const cell of weeks[w]) {
       const isToday  = cell.ds === todayStr;
       const isSel    = cell.ds === _calSelDate;
-      const evs      = evByDate[cell.ds] || [];
-      const barsHtml = evs.slice(0, 3).map(ev => {
+      const entries = (evByDate[cell.ds] || []).slice().sort((a, b) => {
+        const aPrio = (a.multiDay || a.ev.allDay) ? 0 : 1;
+        const bPrio = (b.multiDay || b.ev.allDay) ? 0 : 1;
+        if (aPrio !== bPrio) return aPrio - bPrio;
+        return (a.ev.time || '00:00').localeCompare(b.ev.time || '00:00');
+      });
+      const barsHtml = entries.slice(0, 3).map(({ ev, spanStart, spanEnd, multiDay }) => {
         const st    = calEvStatus(ev);
         const title = esc(ev.title || '');
-        return `<div class="cal-bar ${st}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${title}</div>`;
+        let spanCls = '';
+        if (multiDay) {
+          if (spanStart)       spanCls = ' span-start';
+          else if (spanEnd)    spanCls = ' span-end';
+          else                 spanCls = ' span-mid';
+        }
+        const label = (!multiDay || spanStart) ? title : '';
+        return `<div class="cal-bar ${st}${spanCls}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${label}</div>`;
       }).join('');
-      const moreHtml = evs.length > 3
-        ? `<div class="cal-more">+${evs.length - 3}</div>` : '';
+      const moreHtml = entries.length > 3
+        ? `<div class="cal-more">+${entries.length - 3}</div>` : '';
       html += `<div class="cal-cell${cell.other ? ' other-month' : ''}${isToday ? ' today' : ''}${isSel ? ' selected' : ''}"
         onclick="calSelectDay('${cell.ds}')">
         <div class="cal-day-num">${cell.day}</div>
@@ -3052,42 +3202,131 @@ function renderCalendar() {
     }
     html += `</div>`; // .cal-week-row
 
-    // Inject detail panel right after the week that holds the selected date
-    if (w === selWeekIdx && _calSelDate) {
-      const selEvs = evByDate[_calSelDate] || [];
-      const [sy, sm, sd] = _calSelDate.split('-');
-      const label = `${parseInt(sd)}. ${MONTHS_DE[parseInt(sm)-1]} ${sy}`;
-      let detailHtml = `<div class="cal-day-detail"><div class="cal-detail-inner">`;
-      detailHtml += `<div class="cal-detail-header">${label}</div>`;
-      if (!selEvs.length) {
-        detailHtml += `<div class="cal-detail-empty">Keine Events</div>`;
-      } else {
-        for (const ev of selEvs) {
-          const st    = calEvStatus(ev);
-          const title = esc(ev.title || '');
-          const time  = ev.time ? ` · ${ev.time} Uhr` : '';
-          const loc   = ev.location ? ` · ${esc(ev.location)}` : '';
-          detailHtml += `<div class="cal-detail-item" onclick="openEv('${ev.id}')">
-            <div class="cal-detail-dot ${st}"></div>
-            <div class="cal-detail-info">
-              <div class="cal-detail-title">${ev.emoji ? ev.emoji + ' ' : ''}${title}</div>
-              <div class="cal-detail-meta">${time}${loc}</div>
-            </div>
-          </div>`;
-        }
-      }
-      detailHtml += `</div></div>`;
-      html += detailHtml;
-    }
   }
 
   document.getElementById('cal-weeks-wrap').innerHTML = html;
 }
 
 function calSelectDay(ds) {
-  // Toggle: clicking the same day again closes the panel
-  _calSelDate = (_calSelDate === ds) ? null : ds;
-  renderCalendar();
+  openDayView(ds);
+}
+
+const DOW_FULL_DE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const DAY_START_H = 0;
+const DAY_END_H   = 23;
+const DAY_HOUR_PX = 60; // px per hour
+
+function openDayView(ds) {
+  _calSelDate = ds;
+  const [sy, sm, sd] = ds.split('-');
+  const dateObj = new Date(parseInt(sy), parseInt(sm) - 1, parseInt(sd));
+  document.getElementById('cal-day-title').textContent =
+    `${DOW_FULL_DE[dateObj.getDay()]}, ${parseInt(sd)}. ${MONTHS_DE[parseInt(sm)-1]} ${sy}`;
+  const evs = _calEvents.filter(ev => {
+    if (!ev.date) return false;
+    if (ev.dateEnd && ev.dateEnd > ev.date) return ds >= ev.date && ds <= ev.dateEnd;
+    return ev.date === ds;
+  });
+  renderDayGrid(ds, evs);
+  document.getElementById('cal-day-overlay').style.display = 'block';
+}
+
+function closeDayView() {
+  document.getElementById('cal-day-overlay').style.display = 'none';
+}
+
+function createFromDayView(ds, h) {
+  closeDayView();
+  showCreate(); // calls initCreateForm() which sets defaults
+  // Override with clicked date + hour
+  document.getElementById('ev-date').value = ds;
+  const hh = String(h).padStart(2, '0');
+  document.getElementById('ev-time').value = hh + ':00';
+  // End time = +1 hour
+  document.getElementById('ev-date-end').value = ds;
+  document.getElementById('ev-time-end').value = String((h + 1) % 24).padStart(2, '0') + ':00';
+}
+
+function renderDayGrid(ds, evs) {
+  const allDayEvs = evs.filter(ev => ev.allDay || !ev.time);
+  const timedEvs  = evs.filter(ev => !ev.allDay && ev.time);
+
+  let html = '';
+
+  // All-day / no-time section — colored bars aligned with hour-label column
+  if (allDayEvs.length) {
+    html += `<div class="day-allday-sec" style="display:flex;padding:4px 0;align-items:flex-start">`;
+    html += `<span class="day-hour-lbl" style="padding-top:8px;flex-shrink:0">ganztägig</span>`;
+    html += `<div style="flex:1;padding:2px 4px 4px;display:flex;flex-direction:column;gap:3px">`;
+    for (const ev of allDayEvs) {
+      const st = calEvStatus(ev);
+      html += `<div class="day-allday-bar ${st}" onclick="openEv('${ev.id}')">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  const totalH = (DAY_END_H - DAY_START_H + 1) * DAY_HOUR_PX;
+
+  // Hour grid + absolute events layer
+  html += `<div class="day-grid-wrap" style="position:relative">`;
+  html += `<div>`;
+  for (let h = DAY_START_H; h <= DAY_END_H; h++) {
+    html += `<div class="day-hour-line">
+      <span class="day-hour-lbl">${String(h).padStart(2,'0')}:00</span>
+      <div class="day-hour-body" onclick="createFromDayView('${ds}',${h})"></div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="day-events-layer" style="height:${totalH}px">`;
+  for (const ev of timedEvs) {
+    const [hStr, mStr] = ev.time.split(':');
+    const startH = parseInt(hStr);
+    const startM = parseInt(mStr || '0');
+    const topPx  = (startH - DAY_START_H + startM / 60) * DAY_HOUR_PX;
+    if (topPx < 0 || topPx >= totalH) continue;
+
+    let durMin = 60;
+    if (ev.timeEnd) {
+      const sameDayEnd = !ev.dateEnd || ev.dateEnd === ds;
+      if (sameDayEnd) {
+        const [eh, em] = ev.timeEnd.split(':');
+        const endMin   = parseInt(eh) * 60 + parseInt(em || '0');
+        const startMin = startH * 60 + startM;
+        if (endMin > startMin) durMin = endMin - startMin;
+      }
+    }
+    const heightPx = Math.max(28, (durMin / 60) * DAY_HOUR_PX);
+    const st    = calEvStatus(ev);
+    const title = esc(ev.title || '');
+    const timeLabel = ev.time + (ev.timeEnd ? '–' + ev.timeEnd : '');
+    html += `<div class="day-ev-chip ${st}" style="top:${topPx}px;height:${heightPx}px" onclick="event.stopPropagation();openEv('${ev.id}')">
+      ${ev.emoji ? ev.emoji + ' ' : ''}${title}
+      <div class="day-ev-time">${timeLabel}</div>
+    </div>`;
+  }
+
+  // Current time indicator
+  const now    = new Date();
+  const todayDs = dateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const isToday = ds === todayDs;
+  if (isToday) {
+    const nowTop = (now.getHours() - DAY_START_H + now.getMinutes() / 60) * DAY_HOUR_PX;
+    html += `<div class="day-now-line" style="top:${nowTop}px"><div class="day-now-dot"></div></div>`;
+  }
+  html += `</div>`; // events layer
+  html += `</div>`; // day-grid-wrap
+
+  document.getElementById('cal-day-body').innerHTML = html;
+
+  // Auto-scroll to current time (show ~2 h of context above)
+  if (isToday) {
+    requestAnimationFrame(() => {
+      const overlay = document.getElementById('cal-day-overlay');
+      const nowPx = (now.getHours() - DAY_START_H + now.getMinutes() / 60) * DAY_HOUR_PX;
+      overlay.scrollTop = Math.max(0, nowPx - 2 * DAY_HOUR_PX);
+    });
+  }
 }
 
 function dateStr(y, m, d) {
@@ -3357,6 +3596,8 @@ async function openSpaceView(spaceId) {
     const lbl = d.displayName || d.username || memberUids[i].slice(0, 8);
     return `<div class="smc"><div class="smc-av" style="background:${avatarColor(lbl)}">${esc(lbl[0].toUpperCase())}</div><span>${esc(lbl)}</span></div>`;
   }).join('');
+  const spaceCreateBtn = document.getElementById('space-create-btn');
+  if (spaceCreateBtn) spaceCreateBtn.onclick = () => showCreateFromSpace(spaceId, space.name, memberUids);
 
   const ref = db.ref('spaceEvents/' + spaceId);
   const cb  = ref.on('value', async snap => {
@@ -3383,6 +3624,12 @@ function updateInvitesWrap() {
   document.getElementById('invites-wrap').style.display = has ? 'block' : 'none';
 }
 
+function showCreateFromSpace(spaceId, spaceName, memberUids) {
+  _preSelectSpaceId         = spaceId;
+  _preSelectSpaceMemberUids = (memberUids || []).filter(uid => !(me && uid === me.uid));
+  showCreate();
+}
+
 async function loadUserSpacesForCreate() {
   _selectedSpaces = new Set();
   const row = document.getElementById('invites-spaces-row');
@@ -3398,9 +3645,14 @@ async function loadUserSpacesForCreate() {
 
   row.style.display = 'block';
   document.getElementById('space-chips').innerHTML = spaces.map(sp => `
-    <button type="button" class="space-chip" onclick="toggleEventSpace('${sp.id}', this)">
+    <button type="button" class="space-chip" data-sid="${sp.id}" onclick="toggleEventSpace('${sp.id}', this)">
       ${esc(sp.name)}
     </button>`).join('');
+  if (_preSelectSpaceId) {
+    const chip = document.querySelector(`#space-chips [data-sid="${_preSelectSpaceId}"]`);
+    if (chip) { _selectedSpaces.add(_preSelectSpaceId); chip.classList.add('on'); }
+    _preSelectSpaceId = null;
+  }
   updateInvitesWrap();
 }
 
@@ -3431,13 +3683,22 @@ async function loadFriendsForCreate() {
 
   row.style.display = 'block';
   document.getElementById('friend-chips').innerHTML = friends.map(f => `
-    <button type="button" class="space-chip" onclick="toggleEventFriend('${f.uid}', this)">
+    <button type="button" class="space-chip" data-uid="${f.uid}" onclick="toggleEventFriend('${f.uid}', this)">
       ${esc(f.name)}
     </button>`).join('');
+  if (_preSelectSpaceMemberUids.length) {
+    document.querySelectorAll('#friend-chips [data-uid]').forEach(chip => {
+      if (_preSelectSpaceMemberUids.includes(chip.dataset.uid)) {
+        _selectedFriends.add(chip.dataset.uid);
+        chip.classList.add('on');
+      }
+    });
+    _preSelectSpaceMemberUids = [];
+  }
   updateInvitesWrap();
 }
 
-async function shareEventToSpaces(eventId, spaceIds) {
+async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) {
   // Write each spaceEvents entry individually so a rule failure on one
   // space doesn't silently block the others.
   const failed = [];
@@ -3451,14 +3712,28 @@ async function shareEventToSpaces(eventId, spaceIds) {
   }));
   if (failed.length) throw new Error('space_write_failed');
 
-  // Fan out to members' home feeds (best-effort).
+  // Fan out to members' home feeds + push notifications (best-effort).
   try {
+    const myName = me ? (me.displayName || (me.email && me.email.split('@')[0]) || 'Jemand') : 'Jemand';
     const fanout = {};
     await Promise.all(spaceIds.map(async spaceId => {
-      const snap = await db.ref('spaces/' + spaceId + '/members').once('value');
-      const members = snap.val() || {};
+      const [membersSnap, spaceSnap] = await Promise.all([
+        db.ref('spaces/' + spaceId + '/members').once('value'),
+        db.ref('spaces/' + spaceId + '/name').once('value'),
+      ]);
+      const members   = membersSnap.val() || {};
+      const spaceName = spaceSnap.val()   || 'einem Space';
       Object.keys(members).forEach(uid => {
-        if (uid !== me.uid) fanout['userEvents/' + uid + '/' + eventId] = 'space';
+        if (uid !== me.uid) {
+          fanout['userEvents/' + uid + '/' + eventId] = 'space';
+          if (eventTitle) {
+            notifyUser(uid, 'space_event', '', '', `/#event/${eventId}`, {
+              titleKey: 'notif_space_event_title',
+              bodyKey:  'notif_space_event_body',
+              vars: { name: myName, space: spaceName, event: eventTitle, datetime: eventDatetime || '' },
+            });
+          }
+        }
       });
     }));
     if (Object.keys(fanout).length) await db.ref().update(fanout);
@@ -3639,7 +3914,7 @@ function cardHTML(ev, showRsvp) {
         <div class="ecard-info">
           <div class="ecard-title">${esc(ev.title)}</div>
           <div class="ecard-meta">
-            <span>📅 ${ev.poll && ev.poll.active ? t('poll_date_open') : fmtDate(ev.date, ev.time)}</span>
+            <span>📅 ${fmtEventTime(ev)}</span>
             ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
           </div>
         </div>
@@ -3746,7 +4021,19 @@ function initCreateForm() {
   const h1 = document.querySelector('#screen-create h1');
   if (h1) h1.setAttribute('data-i18n', 'nav_create');
   const btn = document.getElementById('create-btn');
-  if (btn) { btn.setAttribute('data-i18n', 'btn_create_event'); applyLang(); }
+  if (btn) { btn.setAttribute('data-i18n', 'btn_create_event'); btn.disabled = false; applyLang(); }
+  // Reset new time-range fields
+  const allDayEl = document.getElementById('ev-allday');
+  if (allDayEl) { allDayEl.checked = false; toggleAllDay(false); }
+  // Default end = same date, start time + 1 hour
+  const startTime = document.getElementById('ev-time').value || '18:00';
+  const [sh, sm2] = startTime.split(':').map(Number);
+  const endH = (sh + 1) % 24;
+  const defaultEndTime = String(endH).padStart(2, '0') + ':' + String(sm2).padStart(2, '0');
+  const dateEndEl = document.getElementById('ev-date-end');
+  if (dateEndEl) dateEndEl.value = new Date().toISOString().split('T')[0];
+  const timeEndEl = document.getElementById('ev-time-end');
+  if (timeEndEl) timeEndEl.value = defaultEndTime;
   const backBtn = document.querySelector('#screen-create .back-btn');
   if (backBtn) backBtn.onclick = navHome;
 }
@@ -3763,11 +4050,17 @@ async function updateEvent() {
   try {
     const editId = _editEventId;
     const validPollOpts2 = _pollEnabled ? _pollOptions.filter(o => o.date) : [];
+    const allDay2  = !!(document.getElementById('ev-allday') && document.getElementById('ev-allday').checked);
+    const dateEnd2 = document.getElementById('ev-date-end') ? (document.getElementById('ev-date-end').value || null) : null;
+    const timeEnd2 = (!allDay2 && document.getElementById('ev-time-end')) ? (document.getElementById('ev-time-end').value || null) : null;
     await db.ref('events/' + editId).update({
       emoji:    pickedEmoji,
       title,
       date:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-date').value || new Date().toISOString().split('T')[0]),
-      time:     validPollOpts2.length > 0 ? null : (document.getElementById('ev-time').value || null),
+      time:     (validPollOpts2.length > 0 || allDay2) ? null : (document.getElementById('ev-time').value || null),
+      allDay:   allDay2 || null,
+      dateEnd:  validPollOpts2.length > 0 ? null : (dateEnd2 || null),
+      timeEnd:  (validPollOpts2.length > 0 || allDay2) ? null : (timeEnd2 || null),
       location: document.getElementById('ev-location').value.trim() || null,
       details:  document.getElementById('ev-details').value.trim()  || null,
     });
@@ -3789,10 +4082,11 @@ async function updateEvent() {
         const r = child.val();
         if (r.userId && r.userId !== me.uid && r.status !== 'nein') {
           const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
+          const updDatetime = fmtDate(document.getElementById('ev-date').value, document.getElementById('ev-time').value);
           notifyUser(r.userId, 'event_edited', '', '', `/#event/${editId}`, {
             titleKey: 'notif_event_edited_title',
             bodyKey:  'notif_event_edited_body',
-            vars: { name: myName, event: title },
+            vars: { name: myName, event: title, datetime: updDatetime },
           });
         }
       });
@@ -3811,11 +4105,18 @@ async function updateEvent() {
 // ─────────────────────────────────────────────────────────────────────────────
 // DATE POLL
 // ─────────────────────────────────────────────────────────────────────────────
+function toggleAllDay(isAllDay) {
+  const tf = document.getElementById('ev-time-field');
+  const tef = document.getElementById('ev-time-end-field');
+  if (tf)  tf.style.display  = isAllDay ? 'none' : '';
+  if (tef) tef.style.display = isAllDay ? 'none' : '';
+}
+
 function togglePollSection(on) {
   _pollEnabled = on;
   document.getElementById('poll-section').style.display = on ? 'block' : 'none';
-  const dateRow = document.querySelector('#screen-create .form-row');
-  if (dateRow) dateRow.style.opacity = on ? '.4' : '';
+  const card = document.getElementById('ev-datetime-card');
+  if (card) card.style.opacity = on ? '.4' : '';
   if (on && _pollOptions.length === 0) { _pollOptions.push({ date: '', time: '' }); _pollOptions.push({ date: '', time: '' }); }
   renderPollOptions();
 }
@@ -4176,6 +4477,9 @@ async function createEvent() {
   const time     = document.getElementById('ev-time').value;
   const location = document.getElementById('ev-location').value.trim();
   const details  = document.getElementById('ev-details').value.trim();
+  const allDay   = !!(document.getElementById('ev-allday') && document.getElementById('ev-allday').checked);
+  const dateEnd  = document.getElementById('ev-date-end') ? (document.getElementById('ev-date-end').value || null) : null;
+  const timeEnd  = (!allDay && document.getElementById('ev-time-end')) ? (document.getElementById('ev-time-end').value || null) : null;
   const btn      = document.getElementById('create-btn');
 
   if (!title) {
@@ -4195,7 +4499,10 @@ async function createEvent() {
       emoji:       pickedEmoji,
       title,
       date:        validPollOpts.length > 0 ? null : (date || new Date().toISOString().split('T')[0]),
-      time:        validPollOpts.length > 0 ? null : (time || null),
+      time:        (validPollOpts.length > 0 || allDay) ? null : (time || null),
+      allDay:      allDay || null,
+      dateEnd:     validPollOpts.length > 0 ? null : (dateEnd || null),
+      timeEnd:     (validPollOpts.length > 0 || allDay) ? null : (timeEnd || null),
       location:    location || null,
       details:     details  || null,
       createdBy:   me ? me.uid : null,
@@ -4226,7 +4533,7 @@ async function createEvent() {
       });
     }
     if (me && _selectedSpaces.size > 0) {
-      try { await shareEventToSpaces(createdId, [..._selectedSpaces]); }
+      try { await shareEventToSpaces(createdId, [..._selectedSpaces], title, fmtDate(data.date, data.time)); }
       catch(e) {
         console.error('shareEventToSpaces:', e);
         toast('⚠️ Event erstellt, aber Space-Zuweisung fehlgeschlagen. Bitte Firebase-Regeln für spaceEvents prüfen.');
@@ -4243,7 +4550,7 @@ async function createEvent() {
         notifyUser(uid, 'invite', '', '', `/#event/${createdId}`, {
           titleKey: 'notif_invite_title',
           bodyKey:  'notif_invite_body',
-          vars: { name: myName, event: title },
+          vars: { name: myName, event: title, datetime: fmtDate(data.date, data.time) },
         });
       });
     }
@@ -4431,7 +4738,7 @@ function renderEv(ev, body) {
       <div class="ev-hero-emoji">${ev.emoji||'🎉'}</div>
       <div class="ev-hero-title">${esc(ev.title)}</div>
       <div class="ev-details">
-        <div class="ev-row"><div class="ev-icon">📅</div><span>${ev.poll && ev.poll.active ? 'Datum wird noch abgestimmt' : fmtDate(ev.date, ev.time)}</span></div>
+        <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtEventTime(ev)}</span></div>
         ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
         ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
         <div class="ev-row"><div class="ev-icon">👤</div><span>${t('ev_by')} ${esc(ev.creatorName||'Jemand')}</span></div>
@@ -4572,7 +4879,7 @@ async function submitRsvp(eventId) {
           notifyUser(evData.createdBy, 'rsvp', '', '', `/#event/${eventId}`, {
             titleKey,
             bodyKey: 'notif_rsvp_body',
-            vars: { name: myName, event: evData.title },
+            vars: { name: myName, event: evData.title, datetime: fmtDate(evData.date, evData.time) },
           });
         }
       } catch(e) { /* non-critical */ }
@@ -4698,6 +5005,25 @@ function fmtDate(date, time) {
   const d = new Date(date + 'T' + (time || '12:00') + ':00');
   const s = d.toLocaleDateString('de-DE', { weekday:'short', day:'numeric', month:'long' });
   return time ? s + ', ' + time + ' Uhr' : s;
+}
+
+function fmtEventTime(ev) {
+  if (!ev) return '';
+  if (ev.poll && ev.poll.active) return t('poll_date_open');
+  if (!ev.date) return '';
+  const startTime = ev.allDay ? '' : (ev.time || '');
+  const d1 = fmtDate(ev.date, startTime);
+  const hasEnd = ev.dateEnd || ev.timeEnd;
+  if (!hasEnd) return d1;
+  if (ev.allDay) {
+    if (ev.dateEnd && ev.dateEnd !== ev.date) return d1 + ' – ' + fmtDate(ev.dateEnd, '');
+    return d1;
+  }
+  if (ev.dateEnd && ev.dateEnd !== ev.date) {
+    return d1 + ' – ' + fmtDate(ev.dateEnd, ev.timeEnd || '');
+  }
+  if (ev.timeEnd) return d1.replace(' Uhr', '') + '–' + ev.timeEnd + ' Uhr';
+  return d1;
 }
 
 function esc(s) {
