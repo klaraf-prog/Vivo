@@ -3261,7 +3261,7 @@ function renderDayGrid(ds, evs) {
     html += `<div style="flex:1;padding:2px 4px 4px;display:flex;flex-direction:column;gap:3px">`;
     for (const ev of allDayEvs) {
       const st = calEvStatus(ev);
-      html += `<div class="day-allday-bar ${st}" onclick="openEv('${ev.id}')">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
+      html += `<div class="day-allday-bar ${st}" onclick="closeDayView();openEv('${ev.id}')">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
     }
     html += `</div></div>`;
   }
@@ -3301,7 +3301,7 @@ function renderDayGrid(ds, evs) {
     const st    = calEvStatus(ev);
     const title = esc(ev.title || '');
     const timeLabel = ev.time + (ev.timeEnd ? '–' + ev.timeEnd : '');
-    html += `<div class="day-ev-chip ${st}" style="top:${topPx}px;height:${heightPx}px" onclick="event.stopPropagation();openEv('${ev.id}')">
+    html += `<div class="day-ev-chip ${st}" style="top:${topPx}px;height:${heightPx}px" onclick="event.stopPropagation();closeDayView();openEv('${ev.id}')">
       ${ev.emoji ? ev.emoji + ' ' : ''}${title}
       <div class="day-ev-time">${timeLabel}</div>
     </div>`;
