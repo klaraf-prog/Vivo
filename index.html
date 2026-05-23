@@ -564,12 +564,18 @@
     .cal-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .cal-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
-    /* Multi-day spanning bars */
-    .cal-bar.span-start { border-radius: 3px 0 0 3px; width: calc(100% + 2px); }
+    /* Multi-day spanning bars — base: extend flush to both cell edges */
+    .cal-bar.span-start { border-radius: 3px 0 0 3px; margin-left: -2px; width: calc(100% + 4px); }
     /* Continuation days: thin strip, no text */
     .cal-bar.span-mid, .cal-bar.span-end { height: 5px; padding: 0; line-height: 0; font-size: 0; }
-    .cal-bar.span-mid   { border-radius: 0; margin-left: -2px; width: calc(100% + 4px); }
-    .cal-bar.span-end   { border-radius: 0 3px 3px 0; margin-left: -2px; width: calc(100% + 2px); }
+    .cal-bar.span-mid   { border-radius: 0;           margin-left: -2px; width: calc(100% + 4px); }
+    .cal-bar.span-end   { border-radius: 0 3px 3px 0; margin-left: -2px; width: calc(100% + 4px); }
+    /* First column (Monday): keep left padding — don't bleed into calendar border */
+    .cal-week-row > .cal-cell:first-child .cal-bar.span-start,
+    .cal-week-row > .cal-cell:first-child .cal-bar.span-mid  { margin-left: 0; width: calc(100% + 2px); }
+    /* Last column (Sunday): keep right padding — don't bleed into calendar border */
+    .cal-week-row > .cal-cell:last-child .cal-bar.span-mid,
+    .cal-week-row > .cal-cell:last-child .cal-bar.span-end   { width: calc(100% + 2px); }
     .cal-more { font-size: .5625rem; color: var(--muted); padding: 0 2px; line-height: 1.4; }
 
     /* Day detail panel */
