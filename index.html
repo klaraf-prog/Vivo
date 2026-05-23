@@ -946,6 +946,28 @@
     }
     .prof-name  { font-size: 1.125rem; font-weight: 600; }
     .prof-email { font-size: .875rem; color: var(--muted); margin-top: 2px; }
+
+    /* ─── Onboarding ────────────────────────────────────────────── */
+    #screen-onboarding { align-items: stretch; }
+    .ob-wrap { flex: 1; overflow-y: auto; padding: 40px 24px 140px; max-width: var(--max); margin: 0 auto; width: 100%; box-sizing: border-box; }
+    .ob-logo { font-size: 1.75rem; font-weight: 800; color: var(--amber); margin-bottom: 28px; letter-spacing: -.5px; }
+    .ob-step { display: none; }
+    .ob-step.active { display: block; }
+    .ob-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; color: var(--text); line-height: 1.25; }
+    .ob-sub { font-size: .9375rem; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+    .ob-field-note { font-size: .8rem; color: var(--muted); margin-top: 5px; line-height: 1.4; display: block; }
+    .ob-push-icon { font-size: 3.5rem; text-align: center; margin: 8px 0 20px; }
+    .ob-push-text { font-size: 1.25rem; font-weight: 700; text-align: center; margin-bottom: 10px; color: var(--text); line-height: 1.3; }
+    .ob-push-sub { font-size: .9375rem; color: var(--muted); text-align: center; margin-bottom: 32px; line-height: 1.55; }
+    .ob-tiles { display: grid; gap: 14px; margin-top: 4px; }
+    .ob-tile { padding: 22px 20px; border-radius: 16px; border: 2px solid var(--border); background: var(--card); text-align: left; cursor: pointer; transition: border-color .15s, background .15s; width: 100%; font-family: var(--sans); }
+    .ob-tile:hover, .ob-tile:active { border-color: var(--amber); background: #FFF8EC; }
+    .ob-tile-emoji { font-size: 2rem; margin-bottom: 10px; display: block; }
+    .ob-tile-title { font-size: 1.0625rem; font-weight: 700; color: var(--text); margin-bottom: 4px; display: block; }
+    .ob-tile-sub { font-size: .875rem; color: var(--muted); line-height: 1.45; display: block; }
+    .ob-foot { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 24px 32px; background: #fff; border-top: 1px solid var(--border); z-index: 10; }
+    .ob-foot .inner { max-width: var(--max); margin: 0 auto; }
+    .ob-skip { background: none; border: none; font-family: var(--sans); font-size: .9rem; color: var(--muted); cursor: pointer; margin-top: 10px; width: 100%; text-align: center; padding: 6px; display: block; }
   </style>
 </head>
 <body>
@@ -1012,6 +1034,67 @@
       </svg>
       <span data-i18n="login_google">Mit Google anmelden</span>
     </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ ONBOARDING ═══════════════════════════ -->
+<div id="screen-onboarding" class="screen">
+  <div class="ob-wrap">
+    <div class="ob-logo">vivo</div>
+
+    <!-- Step 1: Profile setup -->
+    <div class="ob-step active" id="ob-step-1">
+      <div class="ob-title">Richte dein Profil ein</div>
+      <div class="ob-sub">So kennen dich deine Freunde auf vivo.</div>
+      <div class="field">
+        <label>Anzeigename <span style="color:var(--pink)">*</span></label>
+        <input type="text" id="ob-name" autocomplete="name" placeholder="z.B. Klara F"
+          oninput="obCheckStep1()">
+        <span class="ob-field-note">Dein echter Name — so erscheinst du für andere.</span>
+      </div>
+      <div class="field">
+        <label>@Handle <span style="color:var(--pink)">*</span></label>
+        <input type="text" id="ob-handle" autocomplete="username" autocapitalize="none"
+          spellcheck="false" placeholder="z.B. klara" oninput="obHandleInput(this)">
+        <span class="username-hint" id="ob-handle-hint"></span>
+        <span class="ob-field-note">Dein einzigartiger Link — damit können Freunde dich finden.</span>
+      </div>
+      <div class="field">
+        <label>Standort <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
+        <input type="text" id="ob-location" placeholder="z.B. Berlin">
+      </div>
+    </div>
+
+    <!-- Step 2: Push notifications -->
+    <div class="ob-step" id="ob-step-2">
+      <div class="ob-push-icon">🔔</div>
+      <div class="ob-push-text">Verpasse keine Einladungen</div>
+      <div class="ob-push-sub">Aktiviere Benachrichtigungen und erfahre sofort, wenn dich jemand zu einem Event einlädt.</div>
+    </div>
+
+    <!-- Step 3: Welcome tiles -->
+    <div class="ob-step" id="ob-step-3">
+      <div class="ob-title">Willkommen bei vivo! 🎉</div>
+      <div class="ob-sub">Was möchtest du als erstes tun?</div>
+      <div class="ob-tiles">
+        <button class="ob-tile" onclick="obGoCreate()">
+          <span class="ob-tile-emoji">🎉</span>
+          <span class="ob-tile-title">Erstes Event erstellen</span>
+          <span class="ob-tile-sub">Lade Freunde ein und sammle Zusagen.</span>
+        </button>
+        <button class="ob-tile" onclick="obGoConnect()">
+          <span class="ob-tile-emoji">👋</span>
+          <span class="ob-tile-title">Direkt mit Freunden connecten</span>
+          <span class="ob-tile-sub">Teile dein Profil und verbinde dich mit deinen Freunden.</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ob-foot" id="ob-foot">
+    <div class="inner">
+      <button class="btn btn-primary btn-full" id="ob-next-btn" onclick="obNext()" disabled>Weiter</button>
+    </div>
   </div>
 </div>
 
@@ -2458,6 +2541,7 @@ auth.onAuthStateChanged(async user => {
           displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'User'),
           createdAt: Date.now(),
         });
+        _isNewUser = true; // first-time Google sign-in → show onboarding
       }
     } catch(e) { console.warn('users node init:', e); }
   }
@@ -2526,8 +2610,13 @@ auth.onAuthStateChanged(async user => {
     showScreen('pub-space');
   } else if (user) {
     setAvatar(user);
-    showScreen('home');
-    loadHome();
+    if (_isNewUser) {
+      _isNewUser = false;
+      showOnboarding();
+    } else {
+      showScreen('home');
+      loadHome();
+    }
   } else {
     showScreen('login');
   }
@@ -2586,12 +2675,14 @@ async function handleAuth(e) {
         btn.disabled = false; btn.textContent = t('register_btn');
         return;
       }
+      _isNewUser = true;
       const c = await auth.createUserWithEmailAndPassword(email, pw);
       await c.user.updateProfile({ displayName: name });
       // Mirror name to DB so friends lists and space chips show it immediately
       await db.ref('users/' + c.user.uid + '/displayName').set(name);
     }
   } catch (err) {
+    _isNewUser = false;
     authErr(fmtAuthErr(err.code, err.message));
     btn.disabled = false;
     btn.textContent = authMode === 'login' ? t('login_btn') : t('register_btn');
@@ -2867,6 +2958,154 @@ async function saveProfile() {
     toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
     btn.disabled = false; btn.textContent = 'Änderungen speichern';
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ONBOARDING
+// ─────────────────────────────────────────────────────────────────────────────
+let _isNewUser   = false;
+let _obStep      = 1;
+let _obHandleOk  = false;
+
+function showOnboarding() {
+  _obStep     = 1;
+  _obHandleOk = false;
+  const nameInp = document.getElementById('ob-name');
+  if (nameInp && me) nameInp.value = me.displayName || '';
+  document.getElementById('ob-handle').value   = '';
+  document.getElementById('ob-location').value = '';
+  document.getElementById('ob-handle-hint').textContent = '';
+  document.getElementById('ob-handle-hint').className   = 'username-hint';
+  obSetStep(1);
+  showScreen('onboarding');
+}
+
+function obSetStep(n) {
+  _obStep = n;
+  document.querySelectorAll('.ob-step').forEach((el, i) =>
+    el.classList.toggle('active', i + 1 === n)
+  );
+  const nextBtn = document.getElementById('ob-next-btn');
+  const foot    = document.getElementById('ob-foot');
+  let skipBtn   = document.getElementById('ob-skip-btn');
+
+  if (n === 1) {
+    nextBtn.textContent = 'Weiter';
+    nextBtn.style.display = '';
+    foot.style.display = '';
+    if (skipBtn) skipBtn.style.display = 'none';
+    obCheckStep1();
+  } else if (n === 2) {
+    nextBtn.textContent = 'Benachrichtigungen aktivieren';
+    nextBtn.disabled = false;
+    nextBtn.style.display = '';
+    foot.style.display = '';
+    if (!skipBtn) {
+      skipBtn = document.createElement('button');
+      skipBtn.id        = 'ob-skip-btn';
+      skipBtn.className = 'ob-skip';
+      skipBtn.textContent = 'Überspringen';
+      skipBtn.onclick = () => obSetStep(3);
+      document.querySelector('#ob-foot .inner').appendChild(skipBtn);
+    }
+    skipBtn.style.display = '';
+  } else if (n === 3) {
+    foot.style.display = 'none';
+    if (skipBtn) skipBtn.style.display = 'none';
+    if (me) db.ref('users/' + me.uid + '/onboardingComplete').set(true).catch(() => {});
+  }
+}
+
+function obHandleInput(el) {
+  const raw = el.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  el.value   = raw;
+  _obHandleOk = false;
+  const hint = document.getElementById('ob-handle-hint');
+  obCheckStep1();
+  if (!raw)           { hint.textContent = ''; hint.className = 'username-hint'; return; }
+  if (raw.length < 3) { hint.textContent = 'Mindestens 3 Zeichen'; hint.className = 'username-hint err'; return; }
+  hint.textContent = 'Wird geprüft…';
+  hint.className   = 'username-hint';
+  db.ref('usernames/' + raw).once('value').then(snap => {
+    if (snap.exists() && snap.val() !== (me && me.uid)) {
+      hint.textContent = '@' + raw + ' ist bereits vergeben';
+      hint.className   = 'username-hint err';
+      _obHandleOk = false;
+    } else {
+      hint.textContent = '@' + raw + ' ✓ verfügbar';
+      hint.className   = 'username-hint ok';
+      _obHandleOk = true;
+    }
+    obCheckStep1();
+  });
+}
+
+function obCheckStep1() {
+  const nameOk = document.getElementById('ob-name').value.trim().length > 0;
+  document.getElementById('ob-next-btn').disabled = !(nameOk && _obHandleOk);
+}
+
+async function obNext() {
+  if (_obStep === 1) await obSaveProfile();
+  else if (_obStep === 2) await obRequestPush();
+}
+
+async function obSaveProfile() {
+  const name   = document.getElementById('ob-name').value.trim();
+  const handle = document.getElementById('ob-handle').value.trim();
+  const loc    = document.getElementById('ob-location').value.trim();
+  const btn    = document.getElementById('ob-next-btn');
+  btn.disabled = true; btn.textContent = 'Speichern…';
+  try {
+    // Re-check uniqueness in case of race
+    const snap = await db.ref('usernames/' + handle).once('value');
+    if (snap.exists() && snap.val() !== me.uid) {
+      const hint = document.getElementById('ob-handle-hint');
+      hint.textContent = '@' + handle + ' ist bereits vergeben';
+      hint.className   = 'username-hint err';
+      _obHandleOk = false;
+      btn.disabled = false; btn.textContent = 'Weiter';
+      return;
+    }
+    await auth.currentUser.updateProfile({ displayName: name });
+    me = auth.currentUser;
+    const batch = {};
+    batch['users/' + me.uid + '/displayName'] = name;
+    batch['users/' + me.uid + '/username']    = handle;
+    batch['users/' + me.uid + '/location']    = loc || null;
+    batch['usernames/' + handle]              = me.uid;
+    await db.ref().update(batch);
+    _myUsername = handle;
+    setAvatar(me);
+    obSetStep(2);
+  } catch(err) {
+    toast('Fehler: ' + (err.message || 'unbekannt'));
+    btn.disabled = false; btn.textContent = 'Weiter';
+  }
+}
+
+async function obRequestPush() {
+  if (!('Notification' in window) || Notification.permission === 'denied') {
+    obSetStep(3); return;
+  }
+  if (Notification.permission === 'granted') {
+    await subscribeToPush().catch(() => {});
+    obSetStep(3); return;
+  }
+  const result = await Notification.requestPermission();
+  if (result === 'granted') await subscribeToPush().catch(() => {});
+  obSetStep(3);
+}
+
+function obGoCreate() {
+  showScreen('home'); loadHome();
+  setTimeout(() => showCreate(), 80);
+}
+
+function obGoConnect() {
+  setAvatar(me);
+  showScreen('home'); loadHome();
+  setTimeout(() => openProfileScreen(), 80);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
