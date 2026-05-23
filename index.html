@@ -529,7 +529,7 @@
       background: #fff; min-width: 0; overflow: hidden;
       padding: 4px 2px 4px;
       display: flex; flex-direction: column; gap: 2px;
-      min-height: 62px;
+      height: 80px;
       border-right: 1px solid var(--border);
       cursor: pointer; transition: background .12s;
     }
@@ -3143,7 +3143,12 @@ function renderCalendar() {
     for (const cell of weeks[w]) {
       const isToday  = cell.ds === todayStr;
       const isSel    = cell.ds === _calSelDate;
-      const entries  = evByDate[cell.ds] || [];
+      const entries = (evByDate[cell.ds] || []).slice().sort((a, b) => {
+        const aPrio = (a.multiDay || a.ev.allDay) ? 0 : 1;
+        const bPrio = (b.multiDay || b.ev.allDay) ? 0 : 1;
+        if (aPrio !== bPrio) return aPrio - bPrio;
+        return (a.ev.time || '00:00').localeCompare(b.ev.time || '00:00');
+      });
       const barsHtml = entries.slice(0, 3).map(({ ev, spanStart, spanEnd, multiDay }) => {
         const st    = calEvStatus(ev);
         const title = esc(ev.title || '');
@@ -3943,10 +3948,15 @@ function initCreateForm() {
   // Reset new time-range fields
   const allDayEl = document.getElementById('ev-allday');
   if (allDayEl) { allDayEl.checked = false; toggleAllDay(false); }
+  // Default end = same date, start time + 1 hour
+  const startTime = document.getElementById('ev-time').value || '18:00';
+  const [sh, sm2] = startTime.split(':').map(Number);
+  const endH = (sh + 1) % 24;
+  const defaultEndTime = String(endH).padStart(2, '0') + ':' + String(sm2).padStart(2, '0');
   const dateEndEl = document.getElementById('ev-date-end');
-  if (dateEndEl) dateEndEl.value = '';
+  if (dateEndEl) dateEndEl.value = new Date().toISOString().split('T')[0];
   const timeEndEl = document.getElementById('ev-time-end');
-  if (timeEndEl) timeEndEl.value = '';
+  if (timeEndEl) timeEndEl.value = defaultEndTime;
   const backBtn = document.querySelector('#screen-create .back-btn');
   if (backBtn) backBtn.onclick = navHome;
 }
