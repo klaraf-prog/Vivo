@@ -566,6 +566,8 @@
     .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
     /* Multi-day spanning bars */
     .cal-bar.span-start { border-radius: 3px 0 0 3px; width: calc(100% + 2px); }
+    /* Continuation days: thin strip, no text */
+    .cal-bar.span-mid, .cal-bar.span-end { height: 5px; padding: 0; line-height: 0; font-size: 0; }
     .cal-bar.span-mid   { border-radius: 0; margin-left: -2px; width: calc(100% + 4px); }
     .cal-bar.span-end   { border-radius: 0 3px 3px 0; margin-left: -2px; width: calc(100% + 2px); }
     .cal-more { font-size: .5625rem; color: var(--muted); padding: 0 2px; line-height: 1.4; }
