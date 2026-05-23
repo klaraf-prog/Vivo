@@ -431,6 +431,8 @@
     }
     .adot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
     .adot.maybe { background: #c8a84b; }
+    .adot.declined { background: #9CA3AF; }
+    .achip-more { font-size: .8125rem; color: var(--muted); white-space: nowrap; align-self: center; flex-shrink: 0; }
 
     /* Inline RSVP on home cards */
     .inline-rsvp { display: flex; gap: 7px; }
@@ -3611,6 +3613,7 @@ async function openSpaceView(spaceId) {
     const evs = evSnaps.filter(s => s.exists()).map(s => ({ id: s.key, ...s.val() }));
     evs.sort((a, b) => new Date(a.date + 'T' + (a.time||'12:00')) - new Date(b.date + 'T' + (b.time||'12:00')));
     bodyEl.innerHTML = `<div class="events-stack">${evs.map(ev => cardHTML(ev, false)).join('')}</div>`;
+    requestAnimationFrame(trimAttendeeChips);
   }, err => {
     console.error('spaceEvents read error:', err);
     bodyEl.innerHTML = '<div class="empty"><div class="ei">🔒</div><p>Zugriffsfehler – bitte Firebase-Regeln für spaceEvents prüfen.</p></div>';
@@ -3854,6 +3857,8 @@ async function loadHome() {
     } else {
       pastSec.style.display = 'none';
     }
+
+    requestAnimationFrame(trimAttendeeChips);
   });
 
   homeOff = () => ref.off('value', cb);
@@ -3882,17 +3887,20 @@ function toggleDeclinedEvents() {
 }
 
 function cardHTML(ev, showRsvp) {
-  const rsvps     = ev.rsvps ? Object.values(ev.rsvps) : [];
-  const dabei     = rsvps.filter(r => r.status === 'dabei');
-  const vl        = rsvps.filter(r => r.status === 'vielleicht');
-  const isCreator = me && ev.createdBy === me.uid;
+  const rsvps      = ev.rsvps ? Object.values(ev.rsvps) : [];
+  const dabei      = rsvps.filter(r => r.status === 'dabei');
+  const vl         = rsvps.filter(r => r.status === 'vielleicht');
+  const nein       = rsvps.filter(r => r.status === 'nein');
+  const ordered    = [...dabei, ...vl, ...nein];
+  const isCreator  = me && ev.createdBy === me.uid;
   const isDeclined = ev._st === 'nein';
 
   const chipName = r => (me && r.userId === me.uid) ? 'Du' : esc(r.name);
-  const chips = [
-    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${chipName(r)}</span>`),
-    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${chipName(r)}</span>`),
-  ].join('') || `<span style="font-size:.8125rem;color:var(--muted)">${t('no_rsvps')}</span>`;
+  const dotCls   = r => r.status === 'dabei' ? '' : r.status === 'vielleicht' ? ' maybe' : ' declined';
+  const chipsHtml = ordered.length
+    ? ordered.map(r => `<span class="achip"><span class="adot${dotCls(r)}"></span>${chipName(r)}</span>`).join('')
+    : `<span style="font-size:.8125rem;color:var(--muted)">${t('no_rsvps')}</span>`;
+  const chips = chipsHtml;
 
   const rsvpRow = showRsvp ? `
     <div class="inline-rsvp" onclick="event.stopPropagation()">
@@ -3921,9 +3929,42 @@ function cardHTML(ev, showRsvp) {
         </div>
         ${delBtn}
       </div>
-      <div class="attendee-chips">${chips}</div>
+      <div class="attendee-chips"${ordered.length ? ` data-chip-trim="${ordered.length}"` : ''}>${chips}</div>
       ${rsvpRow}
     </div>`;
+}
+
+function trimAttendeeChips() {
+  document.querySelectorAll('.attendee-chips[data-chip-trim]').forEach(el => {
+    el.removeAttribute('data-chip-trim');
+    const chips = Array.from(el.querySelectorAll('.achip'));
+    if (!chips.length) return;
+    const avail = el.offsetWidth;
+    if (!avail) return;
+    const gap = 6;
+    let used = 0;
+    let cutAt = chips.length;
+    for (let i = 0; i < chips.length; i++) {
+      const w = chips[i].offsetWidth;
+      const remaining = chips.length - i - 1;
+      // Reserve space for "+X" chip if there will still be hidden chips after this one
+      const needPlus = remaining > 0 ? gap + 36 : 0;
+      if (used + (i > 0 ? gap : 0) + w + needPlus <= avail) {
+        used += (i > 0 ? gap : 0) + w;
+      } else {
+        cutAt = i;
+        break;
+      }
+    }
+    const hidden = chips.length - cutAt;
+    chips.forEach((c, i) => { if (i >= cutAt) c.remove(); });
+    if (hidden > 0) {
+      const span = document.createElement('span');
+      span.className = 'achip-more';
+      span.textContent = '+' + hidden;
+      el.appendChild(span);
+    }
+  });
 }
 
 async function quickRsvp(eventId, status) {
