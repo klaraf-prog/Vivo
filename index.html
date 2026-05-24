@@ -4116,6 +4116,7 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
       Object.keys(members).forEach(uid => {
         if (uid !== me.uid) {
           fanout['userEvents/' + uid + '/' + eventId] = 'space';
+          fanout['events/' + eventId + '/invitedUids/' + uid] = true;
           if (eventTitle) {
             notifyUser(uid, 'space_event', '', '', `/#event/${eventId}`, {
               titleKey: 'notif_space_event_title',
@@ -5271,11 +5272,7 @@ function renderEv(ev, body) {
           ${t('ev_delete')}
         </button>
       </div>
-      ${!isEventPast(ev) ? `
-      <button id="nudge-btn" class="btn btn-outline btn-sm btn-full" style="margin-top:8px;gap:6px"
-        onclick="nudgeMembers('${ev.id}')">
-        ${t('nudge_btn')}
-      </button>` : ''}` : ''}
+` : ''}
     </div>
 
     ${buildPollSection(ev)}
