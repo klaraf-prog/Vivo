@@ -2015,6 +2015,9 @@ const LANG = {
     notif_friend_body: 'Ihr seid jetzt auf vivo verbunden',
     notif_nudge_title: '{name} erinnert dich 👋',
     notif_nudge_body: '{event} · {datetime}',
+    notif_nudge1_title: '{name} erinnert dich 👋',
+    notif_nudge1_body: 'Bist du dabei bei {event}?',
+    att_pending: '⏳ Ausstehend',
     notif_poll_confirmed_title: '📅 Termin steht fest!',
     notif_poll_confirmed_body: '{event} · {date}',
     notif_space_event_title: '{name} hat ein Event in {space} erstellt 🎉',
@@ -2188,6 +2191,9 @@ const LANG = {
     notif_friend_body: 'You\'re now connected on vivo',
     notif_nudge_title: '{name} is reminding you 👋',
     notif_nudge_body: '{event} · {datetime}',
+    notif_nudge1_title: '{name} is reminding you 👋',
+    notif_nudge1_body: 'Are you joining {event}?',
+    att_pending: '⏳ Pending',
     notif_poll_confirmed_title: '📅 Date confirmed!',
     notif_poll_confirmed_body: '{event} · {date}',
     notif_space_event_title: '{name} created an event in {space} 🎉',
@@ -5036,6 +5042,10 @@ async function createEvent() {
         db.ref('invites/' + uid + '/' + createdId).set(true)
           .catch(e => console.warn('invite write failed for', uid, e))
       ));
+      // Reverse index for invite list on event detail page
+      await Promise.all([..._selectedFriends].map(uid =>
+        db.ref('eventInvites/' + createdId + '/' + uid).set(true).catch(() => {})
+      ));
       // Notify each invited friend
       _selectedFriends.forEach(uid => {
         notifyUser(uid, 'invite', '', '', `/#event/${createdId}`, {
@@ -5123,7 +5133,13 @@ function loadEventScreen(id) {
     // mark as pending for logged-in users who haven't RSVPd yet
     if (me) {
       db.ref('userEvents/' + me.uid + '/' + id).once('value').then(s => {
-        if (!s.exists()) db.ref('userEvents/' + me.uid + '/' + id).set('pending');
+        if (!s.exists()) {
+          db.ref('userEvents/' + me.uid + '/' + id).set('pending');
+          // Track link-click for invite list (skip the creator)
+          if (ev.createdBy !== me.uid) {
+            db.ref('eventInvites/' + id + '/' + me.uid).set(true).catch(() => {});
+          }
+        }
       });
     }
 
@@ -5276,6 +5292,8 @@ function renderEv(ev, body) {
       <div class="att-list">${neinRows}</div>
     </div>
 
+    <div id="ev-invite-sec"></div>
+
     ${rsvpSection}
 
     ${ev.date ? `
@@ -5303,6 +5321,91 @@ function renderEv(ev, body) {
     <div style="height:40px"></div>`;
 
   if (myStatus) _rsvpStatus = myStatus;
+  loadAndRenderInviteList(ev.id, ev, isCreator);
+}
+
+async function loadAndRenderInviteList(eventId, ev, isCreator) {
+  const sec = document.getElementById('ev-invite-sec');
+  if (!sec) return;
+  try {
+    const snap = await db.ref('eventInvites/' + eventId).once('value');
+    const invitedMap = snap.val() || {};
+    const invitedUids = Object.keys(invitedMap);
+    if (!invitedUids.length) { sec.innerHTML = ''; return; }
+
+    const rsvpedUids = new Set(
+      ev.rsvps ? Object.values(ev.rsvps).filter(r => r.userId).map(r => r.userId) : []
+    );
+    const pendingUids = invitedUids.filter(uid => !rsvpedUids.has(uid) && uid !== ev.createdBy);
+    if (!pendingUids.length) { sec.innerHTML = ''; return; }
+
+    const userSnaps = await Promise.all(
+      pendingUids.map(uid => db.ref('users/' + uid).once('value'))
+    );
+
+    const now = Date.now();
+    const cooldownMs = 24 * 60 * 60 * 1000;
+    const rows = pendingUids.map((uid, i) => {
+      const d = userSnaps[i].val() || {};
+      const name = d.displayName || d.username || uid.slice(0, 8);
+      const init = name[0].toUpperCase();
+      let nudgeBtn = '';
+      if (isCreator) {
+        const ck = 'vivo_nudge1_' + eventId + '_' + uid;
+        const lastTs = parseInt(localStorage.getItem(ck) || '0');
+        const remaining = cooldownMs - (now - lastTs);
+        if (remaining > 0) {
+          const h = Math.ceil(remaining / 3600000);
+          nudgeBtn = `<button class="btn btn-ghost btn-sm" disabled style="color:var(--muted);font-size:.75rem;padding:4px 8px">in ${h}h</button>`;
+        } else {
+          nudgeBtn = `<button class="btn btn-ghost btn-sm" onclick="nudgePerson('${eventId}','${uid}','${esc(name)}')" style="color:var(--amber);font-size:.8125rem;padding:4px 10px">Erinnern</button>`;
+        }
+      }
+      return `
+        <div class="att-row" style="justify-content:space-between">
+          <div class="att-info">
+            <div class="att-av">${init}</div>
+            <span class="att-name">${esc(name)}</span>
+          </div>
+          ${nudgeBtn}
+        </div>`;
+    });
+
+    sec.innerHTML = `
+      <div class="ev-sec" style="margin-top:4px">
+        <div class="ev-sec-title">${t('att_pending')} <span class="att-count">${pendingUids.length}</span></div>
+        <div class="att-list">${rows.join('')}</div>
+      </div>`;
+  } catch(e) {
+    console.warn('loadAndRenderInviteList:', e);
+  }
+}
+
+async function nudgePerson(eventId, inviteeUid, inviteeName) {
+  if (!me || !window._ev) return;
+  const ev = window._ev;
+  const ck = 'vivo_nudge1_' + eventId + '_' + inviteeUid;
+  const lastTs = parseInt(localStorage.getItem(ck) || '0');
+  const remaining = 24 * 60 * 60 * 1000 - (Date.now() - lastTs);
+  if (remaining > 0) {
+    const h = Math.ceil(remaining / 3600000);
+    toast('Bitte noch ' + h + 'h warten');
+    return;
+  }
+  const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
+  try {
+    await notifyUser(inviteeUid, 'nudge', '', '', '/#event/' + eventId, {
+      titleKey: 'notif_nudge1_title',
+      bodyKey:  'notif_nudge1_body',
+      vars: { name: myName, event: ev.title },
+    });
+    localStorage.setItem(ck, String(Date.now()));
+    toast('Erinnerung gesendet ✓');
+    loadAndRenderInviteList(eventId, ev, true);
+  } catch(e) {
+    console.error('nudgePerson:', e);
+    toast('Fehler beim Senden');
+  }
 }
 
 async function pickRsvp(status) {
