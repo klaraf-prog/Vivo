@@ -122,7 +122,7 @@
     #screen-profile { align-items: stretch; }
     .prof-body {
       flex: 1; overflow-y: auto;
-      padding: 0 20px 120px;
+      padding: 0 20px 40px;
       max-width: var(--max); margin: 0 auto; width: 100%;
       display: flex; flex-direction: column; gap: 16px;
     }
@@ -147,7 +147,7 @@
     #screen-settings { align-items: stretch; }
     .settings-body {
       flex: 1; overflow-y: auto;
-      padding: 0 20px 120px;
+      padding: 0 20px 200px;
       max-width: var(--max); margin: 0 auto; width: 100%;
       display: flex; flex-direction: column; gap: 0;
       box-sizing: border-box;
@@ -679,7 +679,7 @@
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
       background: var(--card); border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 32px;
+      padding: 0 16px;
       padding-bottom: max(8px, env(safe-area-inset-bottom));
       height: calc(60px + max(0px, env(safe-area-inset-bottom)));
     }
@@ -700,6 +700,39 @@
     }
     .tab-create:hover  { background: #e8961f; }
     .tab-create:active { transform: scale(.93); }
+
+    /* Home FAB — floats above the tab bar, never overlaps tabs */
+    .home-fab {
+      position: fixed;
+      bottom: calc(60px + max(0px, env(safe-area-inset-bottom)) + 16px);
+      right: 16px; z-index: 150;
+    }
+    /* Profile tab content */
+    .prof-tab-inner {
+      max-width: var(--max); margin: 0 auto; width: 100%; padding: 0 20px;
+    }
+    .prof-tab-top {
+      display: flex; justify-content: flex-end; padding: 20px 0 4px;
+    }
+    .prof-tab-gear {
+      background: none; border: none; cursor: pointer;
+      padding: 6px; line-height: 1; color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+    }
+    .prof-tab-gear:hover { color: var(--text); background: var(--border); }
+    .prof-tab-av-section {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 0 28px; gap: 8px;
+    }
+    .prof-tab-av {
+      width: 80px; height: 80px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.75rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .prof-tab-name { font-size: 1.125rem; font-weight: 700; color: var(--text); }
+    .prof-tab-uname { font-size: .875rem; color: var(--muted); margin-top: 2px; }
+    .prof-tab-actions { display: flex; flex-direction: column; gap: 12px; }
 
     /* Space cards */
     .space-list { display: flex; flex-direction: column; gap: 10px; }
@@ -1110,7 +1143,6 @@
     <span class="logo" onclick="navHome()" style="cursor:pointer">vivo</span>
     <div style="display:flex;align-items:center;gap:6px">
       <button id="lang-toggle" onclick="toggleLang()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;padding:4px;line-height:1;opacity:0.8">🇩🇪</button>
-      <button class="avatar" id="avatar-btn" onclick="openProfileScreen()"></button>
     </div>
   </div>
 
@@ -1201,6 +1233,26 @@
         <div class="space-list" id="spaces-list"></div>
       </div>
     </div>
+
+    <!-- Profile tab -->
+    <div class="tab-panel" id="tab-profile">
+      <div class="prof-tab-inner">
+        <div class="prof-tab-top">
+          <button class="prof-tab-gear" onclick="openSettingsScreen()" title="Einstellungen">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+        <div class="prof-tab-av-section">
+          <div class="prof-tab-av" id="profile-tab-av"></div>
+          <div class="prof-tab-name" id="profile-tab-name"></div>
+          <div class="prof-tab-uname" id="profile-tab-username"></div>
+        </div>
+        <div class="prof-tab-actions">
+          <button class="btn btn-outline btn-full" onclick="openProfileScreen()">Profil bearbeiten</button>
+          <button class="btn btn-outline btn-full" id="profile-tab-share" onclick="shareProfile()" style="display:none">Profil teilen 🔗</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Tab bar -->
@@ -1218,12 +1270,19 @@
       </svg>
       <span data-i18n="nav_friends">Freunde</span>
     </button>
-    <button class="tab-create" onclick="showCreate()" title="Event erstellen">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    <button class="tab-btn" id="tab-btn-profile" onclick="switchHomeTab('profile')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
       </svg>
+      <span data-i18n="nav_profile">Profil</span>
     </button>
   </div>
+  <!-- FAB: floats above tab bar, hidden on Profile tab -->
+  <button id="home-fab" class="tab-create home-fab" onclick="showCreate()" title="Event erstellen">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
 </div>
 
 <!-- ═══════════════════════════ DAY VIEW OVERLAY ════════════════ -->
@@ -1380,10 +1439,10 @@
 <!-- ═══════════════════════════ PROFILE ═══════════════════════════ -->
 <div id="screen-profile" class="screen">
   <div class="scr-header">
-    <button class="back-btn" onclick="showScreen('home')">
+    <button class="back-btn" onclick="showScreen('home'); switchHomeTab('profile')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <h1 data-i18n="profile_title">Profil</h1>
+    <h1>Profil bearbeiten</h1>
   </div>
 
   <div class="prof-body">
@@ -1424,23 +1483,16 @@
       <label data-i18n="profile_email_label">E-Mail</label>
       <input type="text" id="prof-email-inp" disabled style="color:var(--muted);background:#F7F5F2">
     </div>
-  </div>
 
-  <div class="prof-foot">
-    <div class="inner">
-      <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()" data-i18n="btn_save">Änderungen speichern</button>
-      <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none" data-i18n="profile_share">Profil teilen 🔗</button>
-      <button class="btn btn-outline btn-full" onclick="openSettingsScreen()">⚙️ Einstellungen</button>
-      <button class="btn btn-outline btn-full" onclick="doSignOut()" data-i18n="btn_signout">Abmelden</button>
-      <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')" data-i18n="profile_privacy">Datenschutzerklärung</button>
-    </div>
+    <!-- Save button — inline, no sticky -->
+    <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()" style="margin-top:8px" data-i18n="btn_save">Änderungen speichern</button>
   </div>
 </div>
 
 <!-- ═══════════════════════════ SETTINGS ═══════════════════════════ -->
 <div id="screen-settings" class="screen">
   <div class="scr-header">
-    <button class="back-btn" onclick="showScreen('profile')">
+    <button class="back-btn" onclick="showScreen('home'); switchHomeTab('profile')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <h1 data-i18n="settings_title">Einstellungen</h1>
@@ -1552,6 +1604,8 @@
   <div class="prof-foot">
     <div class="inner">
       <button class="btn btn-primary btn-full" id="save-settings-btn" onclick="saveSettings()" data-i18n="settings_save">Speichern</button>
+      <button class="btn btn-outline btn-full" onclick="doSignOut()" data-i18n="btn_signout" style="margin-top:8px">Abmelden</button>
+      <button class="btn btn-ghost btn-full" onclick="showDatenschutz('settings')" data-i18n="profile_privacy" style="color:var(--muted);font-size:.875rem;margin-top:4px">Datenschutzerklärung</button>
     </div>
   </div>
 </div>
@@ -1796,6 +1850,7 @@ const LANG = {
   de: {
     nav_home: 'Events',
     nav_friends: 'Freunde',
+    nav_profile: 'Profil',
     nav_create: 'Event erstellen',
     btn_save: 'Änderungen speichern',
     btn_signout: 'Abmelden',
@@ -1960,6 +2015,9 @@ const LANG = {
     notif_friend_body: 'Ihr seid jetzt auf vivo verbunden',
     notif_nudge_title: '{name} erinnert dich 👋',
     notif_nudge_body: '{event} · {datetime}',
+    notif_nudge1_title: '{name} erinnert dich 👋',
+    notif_nudge1_body: 'Bist du dabei bei {event}?',
+    att_pending: '⏳ Ausstehend',
     notif_poll_confirmed_title: '📅 Termin steht fest!',
     notif_poll_confirmed_body: '{event} · {date}',
     notif_space_event_title: '{name} hat ein Event in {space} erstellt 🎉',
@@ -1968,6 +2026,7 @@ const LANG = {
   en: {
     nav_home: 'Events',
     nav_friends: 'Friends',
+    nav_profile: 'Profile',
     nav_create: 'Create event',
     btn_save: 'Save changes',
     btn_signout: 'Sign out',
@@ -2132,6 +2191,9 @@ const LANG = {
     notif_friend_body: 'You\'re now connected on vivo',
     notif_nudge_title: '{name} is reminding you 👋',
     notif_nudge_body: '{event} · {datetime}',
+    notif_nudge1_title: '{name} is reminding you 👋',
+    notif_nudge1_body: 'Are you joining {event}?',
+    att_pending: '⏳ Pending',
     notif_poll_confirmed_title: '📅 Date confirmed!',
     notif_poll_confirmed_body: '{event} · {date}',
     notif_space_event_title: '{name} created an event in {space} 🎉',
@@ -2799,7 +2861,7 @@ function applyAvatar(el, user, size) {
 }
 
 function setAvatar(user) {
-  applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
+  applyAvatar(document.getElementById('profile-tab-av'), user, '1.75rem');
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -2941,9 +3003,6 @@ async function openProfileScreen() {
   document.getElementById('prof-user-inp').value      = _myUsername || '';
   document.getElementById('prof-location-inp').value  = userData.location || '';
   document.getElementById('prof-birthday-inp').value  = userData.birthday || '';
-  const shareBtn = document.getElementById('share-prof-btn');
-  shareBtn.style.display = _myUsername ? '' : 'none';
-
   showScreen('profile');
 }
 
@@ -3013,9 +3072,9 @@ async function saveProfile() {
     await db.ref().update(batch);
 
     setAvatar(me);
-    document.getElementById('share-prof-btn').style.display = _myUsername ? '' : 'none';
     toast(t('toast_profile_saved'));
     showScreen('home');
+    switchHomeTab('profile');
     loadHome();
   } catch(err) {
     console.error('saveProfile:', err);
@@ -3172,7 +3231,7 @@ function obGoCreate() {
 function obGoConnect() {
   setAvatar(me);
   showScreen('home'); loadHome();
-  setTimeout(() => openProfileScreen(), 80);
+  setTimeout(() => switchHomeTab('profile'), 80);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3376,10 +3435,28 @@ function hidePendingConnectBanner() {
 }
 
 function switchHomeTab(tab) {
-  document.getElementById('tab-events').classList.toggle('active', tab === 'events');
-  document.getElementById('tab-friends').classList.toggle('active', tab === 'friends');
-  document.getElementById('tab-btn-events').classList.toggle('active', tab === 'events');
-  document.getElementById('tab-btn-friends').classList.toggle('active', tab === 'friends');
+  ['events', 'friends', 'profile'].forEach(name => {
+    document.getElementById('tab-' + name).classList.toggle('active', tab === name);
+    document.getElementById('tab-btn-' + name).classList.toggle('active', tab === name);
+  });
+  const fab = document.getElementById('home-fab');
+  if (fab) fab.style.display = tab === 'profile' ? 'none' : '';
+  if (tab === 'profile') renderProfileTab();
+}
+
+async function renderProfileTab() {
+  if (!me) return;
+  try {
+    const snap = await db.ref('users/' + me.uid).once('value');
+    const d = snap.val() || {};
+    _myUsername = d.username || null;
+    const name = d.displayName || me.displayName || '';
+    applyAvatar(document.getElementById('profile-tab-av'), { displayName: name, email: me.email }, '1.75rem');
+    document.getElementById('profile-tab-name').textContent = name;
+    document.getElementById('profile-tab-username').textContent = _myUsername ? '@' + _myUsername : '';
+    const shareBtn = document.getElementById('profile-tab-share');
+    if (shareBtn) shareBtn.style.display = _myUsername ? '' : 'none';
+  } catch(e) {}
 }
 
 // ── Calendar view ─────────────────────────────────────────────────────────────
@@ -3388,7 +3465,7 @@ const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni',
                    'Juli','August','September','Oktober','November','Dezember'];
 const DOW_SHORT = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 
-let _calView    = 'list';
+let _calView    = localStorage.getItem('vivo_events_view') || 'list';
 let _calYear    = new Date().getFullYear();
 let _calMonth   = new Date().getMonth(); // 0-based
 let _calEvents  = [];   // flat list of all user events, refreshed by loadHome
@@ -3396,6 +3473,7 @@ let _calSelDate = null; // currently expanded date string 'YYYY-MM-DD'
 
 function setEventsView(mode) {
   _calView = mode;
+  localStorage.setItem('vivo_events_view', mode);
   document.getElementById('view-list-btn').classList.toggle('active', mode === 'list');
   document.getElementById('view-cal-btn').classList.toggle('active', mode === 'cal');
   document.getElementById('cal-view').classList.toggle('visible', mode === 'cal');
@@ -4026,6 +4104,7 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
   if (failed.length) throw new Error('space_write_failed');
 
   // Fan out to members' home feeds + push notifications (best-effort).
+  const allSpaceMembers = new Set();
   try {
     const myName = me ? (me.displayName || (me.email && me.email.split('@')[0]) || 'Jemand') : 'Jemand';
     const fanout = {};
@@ -4038,6 +4117,7 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
       const spaceName = spaceSnap.val()   || 'einem Space';
       Object.keys(members).forEach(uid => {
         if (uid !== me.uid) {
+          allSpaceMembers.add(uid);
           fanout['userEvents/' + uid + '/' + eventId] = 'space';
           if (eventTitle) {
             notifyUser(uid, 'space_event', '', '', `/#event/${eventId}`, {
@@ -4053,6 +4133,18 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
   } catch(e) {
     console.warn('Space member fanout skipped:', e);
   }
+  // Write spaceIds and invitedUids onto the event document individually.
+  // Kept outside the fanout try-catch so rule failures there don't drop them.
+  await Promise.all([
+    ...spaceIds.map(sid =>
+      db.ref('events/' + eventId + '/spaceIds/' + sid).set(true)
+        .catch(e => console.warn('spaceIds write failed for', sid, e))
+    ),
+    ...[...allSpaceMembers].map(uid =>
+      db.ref('events/' + eventId + '/invitedUids/' + uid).set(true)
+        .catch(e => console.warn('space invitedUids write failed for', uid, e))
+    ),
+  ]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4124,6 +4216,7 @@ function scheduleBirthdayNotifs(bdayEvs) {
 async function loadHome() {
   if (!me) return;
   if (homeOff) { homeOff(); homeOff = null; }
+  setEventsView(_calView);
   loadFriends();
   loadSpaces();
 
@@ -4965,6 +5058,11 @@ async function createEvent() {
         db.ref('invites/' + uid + '/' + createdId).set(true)
           .catch(e => console.warn('invite write failed for', uid, e))
       ));
+      // Reverse index for invite list on event detail page (within event doc so rules apply)
+      await Promise.all([..._selectedFriends].map(uid =>
+        db.ref('events/' + createdId + '/invitedUids/' + uid).set(true)
+          .catch(e => console.warn('invitedUids write failed for', uid, e))
+      ));
       // Notify each invited friend
       _selectedFriends.forEach(uid => {
         notifyUser(uid, 'invite', '', '', `/#event/${createdId}`, {
@@ -5052,7 +5150,13 @@ function loadEventScreen(id) {
     // mark as pending for logged-in users who haven't RSVPd yet
     if (me) {
       db.ref('userEvents/' + me.uid + '/' + id).once('value').then(s => {
-        if (!s.exists()) db.ref('userEvents/' + me.uid + '/' + id).set('pending');
+        if (!s.exists()) {
+          db.ref('userEvents/' + me.uid + '/' + id).set('pending');
+          // Track link-click for invite list (skip the creator)
+          if (ev.createdBy !== me.uid && !(ev.invitedUids && ev.invitedUids[me.uid])) {
+            db.ref('events/' + id + '/invitedUids/' + me.uid).set(true).catch(() => {});
+          }
+        }
       });
     }
 
@@ -5183,11 +5287,7 @@ function renderEv(ev, body) {
           ${t('ev_delete')}
         </button>
       </div>
-      ${!isEventPast(ev) ? `
-      <button id="nudge-btn" class="btn btn-outline btn-sm btn-full" style="margin-top:8px;gap:6px"
-        onclick="nudgeMembers('${ev.id}')">
-        ${t('nudge_btn')}
-      </button>` : ''}` : ''}
+` : ''}
     </div>
 
     ${buildPollSection(ev)}
@@ -5204,6 +5304,8 @@ function renderEv(ev, body) {
       <div class="ev-sec-title">${t('att_abgesagt')} <span class="att-count">${nein.length}</span></div>
       <div class="att-list">${neinRows}</div>
     </div>
+
+    <div id="ev-invite-sec"></div>
 
     ${rsvpSection}
 
@@ -5232,6 +5334,123 @@ function renderEv(ev, body) {
     <div style="height:40px"></div>`;
 
   if (myStatus) _rsvpStatus = myStatus;
+  loadAndRenderInviteList(ev.id, ev, isCreator);
+}
+
+async function loadAndRenderInviteList(eventId, ev, isCreator) {
+  const sec = document.getElementById('ev-invite-sec');
+  if (!sec) return;
+  try {
+    // Start with directly-invited UIDs stored on the event doc.
+    const allInvited = new Set(Object.keys(ev.invitedUids || {}));
+
+    // Primary: event stores its own spaceIds — fetch members directly.
+    if (ev.spaceIds) {
+      await Promise.all(Object.keys(ev.spaceIds).map(async sid => {
+        try {
+          const mSnap = await db.ref('spaces/' + sid + '/members').once('value');
+          if (mSnap.val()) Object.keys(mSnap.val()).forEach(uid => allInvited.add(uid));
+        } catch(e) { console.warn('loadAndRenderInviteList: members read failed for space', sid, e); }
+      }));
+    }
+
+    // Fallback for events created before spaceIds was written: resolve via
+    // the current user's spaces → spaceEvents index (same logic as nudgeMembers).
+    if (me && !ev.spaceIds) {
+      try {
+        const mySpacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
+        const mySpaceIds = mySpacesSnap.val() ? Object.keys(mySpacesSnap.val()) : [];
+        if (mySpaceIds.length) {
+          const checks = await Promise.all(
+            mySpaceIds.map(sid => db.ref('spaceEvents/' + sid + '/' + eventId).once('value'))
+          );
+          const matchIds = mySpaceIds.filter((_, i) => checks[i].exists());
+          await Promise.all(matchIds.map(async sid => {
+            try {
+              const mSnap = await db.ref('spaces/' + sid + '/members').once('value');
+              if (mSnap.val()) Object.keys(mSnap.val()).forEach(uid => allInvited.add(uid));
+            } catch(e) { console.warn('loadAndRenderInviteList: fallback members read failed', sid, e); }
+          }));
+        }
+      } catch(e) { console.warn('loadAndRenderInviteList: userSpaces read failed', e); }
+    }
+
+    const invitedUids = [...allInvited];
+    if (!invitedUids.length) { sec.innerHTML = ''; return; }
+
+    const rsvpedUids = new Set(
+      ev.rsvps ? Object.values(ev.rsvps).filter(r => r.userId).map(r => r.userId) : []
+    );
+    const pendingUids = invitedUids.filter(uid => !rsvpedUids.has(uid) && uid !== ev.createdBy);
+    if (!pendingUids.length) { sec.innerHTML = ''; return; }
+
+    const userSnaps = await Promise.all(
+      pendingUids.map(uid => db.ref('users/' + uid).once('value'))
+    );
+
+    const now = Date.now();
+    const cooldownMs = 24 * 60 * 60 * 1000;
+    const rows = pendingUids.map((uid, i) => {
+      const d = userSnaps[i].val() || {};
+      const name = d.displayName || d.username || uid.slice(0, 8);
+      const init = name[0].toUpperCase();
+      let nudgeBtn = '';
+      if (isCreator) {
+        const ck = 'vivo_nudge1_' + eventId + '_' + uid;
+        const lastTs = parseInt(localStorage.getItem(ck) || '0');
+        const remaining = cooldownMs - (now - lastTs);
+        if (remaining > 0) {
+          const h = Math.ceil(remaining / 3600000);
+          nudgeBtn = `<button class="btn btn-ghost btn-sm" disabled style="color:var(--muted);font-size:.75rem;padding:4px 8px">in ${h}h</button>`;
+        } else {
+          nudgeBtn = `<button class="btn btn-ghost btn-sm" onclick="nudgePerson('${eventId}','${uid}','${esc(name)}')" style="color:var(--amber);font-size:.8125rem;padding:4px 10px">Erinnern</button>`;
+        }
+      }
+      return `
+        <div class="att-row" style="justify-content:space-between">
+          <div class="att-info">
+            <div class="att-av">${init}</div>
+            <span class="att-name">${esc(name)}</span>
+          </div>
+          ${nudgeBtn}
+        </div>`;
+    });
+
+    sec.innerHTML = `
+      <div class="ev-sec" style="margin-top:4px">
+        <div class="ev-sec-title">${t('att_pending')} <span class="att-count">${pendingUids.length}</span></div>
+        <div class="att-list">${rows.join('')}</div>
+      </div>`;
+  } catch(e) {
+    console.warn('loadAndRenderInviteList:', e);
+  }
+}
+
+async function nudgePerson(eventId, inviteeUid, inviteeName) {
+  if (!me || !window._ev) return;
+  const ev = window._ev;
+  const ck = 'vivo_nudge1_' + eventId + '_' + inviteeUid;
+  const lastTs = parseInt(localStorage.getItem(ck) || '0');
+  const remaining = 24 * 60 * 60 * 1000 - (Date.now() - lastTs);
+  if (remaining > 0) {
+    const h = Math.ceil(remaining / 3600000);
+    toast('Bitte noch ' + h + 'h warten');
+    return;
+  }
+  const myName = me.displayName || (me.email ? me.email.split('@')[0] : 'Jemand');
+  try {
+    await notifyUser(inviteeUid, 'nudge', '', '', '/#event/' + eventId, {
+      titleKey: 'notif_nudge1_title',
+      bodyKey:  'notif_nudge1_body',
+      vars: { name: myName, event: ev.title },
+    });
+    localStorage.setItem(ck, String(Date.now()));
+    toast('Erinnerung gesendet ✓');
+    loadAndRenderInviteList(eventId, ev, true);
+  } catch(e) {
+    console.error('nudgePerson:', e);
+    toast('Fehler beim Senden');
+  }
 }
 
 async function pickRsvp(status) {
