@@ -566,6 +566,7 @@
     .cal-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .cal-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .cal-bar.birthday   { background: #FCE7F3; color: #9D174D; cursor: default; }
     /* Multi-day spanning bars — base: extend flush to both cell edges */
     .cal-bar.span-start { border-radius: 3px 0 0 3px; margin-left: -2px; width: calc(100% + 4px); }
     /* Continuation days: thin strip, no text */
@@ -633,6 +634,7 @@
     .day-allday-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .day-allday-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .day-allday-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .day-allday-bar.birthday   { background: #FCE7F3; color: #9D174D; cursor: default; }
     .day-grid-wrap { position: relative; }
     .day-hour-line {
       display: flex; height: 60px; border-top: 1px solid #F0EDE8;
@@ -1062,6 +1064,11 @@
       <div class="field">
         <label>Standort <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
         <input type="text" id="ob-location" placeholder="z.B. Berlin">
+      </div>
+      <div class="field">
+        <label>Geburtstag <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
+        <input type="date" id="ob-birthday">
+        <span class="ob-field-note">Deine Freunde werden am Geburtstag benachrichtigt 🎂</span>
       </div>
     </div>
 
@@ -2974,6 +2981,7 @@ function showOnboarding() {
   if (nameInp && me) nameInp.value = me.displayName || '';
   document.getElementById('ob-handle').value   = '';
   document.getElementById('ob-location').value = '';
+  document.getElementById('ob-birthday').value = '';
   document.getElementById('ob-handle-hint').textContent = '';
   document.getElementById('ob-handle-hint').className   = 'username-hint';
   obSetStep(1);
@@ -3051,9 +3059,10 @@ async function obNext() {
 }
 
 async function obSaveProfile() {
-  const name   = document.getElementById('ob-name').value.trim();
-  const handle = document.getElementById('ob-handle').value.trim();
-  const loc    = document.getElementById('ob-location').value.trim();
+  const name     = document.getElementById('ob-name').value.trim();
+  const handle   = document.getElementById('ob-handle').value.trim();
+  const loc      = document.getElementById('ob-location').value.trim();
+  const birthday = document.getElementById('ob-birthday').value || null;
   const btn    = document.getElementById('ob-next-btn');
   btn.disabled = true; btn.textContent = 'Speichern…';
   try {
@@ -3073,6 +3082,7 @@ async function obSaveProfile() {
     batch['users/' + me.uid + '/displayName'] = name;
     batch['users/' + me.uid + '/username']    = handle;
     batch['users/' + me.uid + '/location']    = loc || null;
+    batch['users/' + me.uid + '/birthday']    = birthday;
     batch['usernames/' + handle]              = me.uid;
     await db.ref().update(batch);
     _myUsername = handle;
@@ -3431,8 +3441,10 @@ function renderCalendar() {
           else if (spanEnd)    spanCls = ' span-end';
           else                 spanCls = ' span-mid';
         }
-        const label = (!multiDay || spanStart) ? title : '';
-        return `<div class="cal-bar ${st}${spanCls}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${label}</div>`;
+        const label   = (!multiDay || spanStart) ? title : '';
+        const barCls  = ev._isBirthday ? 'birthday' : st;
+        const clickFn = ev._isBirthday ? 'event.stopPropagation()' : `event.stopPropagation();openEv('${ev.id}')`;
+        return `<div class="cal-bar ${barCls}${spanCls}" onclick="${clickFn}" title="${title}">${label}</div>`;
       }).join('');
       const moreHtml = entries.length > 3
         ? `<div class="cal-more">+${entries.length - 3}</div>` : '';
@@ -3501,8 +3513,9 @@ function renderDayGrid(ds, evs) {
     html += `<span class="day-hour-lbl" style="padding-top:8px;flex-shrink:0">ganztägig</span>`;
     html += `<div style="flex:1;padding:2px 4px 4px;display:flex;flex-direction:column;gap:3px">`;
     for (const ev of allDayEvs) {
-      const st = calEvStatus(ev);
-      html += `<div class="day-allday-bar ${st}" onclick="closeDayView();openEv('${ev.id}')">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
+      const barCls  = ev._isBirthday ? 'birthday' : calEvStatus(ev);
+      const clickFn = ev._isBirthday ? '' : `onclick="closeDayView();openEv('${ev.id}')"`;
+      html += `<div class="day-allday-bar ${barCls}" ${clickFn}>${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
     }
     html += `</div></div>`;
   }
@@ -3989,6 +4002,65 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
 // HOME
 // ─────────────────────────────────────────────────────────────────────────────
 let homeOff = null;
+let _birthdayTimers = [];
+
+async function loadFriendBirthdays() {
+  if (!me) return [];
+  try {
+    const snap = await db.ref('friends/' + me.uid).once('value');
+    const uids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!uids.length) return [];
+    const userSnaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value')));
+    const yr     = new Date().getFullYear();
+    const result = [];
+    for (let i = 0; i < uids.length; i++) {
+      const d = userSnaps[i].val() || {};
+      if (!d.birthday) continue;
+      const parts = d.birthday.split('-'); // YYYY-MM-DD
+      if (parts.length < 3) continue;
+      const dateThisYear = yr + '-' + parts[1] + '-' + parts[2];
+      const name = d.displayName || d.username || uids[i].slice(0, 8);
+      result.push({
+        id: 'bday_' + uids[i],
+        title: name + ' 🎂',
+        date: dateThisYear,
+        allDay: true,
+        _isBirthday: true,
+        _birthdayName: name,
+      });
+    }
+    return result;
+  } catch(e) {
+    console.warn('loadFriendBirthdays:', e);
+    return [];
+  }
+}
+
+function scheduleBirthdayNotifs(bdayEvs) {
+  _birthdayTimers.forEach(clearTimeout);
+  _birthdayTimers = [];
+  if (!bdayEvs.length) return;
+  const now      = new Date();
+  const todayStr = dateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  for (const ev of bdayEvs) {
+    if (ev.date === todayStr) {
+      const key = 'bday_shown_' + ev.id + '_' + todayStr;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        showNotif(ev._birthdayName + ' hat heute Geburtstag 🎂', '', '/');
+      }
+    }
+  }
+  // Re-run at midnight so birthdays are caught if the app stays open overnight
+  const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
+  _birthdayTimers.push(setTimeout(() => {
+    loadFriendBirthdays().then(evs => {
+      _calEvents = _calEvents.filter(e => !e._isBirthday).concat(evs);
+      if (_calView === 'cal') renderCalendar();
+      scheduleBirthdayNotifs(evs);
+    });
+  }, msToMidnight + 60000));
+}
 
 async function loadHome() {
   if (!me) return;
@@ -4070,6 +4142,14 @@ async function loadHome() {
     if (_calView === 'cal') renderCalendar();
 
     scheduleEventStartNotifs([...myEvs, ...pEvs]);
+
+    // Merge friend birthdays into calendar (async, non-blocking)
+    loadFriendBirthdays().then(bdayEvs => {
+      if (!bdayEvs.length) return;
+      _calEvents = _calEvents.filter(e => !e._isBirthday).concat(bdayEvs);
+      if (_calView === 'cal') renderCalendar();
+      scheduleBirthdayNotifs(bdayEvs);
+    });
 
     myEl.innerHTML = myEvs.length
       ? myEvs.map(ev => cardHTML(ev, false)).join('')
