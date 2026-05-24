@@ -2997,9 +2997,6 @@ async function openProfileScreen() {
   document.getElementById('prof-user-inp').value      = _myUsername || '';
   document.getElementById('prof-location-inp').value  = userData.location || '';
   document.getElementById('prof-birthday-inp').value  = userData.birthday || '';
-  const shareBtn = document.getElementById('share-prof-btn');
-  shareBtn.style.display = _myUsername ? '' : 'none';
-
   showScreen('profile');
 }
 
@@ -3228,7 +3225,7 @@ function obGoCreate() {
 function obGoConnect() {
   setAvatar(me);
   showScreen('home'); loadHome();
-  setTimeout(() => openProfileScreen(), 80);
+  setTimeout(() => switchHomeTab('profile'), 80);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
