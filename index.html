@@ -5042,9 +5042,10 @@ async function createEvent() {
         db.ref('invites/' + uid + '/' + createdId).set(true)
           .catch(e => console.warn('invite write failed for', uid, e))
       ));
-      // Reverse index for invite list on event detail page
+      // Reverse index for invite list on event detail page (within event doc so rules apply)
       await Promise.all([..._selectedFriends].map(uid =>
-        db.ref('eventInvites/' + createdId + '/' + uid).set(true).catch(() => {})
+        db.ref('events/' + createdId + '/invitedUids/' + uid).set(true)
+          .catch(e => console.warn('invitedUids write failed for', uid, e))
       ));
       // Notify each invited friend
       _selectedFriends.forEach(uid => {
@@ -5136,8 +5137,8 @@ function loadEventScreen(id) {
         if (!s.exists()) {
           db.ref('userEvents/' + me.uid + '/' + id).set('pending');
           // Track link-click for invite list (skip the creator)
-          if (ev.createdBy !== me.uid) {
-            db.ref('eventInvites/' + id + '/' + me.uid).set(true).catch(() => {});
+          if (ev.createdBy !== me.uid && !(ev.invitedUids && ev.invitedUids[me.uid])) {
+            db.ref('events/' + id + '/invitedUids/' + me.uid).set(true).catch(() => {});
           }
         }
       });
@@ -5328,8 +5329,7 @@ async function loadAndRenderInviteList(eventId, ev, isCreator) {
   const sec = document.getElementById('ev-invite-sec');
   if (!sec) return;
   try {
-    const snap = await db.ref('eventInvites/' + eventId).once('value');
-    const invitedMap = snap.val() || {};
+    const invitedMap = ev.invitedUids || {};
     const invitedUids = Object.keys(invitedMap);
     if (!invitedUids.length) { sec.innerHTML = ''; return; }
 
