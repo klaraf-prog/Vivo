@@ -4103,6 +4103,7 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
   if (failed.length) throw new Error('space_write_failed');
 
   // Fan out to members' home feeds + push notifications (best-effort).
+  const allSpaceMembers = new Set();
   try {
     const myName = me ? (me.displayName || (me.email && me.email.split('@')[0]) || 'Jemand') : 'Jemand';
     const fanout = {};
@@ -4115,8 +4116,8 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
       const spaceName = spaceSnap.val()   || 'einem Space';
       Object.keys(members).forEach(uid => {
         if (uid !== me.uid) {
+          allSpaceMembers.add(uid);
           fanout['userEvents/' + uid + '/' + eventId] = 'space';
-          fanout['events/' + eventId + '/invitedUids/' + uid] = true;
           if (eventTitle) {
             notifyUser(uid, 'space_event', '', '', `/#event/${eventId}`, {
               titleKey: 'notif_space_event_title',
@@ -4131,6 +4132,12 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
   } catch(e) {
     console.warn('Space member fanout skipped:', e);
   }
+  // Write invitedUids for each space member individually so a rule failure
+  // on the fanout update doesn't silently drop these writes.
+  await Promise.all([...allSpaceMembers].map(uid =>
+    db.ref('events/' + eventId + '/invitedUids/' + uid).set(true)
+      .catch(e => console.warn('space invitedUids write failed for', uid, e))
+  ));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -5326,8 +5333,30 @@ async function loadAndRenderInviteList(eventId, ev, isCreator) {
   const sec = document.getElementById('ev-invite-sec');
   if (!sec) return;
   try {
-    const invitedMap = ev.invitedUids || {};
-    const invitedUids = Object.keys(invitedMap);
+    // Start with directly-invited UIDs stored on the event doc.
+    const allInvited = new Set(Object.keys(ev.invitedUids || {}));
+
+    // Also look up members of any spaces this event was shared to.
+    // We query via the current user's own spaces (they must be a member
+    // of the relevant space to see this event in the first place).
+    if (me) {
+      try {
+        const mySpacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
+        const mySpaceIds = mySpacesSnap.val() ? Object.keys(mySpacesSnap.val()) : [];
+        if (mySpaceIds.length) {
+          const checks = await Promise.all(
+            mySpaceIds.map(sid => db.ref('spaceEvents/' + sid + '/' + eventId).once('value'))
+          );
+          const matchIds = mySpaceIds.filter((_, i) => checks[i].exists());
+          await Promise.all(matchIds.map(async sid => {
+            const mSnap = await db.ref('spaces/' + sid + '/members').once('value');
+            if (mSnap.val()) Object.keys(mSnap.val()).forEach(uid => allInvited.add(uid));
+          }));
+        }
+      } catch(e) { /* space lookup is best-effort */ }
+    }
+
+    const invitedUids = [...allInvited];
     if (!invitedUids.length) { sec.innerHTML = ''; return; }
 
     const rsvpedUids = new Set(
