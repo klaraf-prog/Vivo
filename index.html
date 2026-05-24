@@ -2289,11 +2289,15 @@ function urlBase64ToUint8Array(b64) {
 }
 
 // Subscribe this browser to Web Push and store the subscription in Firebase.
+// Uses navigator.serviceWorker.ready so it never races with SW registration.
 async function subscribeToPush() {
-  if (!_swRegistration || !me) return;
+  if (!me) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
-    const existing = await _swRegistration.pushManager.getSubscription();
-    const sub = existing || await _swRegistration.pushManager.subscribe({
+    const reg = await navigator.serviceWorker.ready;
+    _swRegistration = reg; // keep module-level ref in sync
+    const existing = await reg.pushManager.getSubscription();
+    const sub = existing || await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
@@ -2305,10 +2309,14 @@ async function subscribeToPush() {
 async function unsubscribeFromPush() {
   if (!me) return;
   db.ref('users/' + me.uid + '/pushSub').remove().catch(() => {});
-  if (_swRegistration) {
-    const sub = await _swRegistration.pushManager.getSubscription().catch(() => null);
-    if (sub) sub.unsubscribe().catch(() => {});
-  }
+  try {
+    const reg = _swRegistration ||
+      ('serviceWorker' in navigator ? await navigator.serviceWorker.ready.catch(() => null) : null);
+    if (reg) {
+      const sub = await reg.pushManager.getSubscription().catch(() => null);
+      if (sub) sub.unsubscribe().catch(() => {});
+    }
+  } catch(e) { /* best-effort */ }
 }
 
 // Record that the user was active now (suppresses motivation notifications for 5 days).
@@ -2338,8 +2346,10 @@ async function showNotif(title, body, url = '/') {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const opts = { body, icon: null, data: { url }, tag: title, renotify: false };
   try {
-    if (_swRegistration) {
-      await _swRegistration.showNotification(title, opts);
+    const reg = _swRegistration ||
+      ('serviceWorker' in navigator ? await navigator.serviceWorker.ready.catch(() => null) : null);
+    if (reg) {
+      await reg.showNotification(title, opts);
     } else {
       new Notification(title, opts);
     }
@@ -2804,9 +2814,16 @@ async function openSettingsScreen() {
   showScreen('settings');
 }
 
+function _persistPushEnabled(val) {
+  if (!me) return;
+  db.ref('users/' + me.uid + '/settings/pushEnabled').set(val).catch(() => {});
+  if (_settings) _settings.pushEnabled = val;
+}
+
 function onPushToggle(el) {
   if (!el.checked) {
     unsubscribeFromPush();
+    _persistPushEnabled(false);
     return;
   }
   if (!('Notification' in window)) { el.checked = false; return; }
@@ -2817,6 +2834,7 @@ function onPushToggle(el) {
   }
   if (Notification.permission === 'granted') {
     subscribeToPush();
+    _persistPushEnabled(true);
     return;
   }
   // 'default' — ask for permission
@@ -2825,7 +2843,10 @@ function onPushToggle(el) {
     el.checked = result === 'granted';
     document.getElementById('s-push-denied').style.display =
       result === 'denied' ? 'block' : 'none';
-    if (result === 'granted') subscribeToPush();
+    if (result === 'granted') {
+      subscribeToPush();
+      _persistPushEnabled(true);
+    }
   });
 }
 
