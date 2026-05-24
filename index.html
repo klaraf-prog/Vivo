@@ -2792,10 +2792,12 @@ async function openSettingsScreen() {
   const s = snap.val() || {};
   _settings = s;
 
-  // Push toggle — reflect actual permission state too
-  const pushGranted  = 'Notification' in window && Notification.permission === 'granted';
-  const pushDenied   = 'Notification' in window && Notification.permission === 'denied';
-  const pushOn = pushGranted && s.pushEnabled !== false;
+  // Push toggle — show user's stored preference; permission state shown separately.
+  // Do NOT tie pushOn to Notification.permission: if permission is 'default' on this
+  // device but the user enabled push on another device, the toggle should show ON so
+  // Save preserves their preference and the click path can request permission.
+  const pushDenied = 'Notification' in window && Notification.permission === 'denied';
+  const pushOn = s.pushEnabled !== false && !pushDenied;
   document.getElementById('s-push-enabled').checked  = pushOn;
   document.getElementById('s-push-enabled').disabled  = pushDenied;
   document.getElementById('s-push-denied').style.display = pushDenied ? 'block' : 'none';
@@ -2867,11 +2869,11 @@ async function saveSettings() {
   const emailOn = document.getElementById('s-email-enabled').checked;
   const email   = document.getElementById('s-email-inp').value.trim();
 
-  // pushEnabled is managed exclusively by onPushToggle/_persistPushEnabled
-  // and must NOT be included here — saving other settings must never
-  // overwrite the user's push preference based on the browser's current
-  // permission state (which may differ from when they originally enabled push).
+  // pushEnabled is read from the toggle's checked state. The toggle now shows the
+  // user's stored preference (not the browser permission state), so this is safe
+  // to include — it reliably persists whatever the user set via onPushToggle.
   const settings = {
+    pushEnabled:       document.getElementById('s-push-enabled').checked,
     emailEnabled:      emailOn,
     emailAddress:      emailOn && email ? email : (me.email || null),
     motivationNotifs:  document.getElementById('s-motivation').checked,
@@ -2885,8 +2887,6 @@ async function saveSettings() {
   };
 
   try {
-    // update() instead of set() so pushEnabled written by _persistPushEnabled
-    // is not clobbered.
     await db.ref('users/' + me.uid + '/settings').update(settings);
     if (_settings) Object.assign(_settings, settings);
     else _settings = settings;
