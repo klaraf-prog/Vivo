@@ -1510,9 +1510,23 @@
         </label>
       </div>
       <div class="settings-row">
-        <span class="settings-row-label"><span data-i18n="settings_type_friends">Neue Freunde</span></span>
+        <span class="settings-row-label"><span data-i18n="settings_type_eventstart">Event startet bald</span></span>
         <label class="toggle">
-          <input type="checkbox" id="s-type-friends" checked>
+          <input type="checkbox" id="s-type-eventstart" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span data-i18n="settings_type_birthdays">Geburtstage</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-birthdays" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span class="settings-row-label"><span data-i18n="settings_type_nudge">Erinnerungen von Freunden</span></span>
+        <label class="toggle">
+          <input type="checkbox" id="s-type-nudge" checked>
           <span class="toggle-track"></span>
         </label>
       </div>
@@ -1862,7 +1876,9 @@ const LANG = {
     settings_type_invites: 'Event-Einladungen',
     settings_type_rsvps: 'Zusagen zu meinen Events',
     settings_type_changes: 'Event-Änderungen',
-    settings_type_friends: 'Neue Freunde',
+    settings_type_eventstart: 'Event startet bald',
+    settings_type_birthdays: 'Geburtstage',
+    settings_type_nudge: 'Erinnerungen von Freunden',
     settings_motivation_section: 'Motivations-Erinnerungen',
     settings_motivation_label: 'Aktivitäts-Erinnerungen',
     settings_motivation_sub: 'Erinnert dich, ein Event zu planen, wenn du länger nichts unternommen hast',
@@ -2032,7 +2048,9 @@ const LANG = {
     settings_type_invites: 'Event invitations',
     settings_type_rsvps: 'RSVPs to my events',
     settings_type_changes: 'Event changes',
-    settings_type_friends: 'New friends',
+    settings_type_eventstart: 'Event starting soon',
+    settings_type_birthdays: 'Birthdays',
+    settings_type_nudge: 'Reminders from friends',
     settings_motivation_section: 'Activity reminders',
     settings_motivation_label: 'Activity reminders',
     settings_motivation_sub: 'Reminds you to plan an event when you\'ve been quiet for a while',
@@ -2366,7 +2384,7 @@ async function showNotif(title, body, url = '/') {
 async function notifyUser(uid, type, title, body, url = '/', notifKeys = null) {
   if (!uid || !me) return;
 
-  const typeMap = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
+  const typeMap = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', nudge: 'nudge' };
   const typeKey = typeMap[type];
 
   // Read recipient's settings (includes lang preference).
@@ -2429,7 +2447,7 @@ function shouldShowNotif(type) {
   if (!_settings) return true;
   if (_settings.pushEnabled === false) return false;
   const types = _settings.types || {};
-  const map = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', friend: 'newFriends' };
+  const map = { invite: 'invites', rsvp: 'rsvps', event_edited: 'eventChanges', nudge: 'nudge' };
   const key = map[type];
   return key ? types[key] !== false : true;
 }
@@ -2507,12 +2525,13 @@ function scheduleEventStartNotifs(events) {
     const delay   = fireAt - now;
     if (delay > 0 && delay < 24 * 60 * 60 * 1000) { // only schedule if within 24 h
       _startTimers.push(setTimeout(() => {
+        if (_settings?.types?.eventStart === false) return;
         const title = tFor(_lang, 'notif_event_start_title', { event: ev.title });
         const body  = tFor(_lang, 'notif_event_start_body',  { event: ev.title, datetime: fmtDate(ev.date, ev.time) });
         const url   = `/#event/${ev.id}`;
         showNotif(title, body, url);
         // Email to self — check settings + send via Netlify Function
-        if (me && _settings?.emailEnabled) {
+        if (me && _settings?.emailEnabled && _settings?.types?.eventStart !== false) {
           me.getIdToken().then(idToken =>
             fetch('/.netlify/functions/send-email', {
               method:  'POST',
@@ -2810,10 +2829,12 @@ async function openSettingsScreen() {
 
   // Notification types (default all on)
   const types = s.types || {};
-  document.getElementById('s-type-invites').checked  = types.invites       !== false;
-  document.getElementById('s-type-rsvps').checked    = types.rsvps         !== false;
-  document.getElementById('s-type-changes').checked  = types.eventChanges  !== false;
-  document.getElementById('s-type-friends').checked  = types.newFriends    !== false;
+  document.getElementById('s-type-invites').checked    = types.invites     !== false;
+  document.getElementById('s-type-rsvps').checked      = types.rsvps       !== false;
+  document.getElementById('s-type-changes').checked    = types.eventChanges !== false;
+  document.getElementById('s-type-eventstart').checked = types.eventStart  !== false;
+  document.getElementById('s-type-birthdays').checked  = types.birthdays   !== false;
+  document.getElementById('s-type-nudge').checked      = types.nudge       !== false;
 
   // Motivation (default on)
   document.getElementById('s-motivation').checked = s.motivationNotifs !== false;
@@ -2882,7 +2903,9 @@ async function saveSettings() {
       invites:      document.getElementById('s-type-invites').checked,
       rsvps:        document.getElementById('s-type-rsvps').checked,
       eventChanges: document.getElementById('s-type-changes').checked,
-      newFriends:   document.getElementById('s-type-friends').checked,
+      eventStart:   document.getElementById('s-type-eventstart').checked,
+      birthdays:    document.getElementById('s-type-birthdays').checked,
+      nudge:        document.getElementById('s-type-nudge').checked,
     },
   };
 
@@ -4081,7 +4104,9 @@ function scheduleBirthdayNotifs(bdayEvs) {
       const key = 'bday_shown_' + ev.id + '_' + todayStr;
       if (!sessionStorage.getItem(key)) {
         sessionStorage.setItem(key, '1');
-        showNotif(ev._birthdayName + ' hat heute Geburtstag 🎂', '', '/');
+        if (_settings?.types?.birthdays !== false) {
+          showNotif(ev._birthdayName + ' hat heute Geburtstag 🎂', '', '/');
+        }
       }
     }
   }
