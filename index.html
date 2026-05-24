@@ -3069,9 +3069,9 @@ async function saveProfile() {
     await db.ref().update(batch);
 
     setAvatar(me);
-    document.getElementById('share-prof-btn').style.display = _myUsername ? '' : 'none';
     toast(t('toast_profile_saved'));
     showScreen('home');
+    switchHomeTab('profile');
     loadHome();
   } catch(err) {
     console.error('saveProfile:', err);
@@ -3439,6 +3439,21 @@ function switchHomeTab(tab) {
   const fab = document.getElementById('home-fab');
   if (fab) fab.style.display = tab === 'profile' ? 'none' : '';
   if (tab === 'profile') renderProfileTab();
+}
+
+async function renderProfileTab() {
+  if (!me) return;
+  try {
+    const snap = await db.ref('users/' + me.uid).once('value');
+    const d = snap.val() || {};
+    _myUsername = d.username || null;
+    const name = d.displayName || me.displayName || '';
+    applyAvatar(document.getElementById('profile-tab-av'), { displayName: name, email: me.email }, '1.75rem');
+    document.getElementById('profile-tab-name').textContent = name;
+    document.getElementById('profile-tab-username').textContent = _myUsername ? '@' + _myUsername : '';
+    const shareBtn = document.getElementById('profile-tab-share');
+    if (shareBtn) shareBtn.style.display = _myUsername ? '' : 'none';
+  } catch(e) {}
 }
 
 // ── Calendar view ─────────────────────────────────────────────────────────────
