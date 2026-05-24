@@ -1850,6 +1850,7 @@ const LANG = {
   de: {
     nav_home: 'Events',
     nav_friends: 'Freunde',
+    nav_profile: 'Profil',
     nav_create: 'Event erstellen',
     btn_save: 'Änderungen speichern',
     btn_signout: 'Abmelden',
@@ -2022,6 +2023,7 @@ const LANG = {
   en: {
     nav_home: 'Events',
     nav_friends: 'Friends',
+    nav_profile: 'Profile',
     nav_create: 'Create event',
     btn_save: 'Save changes',
     btn_signout: 'Sign out',
@@ -2853,7 +2855,7 @@ function applyAvatar(el, user, size) {
 }
 
 function setAvatar(user) {
-  applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
+  applyAvatar(document.getElementById('profile-tab-av'), user, '1.75rem');
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -3430,10 +3432,13 @@ function hidePendingConnectBanner() {
 }
 
 function switchHomeTab(tab) {
-  document.getElementById('tab-events').classList.toggle('active', tab === 'events');
-  document.getElementById('tab-friends').classList.toggle('active', tab === 'friends');
-  document.getElementById('tab-btn-events').classList.toggle('active', tab === 'events');
-  document.getElementById('tab-btn-friends').classList.toggle('active', tab === 'friends');
+  ['events', 'friends', 'profile'].forEach(name => {
+    document.getElementById('tab-' + name).classList.toggle('active', tab === name);
+    document.getElementById('tab-btn-' + name).classList.toggle('active', tab === name);
+  });
+  const fab = document.getElementById('home-fab');
+  if (fab) fab.style.display = tab === 'profile' ? 'none' : '';
+  if (tab === 'profile') renderProfileTab();
 }
 
 // ── Calendar view ─────────────────────────────────────────────────────────────
