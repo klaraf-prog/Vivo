@@ -2865,12 +2865,14 @@ async function saveSettings() {
   const btn = document.getElementById('save-settings-btn');
   btn.disabled = true; btn.textContent = 'Speichern…';
 
-  const pushOn  = document.getElementById('s-push-enabled').checked;
   const emailOn = document.getElementById('s-email-enabled').checked;
   const email   = document.getElementById('s-email-inp').value.trim();
 
+  // pushEnabled is managed exclusively by onPushToggle/_persistPushEnabled
+  // and must NOT be included here — saving other settings must never
+  // overwrite the user's push preference based on the browser's current
+  // permission state (which may differ from when they originally enabled push).
   const settings = {
-    pushEnabled:       pushOn,
     emailEnabled:      emailOn,
     emailAddress:      emailOn && email ? email : (me.email || null),
     motivationNotifs:  document.getElementById('s-motivation').checked,
@@ -2884,8 +2886,11 @@ async function saveSettings() {
   };
 
   try {
-    await db.ref('users/' + me.uid + '/settings').set(settings);
-    _settings = settings;
+    // update() instead of set() so pushEnabled written by _persistPushEnabled
+    // is not clobbered.
+    await db.ref('users/' + me.uid + '/settings').update(settings);
+    if (_settings) Object.assign(_settings, settings);
+    else _settings = settings;
     toast(t('settings_saved'));
     showScreen('profile');
   } catch(err) {
