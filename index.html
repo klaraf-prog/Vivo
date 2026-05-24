@@ -566,6 +566,7 @@
     .cal-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .cal-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .cal-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .cal-bar.birthday   { background: #FCE7F3; color: #9D174D; cursor: default; }
     /* Multi-day spanning bars — base: extend flush to both cell edges */
     .cal-bar.span-start { border-radius: 3px 0 0 3px; margin-left: -2px; width: calc(100% + 4px); }
     /* Continuation days: thin strip, no text */
@@ -633,6 +634,7 @@
     .day-allday-bar.dabei      { background: #D1FAE5; color: #065F46; }
     .day-allday-bar.vielleicht { background: #FEF9C3; color: #854D0E; }
     .day-allday-bar.nein       { background: #E5E7EB; color: #9CA3AF; text-decoration: line-through; }
+    .day-allday-bar.birthday   { background: #FCE7F3; color: #9D174D; cursor: default; }
     .day-grid-wrap { position: relative; }
     .day-hour-line {
       display: flex; height: 60px; border-top: 1px solid #F0EDE8;
@@ -1062,6 +1064,11 @@
         <label>Standort <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
         <input type="text" id="ob-location" placeholder="z.B. Berlin">
       </div>
+      <div class="field">
+        <label>Geburtstag <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
+        <input type="date" id="ob-birthday">
+        <span class="ob-field-note">Deine Freunde werden am Geburtstag benachrichtigt 🎂</span>
+      </div>
     </div>
 
     <!-- Step 2: Push notifications -->
@@ -1404,6 +1411,12 @@
     <div class="field">
       <label data-i18n="profile_location_label">Standort</label>
       <input type="text" id="prof-location-inp" placeholder="z.B. Berlin" data-i18n-placeholder="profile_location_placeholder">
+    </div>
+
+    <!-- Birthday -->
+    <div class="field">
+      <label>Geburtstag</label>
+      <input type="date" id="prof-birthday-inp">
     </div>
 
     <!-- Email (read-only) -->
@@ -2281,11 +2294,15 @@ function urlBase64ToUint8Array(b64) {
 }
 
 // Subscribe this browser to Web Push and store the subscription in Firebase.
+// Uses navigator.serviceWorker.ready so it never races with SW registration.
 async function subscribeToPush() {
-  if (!_swRegistration || !me) return;
+  if (!me) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
-    const existing = await _swRegistration.pushManager.getSubscription();
-    const sub = existing || await _swRegistration.pushManager.subscribe({
+    const reg = await navigator.serviceWorker.ready;
+    _swRegistration = reg; // keep module-level ref in sync
+    const existing = await reg.pushManager.getSubscription();
+    const sub = existing || await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
@@ -2297,10 +2314,14 @@ async function subscribeToPush() {
 async function unsubscribeFromPush() {
   if (!me) return;
   db.ref('users/' + me.uid + '/pushSub').remove().catch(() => {});
-  if (_swRegistration) {
-    const sub = await _swRegistration.pushManager.getSubscription().catch(() => null);
-    if (sub) sub.unsubscribe().catch(() => {});
-  }
+  try {
+    const reg = _swRegistration ||
+      ('serviceWorker' in navigator ? await navigator.serviceWorker.ready.catch(() => null) : null);
+    if (reg) {
+      const sub = await reg.pushManager.getSubscription().catch(() => null);
+      if (sub) sub.unsubscribe().catch(() => {});
+    }
+  } catch(e) { /* best-effort */ }
 }
 
 // Record that the user was active now (suppresses motivation notifications for 5 days).
@@ -2330,8 +2351,10 @@ async function showNotif(title, body, url = '/') {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const opts = { body, icon: null, data: { url }, tag: title, renotify: false };
   try {
-    if (_swRegistration) {
-      await _swRegistration.showNotification(title, opts);
+    const reg = _swRegistration ||
+      ('serviceWorker' in navigator ? await navigator.serviceWorker.ready.catch(() => null) : null);
+    if (reg) {
+      await reg.showNotification(title, opts);
     } else {
       new Notification(title, opts);
     }
@@ -2796,9 +2819,16 @@ async function openSettingsScreen() {
   showScreen('settings');
 }
 
+function _persistPushEnabled(val) {
+  if (!me) return;
+  db.ref('users/' + me.uid + '/settings/pushEnabled').set(val).catch(() => {});
+  if (_settings) _settings.pushEnabled = val;
+}
+
 function onPushToggle(el) {
   if (!el.checked) {
     unsubscribeFromPush();
+    _persistPushEnabled(false);
     return;
   }
   if (!('Notification' in window)) { el.checked = false; return; }
@@ -2809,6 +2839,7 @@ function onPushToggle(el) {
   }
   if (Notification.permission === 'granted') {
     subscribeToPush();
+    _persistPushEnabled(true);
     return;
   }
   // 'default' — ask for permission
@@ -2817,7 +2848,10 @@ function onPushToggle(el) {
     el.checked = result === 'granted';
     document.getElementById('s-push-denied').style.display =
       result === 'denied' ? 'block' : 'none';
-    if (result === 'granted') subscribeToPush();
+    if (result === 'granted') {
+      subscribeToPush();
+      _persistPushEnabled(true);
+    }
   });
 }
 
@@ -2830,12 +2864,14 @@ async function saveSettings() {
   const btn = document.getElementById('save-settings-btn');
   btn.disabled = true; btn.textContent = 'Speichern…';
 
-  const pushOn  = document.getElementById('s-push-enabled').checked;
   const emailOn = document.getElementById('s-email-enabled').checked;
   const email   = document.getElementById('s-email-inp').value.trim();
 
+  // pushEnabled is managed exclusively by onPushToggle/_persistPushEnabled
+  // and must NOT be included here — saving other settings must never
+  // overwrite the user's push preference based on the browser's current
+  // permission state (which may differ from when they originally enabled push).
   const settings = {
-    pushEnabled:       pushOn,
     emailEnabled:      emailOn,
     emailAddress:      emailOn && email ? email : (me.email || null),
     motivationNotifs:  document.getElementById('s-motivation').checked,
@@ -2849,8 +2885,11 @@ async function saveSettings() {
   };
 
   try {
-    await db.ref('users/' + me.uid + '/settings').set(settings);
-    _settings = settings;
+    // update() instead of set() so pushEnabled written by _persistPushEnabled
+    // is not clobbered.
+    await db.ref('users/' + me.uid + '/settings').update(settings);
+    if (_settings) Object.assign(_settings, settings);
+    else _settings = settings;
     toast(t('settings_saved'));
     showScreen('profile');
   } catch(err) {
@@ -2878,6 +2917,7 @@ async function openProfileScreen() {
   _myUsername = userData.username || null;
   document.getElementById('prof-user-inp').value      = _myUsername || '';
   document.getElementById('prof-location-inp').value  = userData.location || '';
+  document.getElementById('prof-birthday-inp').value  = userData.birthday || '';
   const shareBtn = document.getElementById('share-prof-btn');
   shareBtn.style.display = _myUsername ? '' : 'none';
 
@@ -2910,6 +2950,7 @@ async function saveProfile() {
   const name     = document.getElementById('prof-name-inp').value.trim();
   const rawUser  = document.getElementById('prof-user-inp').value.trim();
   const location = document.getElementById('prof-location-inp').value.trim();
+  const birthday = document.getElementById('prof-birthday-inp').value || null;
   const btn      = document.getElementById('save-prof-btn');
 
   if (rawUser && rawUser.length < 3) {
@@ -2937,6 +2978,7 @@ async function saveProfile() {
     const batch = {};
     batch['users/' + me.uid + '/displayName'] = displayName;
     batch['users/' + me.uid + '/location']    = location || null;
+    batch['users/' + me.uid + '/birthday']    = birthday;
     if (rawUser) {
       if (_myUsername && _myUsername !== rawUser) {
         batch['usernames/' + _myUsername] = null; // free old username
@@ -2973,6 +3015,7 @@ function showOnboarding() {
   if (nameInp && me) nameInp.value = me.displayName || '';
   document.getElementById('ob-handle').value   = '';
   document.getElementById('ob-location').value = '';
+  document.getElementById('ob-birthday').value = '';
   document.getElementById('ob-handle-hint').textContent = '';
   document.getElementById('ob-handle-hint').className   = 'username-hint';
   obSetStep(1);
@@ -3050,9 +3093,10 @@ async function obNext() {
 }
 
 async function obSaveProfile() {
-  const name   = document.getElementById('ob-name').value.trim();
-  const handle = document.getElementById('ob-handle').value.trim();
-  const loc    = document.getElementById('ob-location').value.trim();
+  const name     = document.getElementById('ob-name').value.trim();
+  const handle   = document.getElementById('ob-handle').value.trim();
+  const loc      = document.getElementById('ob-location').value.trim();
+  const birthday = document.getElementById('ob-birthday').value || null;
   const btn    = document.getElementById('ob-next-btn');
   btn.disabled = true; btn.textContent = 'Speichern…';
   try {
@@ -3072,6 +3116,7 @@ async function obSaveProfile() {
     batch['users/' + me.uid + '/displayName'] = name;
     batch['users/' + me.uid + '/username']    = handle;
     batch['users/' + me.uid + '/location']    = loc || null;
+    batch['users/' + me.uid + '/birthday']    = birthday;
     batch['usernames/' + handle]              = me.uid;
     await db.ref().update(batch);
     _myUsername = handle;
@@ -3430,8 +3475,10 @@ function renderCalendar() {
           else if (spanEnd)    spanCls = ' span-end';
           else                 spanCls = ' span-mid';
         }
-        const label = (!multiDay || spanStart) ? title : '';
-        return `<div class="cal-bar ${st}${spanCls}" onclick="event.stopPropagation();openEv('${ev.id}')" title="${title}">${label}</div>`;
+        const label   = (!multiDay || spanStart) ? title : '';
+        const barCls  = ev._isBirthday ? 'birthday' : st;
+        const clickFn = ev._isBirthday ? 'event.stopPropagation()' : `event.stopPropagation();openEv('${ev.id}')`;
+        return `<div class="cal-bar ${barCls}${spanCls}" onclick="${clickFn}" title="${title}">${label}</div>`;
       }).join('');
       const moreHtml = entries.length > 3
         ? `<div class="cal-more">+${entries.length - 3}</div>` : '';
@@ -3500,8 +3547,9 @@ function renderDayGrid(ds, evs) {
     html += `<span class="day-hour-lbl" style="padding-top:8px;flex-shrink:0">ganztägig</span>`;
     html += `<div style="flex:1;padding:2px 4px 4px;display:flex;flex-direction:column;gap:3px">`;
     for (const ev of allDayEvs) {
-      const st = calEvStatus(ev);
-      html += `<div class="day-allday-bar ${st}" onclick="closeDayView();openEv('${ev.id}')">${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
+      const barCls  = ev._isBirthday ? 'birthday' : calEvStatus(ev);
+      const clickFn = ev._isBirthday ? '' : `onclick="closeDayView();openEv('${ev.id}')"`;
+      html += `<div class="day-allday-bar ${barCls}" ${clickFn}>${ev.emoji ? ev.emoji + ' ' : ''}${esc(ev.title || '')}</div>`;
     }
     html += `</div></div>`;
   }
@@ -3988,6 +4036,65 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
 // HOME
 // ─────────────────────────────────────────────────────────────────────────────
 let homeOff = null;
+let _birthdayTimers = [];
+
+async function loadFriendBirthdays() {
+  if (!me) return [];
+  try {
+    const snap = await db.ref('friends/' + me.uid).once('value');
+    const uids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!uids.length) return [];
+    const userSnaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value')));
+    const yr     = new Date().getFullYear();
+    const result = [];
+    for (let i = 0; i < uids.length; i++) {
+      const d = userSnaps[i].val() || {};
+      if (!d.birthday) continue;
+      const parts = d.birthday.split('-'); // YYYY-MM-DD
+      if (parts.length < 3) continue;
+      const dateThisYear = yr + '-' + parts[1] + '-' + parts[2];
+      const name = d.displayName || d.username || uids[i].slice(0, 8);
+      result.push({
+        id: 'bday_' + uids[i],
+        title: name + ' 🎂',
+        date: dateThisYear,
+        allDay: true,
+        _isBirthday: true,
+        _birthdayName: name,
+      });
+    }
+    return result;
+  } catch(e) {
+    console.warn('loadFriendBirthdays:', e);
+    return [];
+  }
+}
+
+function scheduleBirthdayNotifs(bdayEvs) {
+  _birthdayTimers.forEach(clearTimeout);
+  _birthdayTimers = [];
+  if (!bdayEvs.length) return;
+  const now      = new Date();
+  const todayStr = dateStr(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  for (const ev of bdayEvs) {
+    if (ev.date === todayStr) {
+      const key = 'bday_shown_' + ev.id + '_' + todayStr;
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        showNotif(ev._birthdayName + ' hat heute Geburtstag 🎂', '', '/');
+      }
+    }
+  }
+  // Re-run at midnight so birthdays are caught if the app stays open overnight
+  const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
+  _birthdayTimers.push(setTimeout(() => {
+    loadFriendBirthdays().then(evs => {
+      _calEvents = _calEvents.filter(e => !e._isBirthday).concat(evs);
+      if (_calView === 'cal') renderCalendar();
+      scheduleBirthdayNotifs(evs);
+    });
+  }, msToMidnight + 60000));
+}
 
 async function loadHome() {
   if (!me) return;
@@ -4069,6 +4176,14 @@ async function loadHome() {
     if (_calView === 'cal') renderCalendar();
 
     scheduleEventStartNotifs([...myEvs, ...pEvs]);
+
+    // Merge friend birthdays into calendar (async, non-blocking)
+    loadFriendBirthdays().then(bdayEvs => {
+      if (!bdayEvs.length) return;
+      _calEvents = _calEvents.filter(e => !e._isBirthday).concat(bdayEvs);
+      if (_calView === 'cal') renderCalendar();
+      scheduleBirthdayNotifs(bdayEvs);
+    });
 
     myEl.innerHTML = myEvs.length
       ? myEvs.map(ev => cardHTML(ev, false)).join('')
