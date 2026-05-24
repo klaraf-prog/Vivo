@@ -3465,7 +3465,7 @@ const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni',
                    'Juli','August','September','Oktober','November','Dezember'];
 const DOW_SHORT = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 
-let _calView    = 'list';
+let _calView    = localStorage.getItem('vivo_events_view') || 'list';
 let _calYear    = new Date().getFullYear();
 let _calMonth   = new Date().getMonth(); // 0-based
 let _calEvents  = [];   // flat list of all user events, refreshed by loadHome
@@ -3473,6 +3473,7 @@ let _calSelDate = null; // currently expanded date string 'YYYY-MM-DD'
 
 function setEventsView(mode) {
   _calView = mode;
+  localStorage.setItem('vivo_events_view', mode);
   document.getElementById('view-list-btn').classList.toggle('active', mode === 'list');
   document.getElementById('view-cal-btn').classList.toggle('active', mode === 'cal');
   document.getElementById('cal-view').classList.toggle('visible', mode === 'cal');
@@ -4215,6 +4216,7 @@ function scheduleBirthdayNotifs(bdayEvs) {
 async function loadHome() {
   if (!me) return;
   if (homeOff) { homeOff(); homeOff = null; }
+  setEventsView(_calView);
   loadFriends();
   loadSpaces();
 
