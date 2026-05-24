@@ -4132,12 +4132,18 @@ async function shareEventToSpaces(eventId, spaceIds, eventTitle, eventDatetime) 
   } catch(e) {
     console.warn('Space member fanout skipped:', e);
   }
-  // Write invitedUids for each space member individually so a rule failure
-  // on the fanout update doesn't silently drop these writes.
-  await Promise.all([...allSpaceMembers].map(uid =>
-    db.ref('events/' + eventId + '/invitedUids/' + uid).set(true)
-      .catch(e => console.warn('space invitedUids write failed for', uid, e))
-  ));
+  // Write spaceIds and invitedUids onto the event document individually.
+  // Kept outside the fanout try-catch so rule failures there don't drop them.
+  await Promise.all([
+    ...spaceIds.map(sid =>
+      db.ref('events/' + eventId + '/spaceIds/' + sid).set(true)
+        .catch(e => console.warn('spaceIds write failed for', sid, e))
+    ),
+    ...[...allSpaceMembers].map(uid =>
+      db.ref('events/' + eventId + '/invitedUids/' + uid).set(true)
+        .catch(e => console.warn('space invitedUids write failed for', uid, e))
+    ),
+  ]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -5336,10 +5342,19 @@ async function loadAndRenderInviteList(eventId, ev, isCreator) {
     // Start with directly-invited UIDs stored on the event doc.
     const allInvited = new Set(Object.keys(ev.invitedUids || {}));
 
-    // Also look up members of any spaces this event was shared to.
-    // We query via the current user's own spaces (they must be a member
-    // of the relevant space to see this event in the first place).
-    if (me) {
+    // Primary: event stores its own spaceIds — fetch members directly.
+    if (ev.spaceIds) {
+      await Promise.all(Object.keys(ev.spaceIds).map(async sid => {
+        try {
+          const mSnap = await db.ref('spaces/' + sid + '/members').once('value');
+          if (mSnap.val()) Object.keys(mSnap.val()).forEach(uid => allInvited.add(uid));
+        } catch(e) { console.warn('loadAndRenderInviteList: members read failed for space', sid, e); }
+      }));
+    }
+
+    // Fallback for events created before spaceIds was written: resolve via
+    // the current user's spaces → spaceEvents index (same logic as nudgeMembers).
+    if (me && !ev.spaceIds) {
       try {
         const mySpacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
         const mySpaceIds = mySpacesSnap.val() ? Object.keys(mySpacesSnap.val()) : [];
@@ -5349,11 +5364,13 @@ async function loadAndRenderInviteList(eventId, ev, isCreator) {
           );
           const matchIds = mySpaceIds.filter((_, i) => checks[i].exists());
           await Promise.all(matchIds.map(async sid => {
-            const mSnap = await db.ref('spaces/' + sid + '/members').once('value');
-            if (mSnap.val()) Object.keys(mSnap.val()).forEach(uid => allInvited.add(uid));
+            try {
+              const mSnap = await db.ref('spaces/' + sid + '/members').once('value');
+              if (mSnap.val()) Object.keys(mSnap.val()).forEach(uid => allInvited.add(uid));
+            } catch(e) { console.warn('loadAndRenderInviteList: fallback members read failed', sid, e); }
           }));
         }
-      } catch(e) { /* space lookup is best-effort */ }
+      } catch(e) { console.warn('loadAndRenderInviteList: userSpaces read failed', e); }
     }
 
     const invitedUids = [...allInvited];
