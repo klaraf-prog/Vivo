@@ -732,6 +732,10 @@
     }
     .prof-tab-name { font-size: 1.125rem; font-weight: 700; color: var(--text); }
     .prof-tab-uname { font-size: .875rem; color: var(--muted); margin-top: 2px; }
+    .prof-tab-info { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px; }
+    .prof-tab-info-row { font-size: .875rem; color: var(--text); display: flex; align-items: center; gap: 5px; }
+    .prof-tab-info-placeholder { font-size: .875rem; color: var(--amber); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; background: none; border: none; font-family: var(--sans); padding: 0; }
+    .prof-tab-info-hint { font-size: .75rem; color: var(--muted); margin-top: 4px; }
     .prof-tab-actions { display: flex; flex-direction: column; gap: 12px; }
 
     /* Space cards */
@@ -1246,6 +1250,7 @@
           <div class="prof-tab-av" id="profile-tab-av"></div>
           <div class="prof-tab-name" id="profile-tab-name"></div>
           <div class="prof-tab-uname" id="profile-tab-username"></div>
+          <div class="prof-tab-info" id="profile-tab-info"></div>
         </div>
         <div class="prof-tab-actions">
           <button class="btn btn-outline btn-full" onclick="openProfileScreen()">Profil bearbeiten</button>
@@ -3456,7 +3461,39 @@ async function renderProfileTab() {
     document.getElementById('profile-tab-username').textContent = _myUsername ? '@' + _myUsername : '';
     const shareBtn = document.getElementById('profile-tab-share');
     if (shareBtn) shareBtn.style.display = _myUsername ? '' : 'none';
+
+    // Birthday + location info block
+    const infoEl = document.getElementById('profile-tab-info');
+    if (infoEl) {
+      const bdayVal = d.birthday || '';
+      const locVal  = d.location || '';
+      let bdayHtml, locHtml;
+      if (bdayVal) {
+        const parts = bdayVal.split('-');
+        const fmt = parts.length === 3
+          ? parts[2] + '.' + parts[1] + '.' + parts[0]
+          : bdayVal;
+        bdayHtml = `<div class="prof-tab-info-row">🎂 ${esc(fmt)}</div>`;
+      } else {
+        bdayHtml = `<button class="prof-tab-info-placeholder" onclick="openProfileScreenFocus('birthday')">Geburtstag hinzufügen</button>`;
+      }
+      if (locVal) {
+        locHtml = `<div class="prof-tab-info-row">📍 ${esc(locVal)}</div>`;
+      } else {
+        locHtml = `<button class="prof-tab-info-placeholder" onclick="openProfileScreenFocus('location')">Standort hinzufügen</button>`;
+      }
+      const hasAny = bdayVal || locVal;
+      infoEl.innerHTML = bdayHtml + locHtml +
+        (hasAny ? '<div class="prof-tab-info-hint">Nur für deine Freunde sichtbar</div>' : '');
+    }
   } catch(e) {}
+}
+
+async function openProfileScreenFocus(field) {
+  await openProfileScreen();
+  const id = field === 'birthday' ? 'prof-birthday-inp' : 'prof-location-inp';
+  const el = document.getElementById(id);
+  if (el) { el.focus(); if (el.type !== 'date') el.select(); }
 }
 
 // ── Calendar view ─────────────────────────────────────────────────────────────
