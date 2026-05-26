@@ -955,8 +955,6 @@
     .rbtn.on.vielleicht { background: var(--amber-light); border-color: var(--amber-light); color: var(--text); }
     .rbtn.on.nein       { background: #F5F3EF;            border-color: #EDE8E0;            color: var(--muted); }
 
-    .rsvp-name { display: none; }
-    .rsvp-name.open { display: flex; flex-direction: column; gap: 10px; }
 
     /* Calendar buttons */
     .cal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1816,14 +1814,14 @@
 <div class="overlay" id="signup-sheet" onclick="closeSignupSheet(event)">
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="upsell-head">
-      <div class="upsell-icon">🗓️</div>
-      <div class="upsell-title">Möchtest du deine Events im Überblick behalten?</div>
-      <p class="upsell-sub">Erstell dir kostenlos einen Account – dieses Event erscheint dann sofort in deinem Dashboard.</p>
+      <div class="upsell-icon">🎉</div>
+      <div class="upsell-title">Jetzt registrieren, um eine Rückmeldung zu geben</div>
+      <p class="upsell-sub">Mit einem kostenlosen Account kannst du zusagen, absagen oder Vielleicht angeben – und behältst alle deine Events im Überblick.</p>
     </div>
     <button class="btn btn-primary btn-full" onclick="goToRegister()">
-      Jetzt kostenlosen Account erstellen &nbsp;→
+      Jetzt kostenlos registrieren &nbsp;→
     </button>
-    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="closeSignupSheet()">Nein danke</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="closeSignupSheet()">Abbrechen</button>
   </div>
 </div>
 
@@ -2262,7 +2260,6 @@ let _editEventId = null;
 let _pollEnabled = false;
 let _pollOptions = []; // [{date:'', time:''}]
 let evUnsubscribe = null; // real-time event listener cleanup
-let _pendingRsvp      = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
 let _pendingConnect   = null;  // { theirUid, theirUsername, theirName } – set before login
 let _pendingSpaceJoin = null;  // { spaceId, spaceName } – set before login when joining via link
 let _myUsername       = null;  // cached username from DB
@@ -2652,17 +2649,6 @@ auth.onAuthStateChanged(async user => {
         _isNewUser = true; // first-time Google sign-in → show onboarding
       }
     } catch(e) { console.warn('users node init:', e); }
-  }
-
-  // Auto-link a pending guest RSVP to the newly created account
-  if (user && _pendingRsvp) {
-    const { eventId, rsvpKey, status } = _pendingRsvp;
-    _pendingRsvp = null;
-    try {
-      await db.ref('events/' + eventId + '/rsvps/' + rsvpKey).update({ userId: user.uid });
-      await db.ref('userEvents/' + user.uid + '/' + eventId).set(status);
-      toast(t('toast_going') + ' Event ist jetzt in deinem Dashboard!');
-    } catch(e) { console.error('RSVP link error:', e); }
   }
 
   // Auto-connect a pending profile connection after login/register
@@ -5278,21 +5264,10 @@ function renderEv(ev, body) {
       <div class="ev-sec-title">${t('rsvp_your_answer')}</div>
       <div class="rsvp-box">
         <div class="rsvp-btns">
-          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>${t('status_dabei')}</button>
-          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>${t('status_vielleicht')}</button>
-          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>${t('status_nein')}</button>
+          <button class="rbtn dabei"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>${t('status_dabei')}</button>
+          <button class="rbtn vielleicht" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>${t('status_vielleicht')}</button>
+          <button class="rbtn nein"       onclick="pickRsvp('nein')">        <span class="ri">✗</span>${t('status_nein')}</button>
         </div>
-        <div class="rsvp-name" id="rsvp-name">
-          <div class="field">
-            <label>${t('rsvp_your_name')}</label>
-            <input type="text" id="rsvp-inp" placeholder="${t('rsvp_name_placeholder')}">
-          </div>
-          <textarea id="rsvp-note-inp" rows="2"
-            placeholder="${t('rsvp_note_placeholder')}"
-            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:.875rem;color:var(--text);resize:vertical;background:#fff"></textarea>
-          <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">${t('rsvp_send')}</button>
-        </div>
-        ${myStatus ? `<p class="rsvp-hint">${t('rsvp_change_hint')}</p>` : ''}
       </div>
     </div>`;
 
@@ -5499,8 +5474,7 @@ async function pickRsvp(status) {
   if (me) {
     await submitRsvp(window._ev.id);
   } else {
-    const ns = document.getElementById('rsvp-name');
-    if (ns) ns.classList.add('open');
+    showSignupUpsell();
   }
 }
 
@@ -5508,14 +5482,8 @@ async function submitRsvp(eventId) {
   const status = _rsvpStatus; // capture before async work — renderEv can reset _rsvpStatus mid-flight
   if (!status) { toast(t('toast_rsvp_choose')); return; }
 
-  let name;
-  if (me) {
-    name = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
-  } else {
-    const inp = document.getElementById('rsvp-inp');
-    name = inp ? inp.value.trim() : '';
-    if (!name) { toast(t('toast_name_required')); if(inp) inp.focus(); return; }
-  }
+  if (!me) return;
+  const name = me.displayName || (me.email ? me.email.split('@')[0] : 'Du');
 
   const btn = document.querySelector('.rsvp-box .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -5533,11 +5501,9 @@ async function submitRsvp(eventId) {
 
     const noteEl = document.getElementById('rsvp-note-inp');
     const note = noteEl ? noteEl.value.trim() : '';
-    const rsvp = { name, status, ts: Date.now() };
-    if (me) rsvp.userId = me.uid;
+    const rsvp = { name, status, ts: Date.now(), userId: me.uid };
     if (note) rsvp.note = note;
-    const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
-    const rsvpKey = newRef.key;
+    await db.ref('events/' + eventId + '/rsvps').push(rsvp);
 
     if (me) {
       await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
@@ -5563,17 +5529,8 @@ async function submitRsvp(eventId) {
       } catch(e) { /* non-critical */ }
     }
 
-    const ns = document.getElementById('rsvp-name');
-    if (ns) ns.classList.remove('open');
-
-    if (!me) {
-      _pendingRsvp = { eventId, rsvpKey, status, name };
-      toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined_guest') }[status]);
-      setTimeout(showSignupUpsell, 700);
-    } else {
-      trackActivity();
-      toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined') }[status]);
-    }
+    trackActivity();
+    toast({ dabei: t('toast_going'), vielleicht: t('toast_maybe'), nein: t('toast_declined') }[status]);
   } catch(err) {
     console.error('submitRsvp:', err);
     toast(t('toast_rsvp_error'));
