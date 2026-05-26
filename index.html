@@ -1005,6 +1005,10 @@
     .ob-foot { position: fixed; bottom: 0; left: 0; right: 0; padding: 14px 24px 32px; background: #fff; border-top: 1px solid var(--border); z-index: 10; }
     .ob-foot .inner { max-width: var(--max); margin: 0 auto; }
     .ob-skip { background: none; border: none; font-family: var(--sans); font-size: .9rem; color: var(--muted); cursor: pointer; margin-top: 10px; width: 100%; text-align: center; padding: 6px; display: block; }
+    .username-at-wrap { display: flex; align-items: center; border: 1.5px solid var(--border); border-radius: var(--r-sm); background: #fff; overflow: hidden; transition: border-color .15s; }
+    .username-at-wrap:focus-within { border-color: var(--amber); }
+    .username-at-prefix { padding: 0 2px 0 12px; color: var(--muted); font-size: 1rem; line-height: 1; user-select: none; flex-shrink: 0; }
+    .username-at-wrap input { border: none; background: none; flex: 1; padding: 12px 12px 12px 2px; outline: none; font-size: 1rem; font-family: var(--sans); color: var(--text); min-width: 0; }
   </style>
 </head>
 <body>
@@ -1085,24 +1089,29 @@
       <div class="field">
         <label>Anzeigename <span style="color:var(--pink)">*</span></label>
         <input type="text" id="ob-name" autocomplete="name" placeholder="z.B. Klara F"
-          oninput="obCheckStep1()">
+          oninput="obNameInput(this)">
         <span class="ob-field-note">Dein echter Name — so erscheinst du für andere.</span>
       </div>
       <div class="field">
-        <label>@Handle <span style="color:var(--pink)">*</span></label>
-        <input type="text" id="ob-handle" autocomplete="username" autocapitalize="none"
-          spellcheck="false" placeholder="z.B. klara" oninput="obHandleInput(this)">
+        <label>Benutzername <span style="color:var(--pink)">*</span></label>
+        <div class="username-at-wrap">
+          <span class="username-at-prefix">@</span>
+          <input type="text" id="ob-handle" autocomplete="username" autocapitalize="none"
+            spellcheck="false" placeholder="z.B. klara" oninput="obHandleInput(this)">
+        </div>
         <span class="username-hint" id="ob-handle-hint"></span>
         <span class="ob-field-note">Dein einzigartiger Link — damit können Freunde dich finden.</span>
       </div>
-      <div class="field">
-        <label>Standort <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
-        <input type="text" id="ob-location" placeholder="z.B. Berlin">
-      </div>
-      <div class="field">
-        <label>Geburtstag <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
-        <input type="date" id="ob-birthday">
-        <span class="ob-field-note">Deine Freunde werden am Geburtstag benachrichtigt 🎂</span>
+      <div id="ob-optional-fields">
+        <div class="field">
+          <label>Standort <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
+          <input type="text" id="ob-location" placeholder="z.B. Berlin">
+        </div>
+        <div class="field">
+          <label>Geburtstag <span style="color:var(--muted);font-weight:400;font-size:.85em">(optional)</span></label>
+          <input type="date" id="ob-birthday">
+          <span class="ob-field-note">Deine Freunde werden am Geburtstag benachrichtigt 🎂</span>
+        </div>
       </div>
     </div>
 
@@ -3078,21 +3087,30 @@ async function saveProfile() {
 // ONBOARDING
 // ─────────────────────────────────────────────────────────────────────────────
 let _isNewUser   = false;
-let _obStep      = 1;
-let _obHandleOk  = false;
+let _obStep            = 1;
+let _obHandleOk        = false;
+let _obFromEvent       = false;
+let _obHandleUserEdited = false;
 
 function showOnboarding() {
-  _obStep     = 1;
-  _obHandleOk = false;
+  _obStep            = 1;
+  _obHandleOk        = false;
+  _obHandleUserEdited = false;
+  _obFromEvent       = route().screen === 'event';
   const nameInp = document.getElementById('ob-name');
-  if (nameInp && me) nameInp.value = me.displayName || '';
+  const prefilled = me && me.displayName ? me.displayName : '';
+  if (nameInp) nameInp.value = prefilled;
   document.getElementById('ob-handle').value   = '';
   document.getElementById('ob-location').value = '';
   document.getElementById('ob-birthday').value = '';
   document.getElementById('ob-handle-hint').textContent = '';
   document.getElementById('ob-handle-hint').className   = 'username-hint';
+  const optFields = document.getElementById('ob-optional-fields');
+  if (optFields) optFields.style.display = _obFromEvent ? 'none' : '';
   obSetStep(1);
   showScreen('onboarding');
+  // Auto-suggest username from pre-filled name (e.g. Google sign-in)
+  if (prefilled) obSuggestHandle(prefilled);
 }
 
 function obSetStep(n) {
@@ -3131,7 +3149,28 @@ function obSetStep(n) {
   }
 }
 
+function obNameInput(el) {
+  obCheckStep1();
+  if (!_obHandleUserEdited) obSuggestHandle(el.value);
+}
+
+function obSuggestHandle(name) {
+  const handleEl = document.getElementById('ob-handle');
+  if (!handleEl) return;
+  const suggested = name.toLowerCase()
+    .normalize('NFD').replace(/\p{Mn}/gu, '')
+    .replace(/[^a-z0-9_]/g, '');
+  if (!suggested) return;
+  handleEl.value = suggested;
+  obHandleValidate(handleEl);
+}
+
 function obHandleInput(el) {
+  _obHandleUserEdited = true;
+  obHandleValidate(el);
+}
+
+function obHandleValidate(el) {
   const raw = el.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
   el.value   = raw;
   _obHandleOk = false;
@@ -3168,8 +3207,8 @@ async function obNext() {
 async function obSaveProfile() {
   const name     = document.getElementById('ob-name').value.trim();
   const handle   = document.getElementById('ob-handle').value.trim();
-  const loc      = document.getElementById('ob-location').value.trim();
-  const birthday = document.getElementById('ob-birthday').value || null;
+  const loc      = _obFromEvent ? '' : document.getElementById('ob-location').value.trim();
+  const birthday = _obFromEvent ? null : (document.getElementById('ob-birthday').value || null);
   const btn    = document.getElementById('ob-next-btn');
   btn.disabled = true; btn.textContent = 'Speichern…';
   try {
@@ -3190,11 +3229,19 @@ async function obSaveProfile() {
     batch['users/' + me.uid + '/username']    = handle;
     batch['users/' + me.uid + '/location']    = loc || null;
     batch['users/' + me.uid + '/birthday']    = birthday;
+    if (_obFromEvent) batch['users/' + me.uid + '/onboardingComplete'] = true;
     batch['usernames/' + handle]              = me.uid;
     await db.ref().update(batch);
     _myUsername = handle;
     setAvatar(me);
-    obSetStep(2);
+    if (_obFromEvent) {
+      // Skip push & welcome screens — route back to the event
+      const r = route();
+      if (r.screen === 'event') { loadEventScreen(r.id); showScreen('event'); }
+      else { showScreen('home'); loadHome(); }
+    } else {
+      obSetStep(2);
+    }
   } catch(err) {
     toast('Fehler: ' + (err.message || 'unbekannt'));
     btn.disabled = false; btn.textContent = 'Weiter';
