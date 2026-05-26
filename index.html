@@ -2646,7 +2646,9 @@ auth.onAuthStateChanged(async user => {
   me = user;
   document.getElementById('loading').style.display = 'none';
 
-  // Ensure Google (and any OAuth) users have a /users entry on first login
+  // Ensure Google (and any OAuth) users have a /users entry on first login.
+  // Also flags any account that is missing a username so onboarding is forced.
+  let _needsOnboarding = false;
   if (user) {
     try {
       const userSnap = await db.ref('users/' + user.uid).once('value');
@@ -2655,7 +2657,9 @@ auth.onAuthStateChanged(async user => {
           displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'User'),
           createdAt: Date.now(),
         });
-        _isNewUser = true; // first-time Google sign-in → show onboarding
+        _needsOnboarding = true;
+      } else if (!userSnap.val().username) {
+        _needsOnboarding = true; // account exists but has no username yet
       }
     } catch(e) { console.warn('users node init:', e); }
   }
@@ -2702,14 +2706,13 @@ auth.onAuthStateChanged(async user => {
   }
 
   const r = route();
-  if (user && _isNewUser) {
+  if (document.getElementById('screen-onboarding').classList.contains('active')) {
+    // Onboarding in progress — ignore all spurious auth-state changes until
+    // obSaveProfile completes and routes the user itself.
+  } else if (user && (_isNewUser || _needsOnboarding)) {
     _isNewUser = false;
     setAvatar(user);
     showOnboarding();
-  } else if (document.getElementById('screen-onboarding').classList.contains('active')) {
-    // Spurious auth-state change while onboarding is in progress
-    // (e.g. updateProfile() in handleAuth fires a second onAuthStateChanged).
-    // Do not re-route — let onboarding complete and redirect itself.
   } else if (r.screen === 'event') {
     loadEventScreen(r.id);
     showScreen('event');
@@ -2721,19 +2724,16 @@ auth.onAuthStateChanged(async user => {
     showScreen('pub-space');
   } else if (user) {
     setAvatar(user);
-    if (_isNewUser) {
-      _isNewUser = false;
-      showOnboarding();
-    } else {
-      showScreen('home');
-      loadHome();
-    }
+    showScreen('home');
+    loadHome();
   } else {
     showScreen('login');
   }
 });
 
 window.addEventListener('hashchange', () => {
+  // Never navigate away while the user is in the middle of onboarding.
+  if (document.getElementById('screen-onboarding').classList.contains('active')) return;
   const r = route();
   if (r.screen === 'event') {
     loadEventScreen(r.id);
