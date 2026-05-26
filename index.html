@@ -2706,6 +2706,10 @@ auth.onAuthStateChanged(async user => {
     _isNewUser = false;
     setAvatar(user);
     showOnboarding();
+  } else if (document.getElementById('screen-onboarding').classList.contains('active')) {
+    // Spurious auth-state change while onboarding is in progress
+    // (e.g. updateProfile() in handleAuth fires a second onAuthStateChanged).
+    // Do not re-route — let onboarding complete and redirect itself.
   } else if (r.screen === 'event') {
     loadEventScreen(r.id);
     showScreen('event');
