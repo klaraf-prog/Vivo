@@ -2702,7 +2702,11 @@ auth.onAuthStateChanged(async user => {
   }
 
   const r = route();
-  if (r.screen === 'event') {
+  if (user && _isNewUser) {
+    _isNewUser = false;
+    setAvatar(user);
+    showOnboarding();
+  } else if (r.screen === 'event') {
     loadEventScreen(r.id);
     showScreen('event');
   } else if (r.screen === 'pub-profile') {
