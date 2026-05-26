@@ -2786,11 +2786,9 @@ async function handleAuth(e) {
         btn.disabled = false; btn.textContent = t('register_btn');
         return;
       }
+      _pendingDisplayName = name; // carried to showOnboarding for pre-fill; updateProfile done in obSaveProfile
       _isNewUser = true;
-      const c = await auth.createUserWithEmailAndPassword(email, pw);
-      await c.user.updateProfile({ displayName: name });
-      // Mirror name to DB so friends lists and space chips show it immediately
-      await db.ref('users/' + c.user.uid + '/displayName').set(name);
+      await auth.createUserWithEmailAndPassword(email, pw);
     }
   } catch (err) {
     _isNewUser = false;
@@ -3095,6 +3093,7 @@ async function saveProfile() {
 // ONBOARDING
 // ─────────────────────────────────────────────────────────────────────────────
 let _isNewUser   = false;
+let _pendingDisplayName = '';
 let _obStep            = 1;
 let _obHandleOk        = false;
 let _obFromEvent       = false;
@@ -3106,7 +3105,8 @@ function showOnboarding() {
   _obHandleUserEdited = false;
   _obFromEvent       = route().screen === 'event';
   const nameInp = document.getElementById('ob-name');
-  const prefilled = me && me.displayName ? me.displayName : '';
+  const prefilled = _pendingDisplayName || (me && me.displayName ? me.displayName : '');
+  _pendingDisplayName = '';
   if (nameInp) nameInp.value = prefilled;
   document.getElementById('ob-handle').value   = '';
   document.getElementById('ob-location').value = '';
