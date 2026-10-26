@@ -1,4 +1,4 @@
-const { initAdmin, verifyStudioToken, json, makeId } = require('./_studio-shared');
+const { initAdmin, verifyStudioToken, json } = require('./_studio-shared');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });
@@ -28,8 +28,8 @@ exports.handler = async (event) => {
   }
 
   const now = Date.now();
-  const activityId = makeId('act');
-  const logId = makeId('log');
+  const activityId = 'act_' + suggestionId;
+  const logId = 'log_approve_' + suggestionId;
 
   const activity = {
     title: sug.title,

@@ -122,21 +122,56 @@ describe('studio-approve', () => {
     expect(db._mockUpdate).not.toHaveBeenCalled();
   });
 
-  test('8. returns 200, creates activity, updates suggestion, writes audit log', async () => {
+  test('8. returns 200, creates activity with deterministic IDs, updates suggestion, writes audit log', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
     const db = makeDbMock(submitted);
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await approveHandler(post({ suggestionId: 'sug1', notes: 'Looks good' }));
     expect(res.statusCode).toBe(200);
-    expect(parseBody(res).activityId).toBe('act_test_id');
+    // Deterministic: activityId = 'act_' + suggestionId
+    expect(parseBody(res).activityId).toBe('act_sug1');
     expect(db._mockUpdate).toHaveBeenCalledTimes(1);
     const updateArg = db._mockUpdate.mock.calls[0][0];
-    expect(updateArg['activities/act_test_id']).toBeDefined();
-    expect(updateArg['activities/act_test_id'].status).toBe('active');
+    expect(updateArg['activities/act_sug1']).toBeDefined();
+    expect(updateArg['activities/act_sug1'].status).toBe('active');
     expect(updateArg['suggestions/sug1/status']).toBe('approved');
-    expect(updateArg['suggestions/sug1/activityId']).toBe('act_test_id');
-    expect(updateArg['studioAuditLog/log_test_id']).toBeDefined();
-    expect(updateArg['studioAuditLog/log_test_id'].action).toBe('approve');
+    expect(updateArg['suggestions/sug1/activityId']).toBe('act_sug1');
+    // Deterministic log ID: 'log_approve_' + suggestionId
+    expect(updateArg['studioAuditLog/log_approve_sug1']).toBeDefined();
+    expect(updateArg['studioAuditLog/log_approve_sug1'].action).toBe('approve');
+  });
+
+  test('8b. parallel approvals for same suggestion produce identical write payloads (race-safe)', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    // Both concurrent reads return the same submitted state (no activityId yet)
+    const db1 = makeDbMock(submitted);
+    const db2 = makeDbMock(submitted);
+    mockInitAdmin
+      .mockReturnValueOnce({ database: () => db1 })
+      .mockReturnValueOnce({ database: () => db2 });
+
+    const [res1, res2] = await Promise.all([
+      approveHandler(post({ suggestionId: 'sug_parallel' })),
+      approveHandler(post({ suggestionId: 'sug_parallel' })),
+    ]);
+
+    expect(res1.statusCode).toBe(200);
+    expect(res2.statusCode).toBe(200);
+
+    const body1 = parseBody(res1);
+    const body2 = parseBody(res2);
+    // Both must return the same deterministic activityId
+    expect(body1.activityId).toBe('act_sug_parallel');
+    expect(body2.activityId).toBe('act_sug_parallel');
+
+    // Both write calls use the same paths — RTDB last-write-wins on identical keys = idempotent
+    const arg1 = db1._mockUpdate.mock.calls[0][0];
+    const arg2 = db2._mockUpdate.mock.calls[0][0];
+    expect(Object.keys(arg1)).toEqual(Object.keys(arg2));
+    expect(arg1['activities/act_sug_parallel'].suggestionId).toBe('sug_parallel');
+    expect(arg2['activities/act_sug_parallel'].suggestionId).toBe('sug_parallel');
+    expect(arg1['studioAuditLog/log_approve_sug_parallel']).toBeDefined();
+    expect(arg2['studioAuditLog/log_approve_sug_parallel']).toBeDefined();
   });
 });
 
