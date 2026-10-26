@@ -32,10 +32,15 @@ const fs     = require('fs');
 const ROOT   = path.join(__dirname, '..');
 const isWin  = process.platform === 'win32';
 
+// node_modules/.bin auf PATH setzen, damit resolveBin und Kindprozesse
+// die lokal installierten CLIs ohne expliziten Pfad finden.
+const localBin = path.join(ROOT, 'node_modules', '.bin');
+process.env.PATH = localBin + path.delimiter + (process.env.PATH || '');
+
 // Auf Windows CLI-Tools als .cmd ausführen
 const cli = name => (isWin ? `${name}.cmd` : name);
 
-// Findet ein CLI-Tool: erst global, dann ./node_modules/.bin/ (Codespaces)
+// Findet ein CLI-Tool: erst global / über PATH, dann ./node_modules/.bin/
 function resolveBin(name) {
   const ext = isWin ? '.cmd' : '';
   const r = spawnSync(name + ext, ['--version'], { encoding: 'utf8', shell: isWin });
@@ -68,6 +73,19 @@ function checkPrereqs() {
   separator();
   console.log(bold('Someday Studio — Lokaler Teststart'));
   separator();
+
+  // Wenn node_modules fehlt oder firebase nicht gefunden wird, automatisch
+  // npm install ausführen. Passiert nach einem frischen Rebuild, bei dem
+  // postCreateCommand nicht gelaufen oder fehlgeschlagen ist.
+  const firebaseLocal = path.join(ROOT, 'node_modules', '.bin', isWin ? 'firebase.cmd' : 'firebase');
+  if (!fs.existsSync(firebaseLocal)) {
+    console.log('  node_modules fehlt oder unvollständig — führe npm install aus …');
+    const install = spawnSync('npm', ['install', '--include=dev'], { cwd: ROOT, stdio: 'inherit', shell: isWin });
+    if (install.status !== 0) {
+      abort('npm install fehlgeschlagen. Bitte manuell ausführen: npm install --include=dev');
+    }
+    ok('npm install abgeschlossen');
+  }
 
   const tools = [
     {

@@ -1,43 +1,33 @@
 {
   "name": "Someday Studio",
 
-  // Node.js 22 LTS image — provides node, npm, nvm, yarn, git.
-  // Java 21 is added via the feature below; Firebase emulators require it.
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
-
-  "features": {
-    // Eclipse Temurin JDK 21 (LTS) — required by Firebase Auth + RTDB emulators.
-    "ghcr.io/devcontainers/features/java:1": {
-      "version": "21",
-      "jdkDistro": "ms"
-    }
+  // Custom image: Node.js 22 LTS + Java 21 JRE (for Firebase emulators).
+  // Built from .devcontainer/Dockerfile — no external feature registries needed.
+  "build": {
+    "dockerfile": "Dockerfile"
   },
 
-  // 1. Install project dependencies (firebase-admin, etc.) and devDependencies
-  //    (firebase-tools, netlify-cli, jest) from package.json.
-  // 2. Symlink firebase and netlify binaries to /usr/local/bin so they are
-  //    usable from the terminal without a path prefix.
-  "postCreateCommand": "npm install --include=dev && sudo ln -sf \"$(pwd)/node_modules/.bin/firebase\" /usr/local/bin/firebase && sudo ln -sf \"$(pwd)/node_modules/.bin/netlify\" /usr/local/bin/netlify",
+  // Installs firebase-tools, netlify-cli, firebase-admin, jest from package.json.
+  // --include=dev ensures devDependencies are installed regardless of NODE_ENV.
+  "postCreateCommand": "npm install --include=dev",
 
   // Ports forwarded automatically by Codespaces — all private.
   "forwardPorts": [8888, 9099, 9000],
 
   "portsAttributes": {
     "8888": {
-      // Studio UI served by Netlify Dev. Auth requests go to
-      // /.netlify/functions/studio-auth (server-side, no proxy needed).
+      // Studio UI served by Netlify Dev.
+      // Auth goes to /.netlify/functions/studio-auth (server-side, no proxy).
       "label": "Studio UI (netlify dev)",
       "onAutoForward": "notify"
     },
     "9099": {
-      // Firebase Auth Emulator — private, never exposed to browser directly.
-      // Accessed server-side by the studio-auth Netlify function.
+      // Firebase Auth Emulator — private, accessed server-side only.
       "label": "Firebase Auth Emulator",
       "onAutoForward": "silent"
     },
     "9000": {
-      // Firebase RTDB Emulator — private, never exposed to browser directly.
-      // Accessed server-side by the studio-data Netlify function.
+      // Firebase RTDB Emulator — private, accessed server-side only.
       "label": "Firebase RTDB Emulator",
       "onAutoForward": "silent"
     }
