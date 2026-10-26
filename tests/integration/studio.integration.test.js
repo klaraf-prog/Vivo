@@ -34,16 +34,16 @@ beforeAll(async () => {
   // Use a dummy service account JSON; the emulator ignores credentials
   process.env.FIREBASE_SERVICE_ACCOUNT_JSON = JSON.stringify({
     type: 'service_account',
-    project_id: 'vivo-test',
+    project_id: 'demo-vivo-test',
     private_key_id: 'test',
     private_key: require('crypto').generateKeyPairSync('rsa', { modulusLength: 2048 })
       .privateKey.export({ type: 'pkcs8', format: 'pem' }),
-    client_email: 'test@vivo-test.iam.gserviceaccount.com',
+    client_email: 'test@demo-vivo-test.iam.gserviceaccount.com',
     client_id: '123456789',
     auth_uri: 'https://accounts.google.com/o/oauth2/auth',
     token_uri: 'https://oauth2.googleapis.com/token',
   });
-  process.env.FIREBASE_RTDB_URL = `http://localhost:9000/?ns=vivo-test`;
+  process.env.FIREBASE_RTDB_URL = `http://127.0.0.1:9000/?ns=demo-vivo-test`;
   process.env.STUDIO_RESEARCHER_KEY = 'integration_test_key';
 
   // Reset singleton in _studio-shared so it picks up emulator env
@@ -53,6 +53,7 @@ beforeAll(async () => {
   app = admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)),
     databaseURL: process.env.FIREBASE_RTDB_URL,
+    projectId: 'demo-vivo-test',
   }, 'integration-test-' + Date.now());
 
   db = app.database();
@@ -84,7 +85,9 @@ async function getIdToken(uid) {
   const customToken = await auth.createCustomToken(uid);
 
   // Exchange custom token for ID token via the emulator's REST endpoint
-  const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099';
+  const rawHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+  // Emulator binds on 127.0.0.1; strip any IPv6 bracket notation just in case
+  const authHost = rawHost.replace(/^\[?::1\]?/, '127.0.0.1');
   const url = `http://${authHost}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=fake-api-key`;
   const res = await fetch(url, {
     method: 'POST',
@@ -301,6 +304,76 @@ describe('Integration: studio-reject', () => {
       reason: 'Again',
     }));
     expect(res.statusCode).toBe(409);
+  });
+});
+
+describe('Integration: approve+reject sequential conflict protection', () => {
+  // Note: True parallel approve+reject races require RTDB transactions, which the
+  // Firebase RTDB emulator does not support via the Admin SDK. These tests verify
+  // the sequential conflict guards that protect against the most common case
+  // (approve finishes, then reject is attempted).
+  // The parallel race is a documented residual risk in production.
+
+  test('approve then reject: reject returns 409 (activityId guard)', async () => {
+    const editor = await createUser('editor3@integration.test', 'editor');
+    const token = await getIdToken(editor.uid);
+
+    const submitRes = await submitHandler({
+      httpMethod: 'POST',
+      headers: { 'x-studio-key': 'integration_test_key' },
+      body: JSON.stringify({
+        title: 'Conflict Test Activity',
+        description: 'Approve then try reject',
+        category: 'sport',
+        city: 'Berlin',
+      }),
+    });
+    const sugId = parseBody(submitRes).suggestionId;
+
+    // Approve succeeds
+    const approveRes = await approveHandler(post(token, { suggestionId: sugId }));
+    expect(approveRes.statusCode).toBe(200);
+
+    // Subsequent reject must fail because activityId is now set
+    const rejectRes = await rejectHandler(post(token, { suggestionId: sugId, reason: 'too late' }));
+    expect(rejectRes.statusCode).toBe(409);
+    expect(parseBody(rejectRes).error).toMatch(/already approved/);
+
+    // Activity must still exist and suggestion must be approved
+    const actSnap = await db.ref(`activities/act_${sugId}`).once('value');
+    expect(actSnap.exists()).toBe(true);
+    const sugSnap = await db.ref(`suggestions/${sugId}`).once('value');
+    expect(sugSnap.val().status).toBe('approved');
+  });
+
+  test('reject then approve: approve returns 409 (status check)', async () => {
+    const editor = await createUser('editor4@integration.test', 'editor');
+    const token = await getIdToken(editor.uid);
+
+    const submitRes = await submitHandler({
+      httpMethod: 'POST',
+      headers: { 'x-studio-key': 'integration_test_key' },
+      body: JSON.stringify({
+        title: 'Reject First Activity',
+        description: 'Reject then try approve',
+        category: 'kreativ',
+        city: 'München',
+      }),
+    });
+    const sugId = parseBody(submitRes).suggestionId;
+
+    // Reject succeeds
+    const rejectRes = await rejectHandler(post(token, { suggestionId: sugId, reason: 'not good' }));
+    expect(rejectRes.statusCode).toBe(200);
+
+    // Subsequent approve must fail because status is 'rejected'
+    const approveRes = await approveHandler(post(token, { suggestionId: sugId }));
+    expect(approveRes.statusCode).toBe(409);
+    expect(parseBody(approveRes).error).toMatch(/rejected/);
+
+    // No activity should have been created
+    const actSnap = await db.ref(`activities/act_${sugId}`).once('value');
+    expect(actSnap.exists()).toBe(false);
   });
 });
 

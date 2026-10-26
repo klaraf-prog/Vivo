@@ -18,6 +18,14 @@ exports.handler = async (event) => {
   if (!sugSnap.exists()) return json(404, { error: 'Suggestion not found' });
 
   const sug = sugSnap.val();
+
+  // Guard: if approve already ran (activityId set), refuse to reject to prevent
+  // inconsistent state. This protects against sequential conflicts; a true parallel
+  // approve+reject race is a documented residual risk (requires RTDB transactions).
+  if (sug.activityId) {
+    return json(409, { error: 'Cannot reject: suggestion was already approved' });
+  }
+
   if (!['submitted', 'draft'].includes(sug.status)) {
     return json(409, { error: `Cannot reject suggestion with status: ${sug.status}` });
   }

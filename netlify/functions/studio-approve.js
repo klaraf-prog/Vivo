@@ -19,42 +19,44 @@ exports.handler = async (event) => {
 
   const sug = sugSnap.val();
 
-  if (sug.status !== 'submitted') {
-    return json(409, { error: `Cannot approve suggestion with status: ${sug.status}` });
-  }
-
+  // Idempotency check: if an activityId is already set (by a prior or concurrent approve),
+  // return the existing result without writing again.
   if (sug.activityId) {
     return json(200, { activityId: sug.activityId, idempotent: true });
   }
 
+  if (sug.status !== 'submitted') {
+    return json(409, { error: `Cannot approve suggestion with status: ${sug.status}` });
+  }
+
   const now = Date.now();
+  // Deterministic IDs derived from suggestionId: parallel requests write identical data
+  // to identical paths, making concurrent approves idempotent via RTDB last-write-wins.
   const activityId = 'act_' + suggestionId;
   const logId = 'log_approve_' + suggestionId;
 
-  const activity = {
-    title: sug.title,
-    description: sug.description,
-    category: sug.category,
-    city: sug.city,
-    district: sug.district || null,
-    location: sug.location || null,
-    providerId: sug.providerId || null,
-    providerName: sug.providerName || null,
-    website: sug.website || null,
-    instagram: sug.instagram || null,
-    price: sug.price || null,
-    schedule: sug.schedule || null,
-    bookingUrl: sug.bookingUrl || null,
-    imageUrls: sug.imageUrls || null,
-    suggestionId,
-    publishedAt: now,
-    publishedBy: actor.uid,
-    status: 'active',
-    updatedAt: now,
-  };
-
   await db.ref().update({
-    [`activities/${activityId}`]: activity,
+    [`activities/${activityId}`]: {
+      title: sug.title,
+      description: sug.description,
+      category: sug.category,
+      city: sug.city,
+      district: sug.district || null,
+      location: sug.location || null,
+      providerId: sug.providerId || null,
+      providerName: sug.providerName || null,
+      website: sug.website || null,
+      instagram: sug.instagram || null,
+      price: sug.price || null,
+      schedule: sug.schedule || null,
+      bookingUrl: sug.bookingUrl || null,
+      imageUrls: sug.imageUrls || null,
+      suggestionId,
+      publishedAt: now,
+      publishedBy: actor.uid,
+      status: 'active',
+      updatedAt: now,
+    },
     [`suggestions/${suggestionId}/status`]: 'approved',
     [`suggestions/${suggestionId}/activityId`]: activityId,
     [`suggestions/${suggestionId}/reviewedBy`]: actor.uid,

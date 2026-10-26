@@ -78,7 +78,7 @@ describe('studio-approve', () => {
   });
 
   test('3. returns 403 when researcher role (not allowed)', async () => {
-    mockVerifyStudioToken.mockResolvedValue(null); // researcher not in allowedRoles
+    mockVerifyStudioToken.mockResolvedValue(null);
     const res = await approveHandler(post({ suggestionId: 'sug1' }));
     expect(res.statusCode).toBe(403);
   });
@@ -94,31 +94,42 @@ describe('studio-approve', () => {
 
   test('5. returns 409 when status is draft (not submitted)', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
-    const db = makeDbMock({ ...submitted, status: 'draft' });
+    const db = makeDbMock({ ...submitted, status: 'draft', activityId: null });
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await approveHandler(post({ suggestionId: 'sug1' }));
     expect(res.statusCode).toBe(409);
     expect(parseBody(res).error).toMatch(/draft/);
   });
 
-  test('6. returns 409 when status is already approved (no activityId)', async () => {
+  test('6. returns 409 when status is rejected (no activityId)', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
-    const db = makeDbMock({ ...submitted, status: 'approved', activityId: null });
+    const db = makeDbMock({ ...submitted, status: 'rejected', activityId: null });
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await approveHandler(post({ suggestionId: 'sug1' }));
     expect(res.statusCode).toBe(409);
   });
 
-  test('7. returns 200 idempotent when activityId already set', async () => {
+  test('7a. returns 200 idempotent when activityId already set (status: submitted)', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
-    const db = makeDbMock({ ...submitted, status: 'submitted', activityId: 'act_existing' });
+    const db = makeDbMock({ ...submitted, status: 'submitted', activityId: 'act_sug1' });
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await approveHandler(post({ suggestionId: 'sug1' }));
     expect(res.statusCode).toBe(200);
     const body = parseBody(res);
-    expect(body.activityId).toBe('act_existing');
+    expect(body.activityId).toBe('act_sug1');
     expect(body.idempotent).toBe(true);
-    // Must NOT call update (no double write)
+    expect(db._mockUpdate).not.toHaveBeenCalled();
+  });
+
+  test('7b. returns 200 idempotent when activityId already set (status: approved — real-world repeat)', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ ...submitted, status: 'approved', activityId: 'act_sug1' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await approveHandler(post({ suggestionId: 'sug1' }));
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.activityId).toBe('act_sug1');
+    expect(body.idempotent).toBe(true);
     expect(db._mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -128,7 +139,6 @@ describe('studio-approve', () => {
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await approveHandler(post({ suggestionId: 'sug1', notes: 'Looks good' }));
     expect(res.statusCode).toBe(200);
-    // Deterministic: activityId = 'act_' + suggestionId
     expect(parseBody(res).activityId).toBe('act_sug1');
     expect(db._mockUpdate).toHaveBeenCalledTimes(1);
     const updateArg = db._mockUpdate.mock.calls[0][0];
@@ -136,14 +146,12 @@ describe('studio-approve', () => {
     expect(updateArg['activities/act_sug1'].status).toBe('active');
     expect(updateArg['suggestions/sug1/status']).toBe('approved');
     expect(updateArg['suggestions/sug1/activityId']).toBe('act_sug1');
-    // Deterministic log ID: 'log_approve_' + suggestionId
     expect(updateArg['studioAuditLog/log_approve_sug1']).toBeDefined();
     expect(updateArg['studioAuditLog/log_approve_sug1'].action).toBe('approve');
   });
 
   test('8b. parallel approvals for same suggestion produce identical write payloads (race-safe)', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
-    // Both concurrent reads return the same submitted state (no activityId yet)
     const db1 = makeDbMock(submitted);
     const db2 = makeDbMock(submitted);
     mockInitAdmin
@@ -157,12 +165,8 @@ describe('studio-approve', () => {
 
     expect(res1.statusCode).toBe(200);
     expect(res2.statusCode).toBe(200);
-
-    const body1 = parseBody(res1);
-    const body2 = parseBody(res2);
-    // Both must return the same deterministic activityId
-    expect(body1.activityId).toBe('act_sug_parallel');
-    expect(body2.activityId).toBe('act_sug_parallel');
+    expect(parseBody(res1).activityId).toBe('act_sug_parallel');
+    expect(parseBody(res2).activityId).toBe('act_sug_parallel');
 
     // Both write calls use the same paths — RTDB last-write-wins on identical keys = idempotent
     const arg1 = db1._mockUpdate.mock.calls[0][0];
@@ -180,7 +184,7 @@ describe('studio-approve', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 describe('studio-reject', () => {
   const editor = { uid: 'uid_editor', email: 'ed@test.com', studioRole: 'editor' };
-  const submitted = { title: 'Test', status: 'submitted' };
+  const submitted = { title: 'Test', status: 'submitted', activityId: null };
 
   test('9. returns 403 when no auth', async () => {
     mockVerifyStudioToken.mockResolvedValue(null);
@@ -192,7 +196,7 @@ describe('studio-reject', () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
     const db = makeDbMock(submitted);
     mockInitAdmin.mockReturnValue({ database: () => db });
-    const res = await rejectHandler(post({ suggestionId: 'sug1' })); // no reason
+    const res = await rejectHandler(post({ suggestionId: 'sug1' }));
     expect(res.statusCode).toBe(400);
     expect(parseBody(res).error).toMatch(/reason/i);
   });
@@ -204,6 +208,16 @@ describe('studio-reject', () => {
     const res = await rejectHandler(post({ suggestionId: 'sug1', reason: 'duplicate' }));
     expect(res.statusCode).toBe(409);
     expect(parseBody(res).error).toMatch(/rejected/);
+  });
+
+  test('11b. returns 409 when activityId is already set (approve won the sequential race)', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ ...submitted, status: 'approved', activityId: 'act_sug1' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await rejectHandler(post({ suggestionId: 'sug1', reason: 'late reject' }));
+    expect(res.statusCode).toBe(409);
+    expect(parseBody(res).error).toMatch(/already approved/);
+    expect(db._mockUpdate).not.toHaveBeenCalled();
   });
 
   test('12. returns 200 and sets status to rejected with audit log', async () => {
@@ -258,7 +272,7 @@ describe('studio-submit', () => {
   });
 
   test('15. returns 201 with valid researcher API key', async () => {
-    const db = makeDbMock(null); // no duplicate
+    const db = makeDbMock(null);
     mockInitAdmin.mockReturnValue({ database: () => db });
     mockDuplicateHash.mockReturnValue('berlin:kreativ:topferkurs');
     const res = await submitHandler({
@@ -272,7 +286,7 @@ describe('studio-submit', () => {
 
   test('16. returns 400 when required fields missing', async () => {
     mockVerifyStudioToken.mockResolvedValue({ uid: 'u1', studioRole: 'editor' });
-    const res = await submitHandler(post({ title: 'Only title' })); // missing description, category, city
+    const res = await submitHandler(post({ title: 'Only title' }));
     expect(res.statusCode).toBe(400);
     expect(parseBody(res).error).toMatch(/Missing required field/);
   });
@@ -280,7 +294,7 @@ describe('studio-submit', () => {
   test('17. returns 409 when duplicate hash exists', async () => {
     mockVerifyStudioToken.mockResolvedValue({ uid: 'u1', studioRole: 'editor' });
     mockDuplicateHash.mockReturnValue('berlin:kreativ:topferkurs');
-    const db = makeDbMock('sug_existing_id'); // hash already present
+    const db = makeDbMock('sug_existing_id');
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await submitHandler(post(validPayload));
     expect(res.statusCode).toBe(409);
@@ -291,7 +305,7 @@ describe('studio-submit', () => {
   test('18. returns 201 and creates suggestion with duplicate hash index', async () => {
     mockVerifyStudioToken.mockResolvedValue({ uid: 'u1', studioRole: 'editor' });
     mockDuplicateHash.mockReturnValue('berlin:kreativ:topferkurs');
-    const db = makeDbMock(null); // no duplicate
+    const db = makeDbMock(null);
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await submitHandler(post(validPayload));
     expect(res.statusCode).toBe(201);
@@ -312,7 +326,7 @@ describe('studio-set-role', () => {
   const mockAuthAdmin = makeAuthAdminMock();
 
   test('19. returns 403 when caller is not superadmin', async () => {
-    mockVerifyStudioToken.mockResolvedValue(null); // editor not in ['superadmin']
+    mockVerifyStudioToken.mockResolvedValue(null);
     const res = await setRoleHandler(post({ targetUid: 'uid_other', role: 'editor' }));
     expect(res.statusCode).toBe(403);
   });

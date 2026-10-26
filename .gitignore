@@ -2,3 +2,4 @@ node_modules/
 .netlify/
 service-account.json
 *.service-account.json
+database-debug.log

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test": "jest tests/ --testPathIgnorePatterns=tests/integration",
-    "test:integration": "firebase emulators:exec --only auth,database \"jest tests/integration --runInBand\""
+    "test:integration": "firebase emulators:exec --only auth,database --project demo-vivo-test \"jest tests/integration --runInBand\""
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",
