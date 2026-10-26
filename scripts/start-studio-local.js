@@ -35,6 +35,16 @@ const isWin  = process.platform === 'win32';
 // Auf Windows CLI-Tools als .cmd ausführen
 const cli = name => (isWin ? `${name}.cmd` : name);
 
+// Findet ein CLI-Tool: erst global, dann ./node_modules/.bin/ (Codespaces)
+function resolveBin(name) {
+  const ext = isWin ? '.cmd' : '';
+  const r = spawnSync(name + ext, ['--version'], { encoding: 'utf8', shell: isWin });
+  if (!r.error && r.status === 0) return name + ext;
+  const local = path.join(ROOT, 'node_modules', '.bin', name + ext);
+  if (fs.existsSync(local)) return local;
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Hilfsfunktionen
 // ─────────────────────────────────────────────────────────────────
@@ -67,18 +77,25 @@ function checkPrereqs() {
     },
     {
       bin: 'firebase', args: ['--version'], label: 'Firebase CLI',
-      hint: 'Installieren: npm install -g firebase-tools',
+      hint: 'Installieren: npm install -g firebase-tools  (oder: npm install)',
     },
     {
       bin: 'netlify', args: ['--version'], label: 'Netlify CLI',
-      hint: 'Installieren: npm install -g netlify-cli',
+      hint: 'Installieren: npm install -g netlify-cli  (oder: npm install)',
     },
   ];
 
   let allOk = true;
 
   for (const { bin, args, label, minMajor, hint } of tools) {
-    const r = spawnSync(cli(bin), args, { encoding: 'utf8', shell: isWin });
+    const resolved = bin === 'node' ? 'node' : resolveBin(bin);
+    if (!resolved) {
+      err(`${label} — nicht gefunden`);
+      console.error(`       ${hint}`);
+      allOk = false;
+      continue;
+    }
+    const r = spawnSync(resolved, args, { encoding: 'utf8', shell: isWin });
     if (r.error || r.status !== 0) {
       err(`${label} — nicht gefunden`);
       console.error(`       ${hint}`);
@@ -196,8 +213,11 @@ async function main() {
   // ── Emulatoren starten ─────────────────────────────────────────
   header('Starte Firebase-Emulatoren …');
 
+  const firebaseBin = resolveBin('firebase');
+  if (!firebaseBin) abort('Firebase CLI nicht gefunden. npm install ausführen.');
+
   const emulator = spawn(
-    cli('firebase'),
+    firebaseBin,
     ['emulators:start', '--only', 'auth,database', '--project', 'demo-vivo-test'],
     { cwd: ROOT, stdio: 'pipe', shell: isWin }
   );
@@ -251,8 +271,11 @@ async function main() {
   header('Starte Netlify Dev …');
   console.log('  (Beenden mit Ctrl+C)\n');
 
+  const netlifyBin = resolveBin('netlify');
+  if (!netlifyBin) abort('Netlify CLI nicht gefunden. npm install ausführen.');
+
   const netlify = spawn(
-    cli('netlify'),
+    netlifyBin,
     ['dev'],
     { cwd: ROOT, stdio: 'inherit', shell: isWin }
   );
@@ -263,7 +286,7 @@ async function main() {
       cleanup();
       abort(
         'Netlify CLI nicht gefunden.\n' +
-        '  Installieren: npm install -g netlify-cli'
+        '  Installieren: npm install -g netlify-cli  (oder: npm install)'
       );
     }
     cleanup();

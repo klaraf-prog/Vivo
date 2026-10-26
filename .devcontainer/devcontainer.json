@@ -1,0 +1,33 @@
+{
+  "name": "Someday Studio",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+
+  // npm install brings in firebase-tools and netlify-cli from devDependencies
+  "postCreateCommand": "npm install",
+
+  // Ports forwarded automatically by Codespaces
+  "forwardPorts": [8888, 9099, 9000],
+
+  "portsAttributes": {
+    "8888": {
+      "label": "Studio UI (netlify dev)",
+      "onAutoForward": "notify"
+    },
+    "9099": {
+      // Must be public: Firebase Auth Client SDK makes unauthenticated
+      // cross-origin requests from the browser. Codespaces auth cookies
+      // are not included in those XHR requests.
+      "label": "Firebase Auth Emulator",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    },
+    "9000": {
+      // Must be public: same reason as 9099.
+      "label": "Firebase RTDB Emulator",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    }
+  },
+
+  "remoteUser": "node"
+}

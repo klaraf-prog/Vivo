@@ -362,23 +362,36 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
-// Connect to local emulators when running on localhost
-if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+// ── Emulator / Codespaces detection ─────────────────────────────
+// isLocalEmulator: localhost or 127.0.0.1 — full SDK emulator support
+// isCodespaces: GitHub Codespaces (*.app.github.dev) — Auth emulator over
+//   HTTPS works; RTDB realtime SDK cannot use HTTP from an HTTPS page
+//   (Mixed Content), so RTDB data is loaded via the studio-data function.
+const _h            = location.hostname;
+const isLocalEmulator = (_h === '127.0.0.1' || _h === 'localhost');
+const isCodespaces    = _h.endsWith('.app.github.dev');
+
+if (isLocalEmulator) {
   auth.useEmulator('http://127.0.0.1:9099');
   db.useEmulator('127.0.0.1', 9000);
+} else if (isCodespaces) {
+  const _base = _h.replace(/-\d+\.app\.github\.dev$/, '');
+  auth.useEmulator(`https://${_base}-9099.app.github.dev`);
+  // RTDB SDK emulator skipped intentionally — see attachListeners()
 }
 
 // ── State ────────────────────────────────────────────────────────
-let _me       = null;
-let _idToken  = null;
-let _role     = null;
-let _allSugs  = {};
-let _allActs  = {};
-let _filter   = 'all';
-let _activeTab = 'suggestions';
+let _me          = null;
+let _idToken     = null;
+let _role        = null;
+let _allSugs     = {};
+let _allActs     = {};
+let _filter      = 'all';
+let _activeTab   = 'suggestions';
 let _activeSugId = null;
-let _unsubSugs = null;
-let _unsubActs = null;
+let _unsubSugs   = null;
+let _unsubActs   = null;
+let _pollTimer   = null;   // used in Codespaces mode instead of realtime listeners
 
 // ── Auth ─────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
@@ -444,21 +457,44 @@ function showDashboard() {
   attachListeners();
 }
 
-// ── Realtime listeners ───────────────────────────────────────────
+// ── Realtime listeners / Codespaces polling ──────────────────────
 function attachListeners() {
-  _unsubSugs = db.ref('suggestions').on('value', snap => {
-    _allSugs = snap.val() || {};
-    if (_activeTab === 'suggestions') renderList();
-  });
-  _unsubActs = db.ref('activities').on('value', snap => {
-    _allActs = snap.val() || {};
-    if (_activeTab === 'activities') renderList();
-  });
+  if (isCodespaces) {
+    // Codespaces: Firebase RTDB Client SDK cannot connect to the emulator
+    // over HTTP from an HTTPS page (Mixed Content policy). Load data via
+    // the studio-data function and poll every 5 s for updates.
+    _loadDataViaFunction();
+    _pollTimer = setInterval(_loadDataViaFunction, 5000);
+  } else {
+    _unsubSugs = db.ref('suggestions').on('value', snap => {
+      _allSugs = snap.val() || {};
+      if (_activeTab === 'suggestions') renderList();
+    });
+    _unsubActs = db.ref('activities').on('value', snap => {
+      _allActs = snap.val() || {};
+      if (_activeTab === 'activities') renderList();
+    });
+  }
 }
 
 function detachListeners() {
-  if (_unsubSugs) { db.ref('suggestions').off('value', _unsubSugs); _unsubSugs = null; }
-  if (_unsubActs) { db.ref('activities').off('value', _unsubActs);  _unsubActs = null; }
+  if (_pollTimer)  { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_unsubSugs)  { db.ref('suggestions').off('value', _unsubSugs); _unsubSugs = null; }
+  if (_unsubActs)  { db.ref('activities').off('value', _unsubActs);  _unsubActs = null; }
+}
+
+async function _loadDataViaFunction() {
+  try {
+    await refreshIdToken();
+    const res  = await fetch('/.netlify/functions/studio-data', {
+      headers: { 'Authorization': `Bearer ${_idToken}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    _allSugs = data.suggestions || {};
+    _allActs = data.activities  || {};
+    renderList();
+  } catch {}
 }
 
 // ── Tab switching ────────────────────────────────────────────────
