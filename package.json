@@ -5,7 +5,8 @@
   "scripts": {
     "test": "jest tests/ --testPathIgnorePatterns=tests/integration",
     "test:integration": "firebase emulators:exec --only auth,database --project demo-vivo-test \"jest tests/integration --runInBand\"",
-    "studio:local": "node scripts/start-studio-local.js"
+    "studio:local": "node scripts/start-studio-local.js",
+    "studio:seed": "node scripts/seed-emulator-suggestion.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",
