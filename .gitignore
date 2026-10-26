@@ -1,0 +1,4 @@
+node_modules/
+.netlify/
+service-account.json
+*.service-account.json

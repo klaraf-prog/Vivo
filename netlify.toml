@@ -1,0 +1,21 @@
+[build]
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Motivations-Benachrichtigungen — läuft stündlich in UTC 15–18 (= 17–20 Uhr CET/CEST)
+[functions."motivate"]
+  schedule = "0 15,16,17,18 * * *"
+
+[[functions]]
+  path = "/.netlify/functions/studio-approve"
+
+[[functions]]
+  path = "/.netlify/functions/studio-reject"
+
+[[functions]]
+  path = "/.netlify/functions/studio-submit"
+
+[[functions]]
+  path = "/.netlify/functions/studio-set-role"

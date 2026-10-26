@@ -1,0 +1,16 @@
+{
+  "name": "vivo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest tests/"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "resend": "^3.5.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
