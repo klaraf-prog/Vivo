@@ -362,21 +362,19 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
-// ── Emulator / Codespaces detection ─────────────────────────────
-// isLocalEmulator: localhost or 127.0.0.1 — full SDK emulator support
-// isCodespaces: GitHub Codespaces (*.app.github.dev) — Auth emulator over
-//   HTTPS works; RTDB realtime SDK cannot use HTTP from an HTTPS page
-//   (Mixed Content), so RTDB data is loaded via the studio-data function.
+// ── Environment detection ────────────────────────────────────────
+// isLocalEmulator: true only on localhost/127.0.0.1 — Firebase Client SDK
+//   can connect to the emulator on HTTP from an HTTP page.
+// !isLocalEmulator: everything else (Codespaces, any other host) — auth via
+//   studio-auth function; RTDB data via studio-data function (polling).
+//   No hostname pattern matching — works regardless of URL format.
 const _h            = location.hostname;
 const isLocalEmulator = (_h === '127.0.0.1' || _h === 'localhost');
-const isCodespaces    = _h.endsWith('.app.github.dev');
 
 if (isLocalEmulator) {
   auth.useEmulator('http://127.0.0.1:9099');
   db.useEmulator('127.0.0.1', 9000);
 }
-// Codespaces: auth is handled server-side via studio-auth function.
-// Port 9099 stays private. RTDB data loaded via studio-data function.
 
 // ── State ────────────────────────────────────────────────────────
 let _me          = null;
@@ -389,12 +387,12 @@ let _activeTab   = 'suggestions';
 let _activeSugId = null;
 let _unsubSugs   = null;
 let _unsubActs   = null;
-let _pollTimer   = null;   // used in Codespaces mode instead of realtime listeners
+let _pollTimer   = null;   // used on non-localhost instead of realtime listeners
 
 // ── Auth ─────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
-  // Codespaces: sign-in is handled by signInViaFunction(); SDK state ignored.
-  if (isCodespaces) return;
+  // Non-localhost: sign-in is handled by signInViaFunction(); SDK state ignored.
+  if (!isLocalEmulator) return;
   if (!user) {
     showLogin();
     return;
@@ -419,10 +417,10 @@ async function signIn() {
   loginErr('');
   btn.disabled = true; btn.textContent = '…';
   try {
-    if (isCodespaces) {
-      await signInViaFunction(email, pw);
-    } else {
+    if (isLocalEmulator) {
       await auth.signInWithEmailAndPassword(email, pw);
+    } else {
+      await signInViaFunction(email, pw);
     }
   } catch (err) {
     loginErr(fmtAuthErr(err.code || err.message));
@@ -450,7 +448,7 @@ async function signInViaFunction(email, pw) {
 
 async function signOut() {
   detachListeners();
-  if (!isCodespaces) await auth.signOut();
+  if (isLocalEmulator) await auth.signOut();
   _me      = null;
   _idToken = null;
   _role    = null;
@@ -483,12 +481,11 @@ function showDashboard() {
   attachListeners();
 }
 
-// ── Realtime listeners / Codespaces polling ──────────────────────
+// ── Realtime listeners / polling ─────────────────────────────────
 function attachListeners() {
-  if (isCodespaces) {
-    // Codespaces: Firebase RTDB Client SDK cannot connect to the emulator
-    // over HTTP from an HTTPS page (Mixed Content policy). Load data via
-    // the studio-data function and poll every 5 s for updates.
+  if (!isLocalEmulator) {
+    // Non-localhost: RTDB Client SDK can't reach the emulator over HTTP from
+    // an HTTPS page (Mixed Content). Load data via studio-data function.
     _loadDataViaFunction();
     _pollTimer = setInterval(_loadDataViaFunction, 5000);
   } else {
@@ -729,7 +726,7 @@ function showPlaceholder() {
 
 // ── Approve / Reject ─────────────────────────────────────────────
 async function refreshIdToken() {
-  if (isCodespaces) return; // emulator tokens don't expire; reuse _idToken
+  if (!isLocalEmulator) return; // emulator tokens don't expire; reuse _idToken
   _idToken = await _me.getIdToken(true);
 }
 
