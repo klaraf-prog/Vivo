@@ -1,10 +1,15 @@
 {
   "name": "Someday Studio",
 
-  // Custom image: Node.js 22 LTS + Java 21 JRE (for Firebase emulators).
-  // Built from .devcontainer/Dockerfile — no external feature registries needed.
-  "build": {
-    "dockerfile": "Dockerfile"
+  // Node.js 22 LTS base image.
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+
+  // Java 21 via official devcontainer feature — handles PATH + JAVA_HOME automatically.
+  // Required by Firebase Auth + RTDB emulators (need Java 11+).
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21"
+    }
   },
 
   // Installs firebase-tools, netlify-cli, firebase-admin, jest from package.json.
