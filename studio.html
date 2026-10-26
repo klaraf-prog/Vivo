@@ -614,12 +614,14 @@ async function selectSuggestion(id) {
 
       <div class="detail-chips">
         ${sug.category ? `<span class="chip">🏷 ${esc(sug.category)}</span>` : ''}
+        ${sug.eyebrow  ? `<span class="chip">🔖 ${esc(sug.eyebrow)}</span>` : ''}
         ${sug.city     ? `<span class="chip">📍 ${esc(sug.city)}${sug.district ? ', ' + esc(sug.district) : ''}</span>` : ''}
         ${priceChip(sug.price)}
       </div>
 
       <div class="section">
         <h4>Beschreibung</h4>
+        ${sug.tagline ? `<p style="font-size:1rem;font-weight:600;margin-bottom:.5rem">${esc(sug.tagline)}</p>` : ''}
         <p style="font-size:.9375rem;line-height:1.6">${esc(sug.description || '—')}</p>
       </div>
 
@@ -630,6 +632,7 @@ async function selectSuggestion(id) {
         ${fieldRow('Instagram',  sug.instagram ? '@' + sug.instagram : null)}
         ${fieldRow('Buchung',    sug.bookingUrl, true)}
         ${fieldRow('Adresse',    sug.location?.address)}
+        ${sug.lat && sug.lng ? fieldRow('Koordinaten', `${sug.lat}, ${sug.lng}`) : ''}
         ${sug.schedule ? fieldRow('Termine', formatSchedule(sug.schedule)) : ''}
       </div>
 
@@ -686,11 +689,13 @@ function selectActivity(id) {
       </div>
       <div class="detail-chips">
         ${act.category ? `<span class="chip">🏷 ${esc(act.category)}</span>` : ''}
+        ${act.eyebrow  ? `<span class="chip">🔖 ${esc(act.eyebrow)}</span>` : ''}
         ${act.city     ? `<span class="chip">📍 ${esc(act.city)}</span>` : ''}
         ${priceChip(act.price)}
       </div>
       <div class="section">
         <h4>Beschreibung</h4>
+        ${act.tagline ? `<p style="font-size:1rem;font-weight:600;margin-bottom:.5rem">${esc(act.tagline)}</p>` : ''}
         <p style="font-size:.9375rem;line-height:1.6">${esc(act.description || '—')}</p>
       </div>
       <div class="section">
@@ -698,16 +703,19 @@ function selectActivity(id) {
         ${fieldRow('Anbieter', act.providerName)}
         ${fieldRow('Website',  act.website, true)}
         ${fieldRow('Buchung',  act.bookingUrl, true)}
+        ${act.lat && act.lng ? fieldRow('Koordinaten', `${act.lat}, ${act.lng}`) : ''}
         ${fieldRow('Veröffentlicht', act.publishedAt ? fmtDate(act.publishedAt) : null)}
         ${fieldRow('Vorschlag-ID', act.suggestionId)}
       </div>
       <div class="section">
-        <h4>Vorschau</h4>
+        <h4>PWA-Vorschau</h4>
         <div class="preview-card">
-          <div class="preview-category">${esc(act.category || '')}</div>
+          ${act.eyebrow ? `<div class="preview-category">${esc(act.eyebrow)}</div>` : `<div class="preview-category">${esc(act.category || '')}</div>`}
           <div class="preview-title">${esc(act.title || '')}</div>
-          <div class="preview-location">📍 ${esc(act.city || '')}</div>
+          ${act.tagline ? `<div style="font-size:.85rem;color:#666;margin:.25rem 0">${esc(act.tagline)}</div>` : ''}
+          <div class="preview-location">📍 ${esc(act.city || '')}${act.district ? ' · ' + esc(act.district) : ''}</div>
           ${act.price ? `<span class="preview-price">${formatPrice(act.price)}</span>` : ''}
+          ${act.lat && act.lng ? `<div style="font-size:.75rem;color:#888;margin-top:.5rem">🗺 ${act.lat}, ${act.lng}</div>` : ''}
         </div>
       </div>
     </div>

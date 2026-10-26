@@ -40,11 +40,15 @@ exports.handler = async (event) => {
 
   const suggestion = {
     title: payload.title,
+    tagline: payload.tagline || null,
     description: payload.description,
     category: payload.category,
+    eyebrow: payload.eyebrow || null,
     city: payload.city,
     district: payload.district || null,
     location: payload.location || null,
+    lat: payload.lat != null ? Number(payload.lat) : null,
+    lng: payload.lng != null ? Number(payload.lng) : null,
     providerId: payload.providerId || null,
     providerName: payload.providerName || null,
     website: payload.website || null,

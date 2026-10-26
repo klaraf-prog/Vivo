@@ -151,6 +151,27 @@ describe('studio-approve', () => {
     expect(updateArg['studioAuditLog/log_approve_sug1'].action).toBe('approve');
   });
 
+  test('8c. approve passes new PWA fields (tagline, eyebrow, lat, lng) through to activity', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const sugWithNewFields = {
+      ...submitted,
+      tagline: 'Make something with your hands.',
+      eyebrow: 'GET CREATIVE',
+      lat: 50.9496,
+      lng: 6.9197,
+    };
+    const db = makeDbMock(sugWithNewFields);
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await approveHandler(post({ suggestionId: 'sug1' }));
+    expect(res.statusCode).toBe(200);
+    const updateArg = db._mockUpdate.mock.calls[0][0];
+    const act = updateArg['activities/act_sug1'];
+    expect(act.tagline).toBe('Make something with your hands.');
+    expect(act.eyebrow).toBe('GET CREATIVE');
+    expect(act.lat).toBe(50.9496);
+    expect(act.lng).toBe(6.9197);
+  });
+
   test('8b. parallel approvals for same suggestion produce identical write payloads (race-safe)', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
     const db1 = makeDbMock(submitted);
@@ -316,6 +337,27 @@ describe('studio-submit', () => {
     expect(updateArg['suggestions/sug_test_id'].status).toBe('submitted');
     expect(updateArg['suggestionHashes/berlin:kreativ:topferkurs']).toBe('sug_test_id');
     expect(updateArg['studioAuditLog/log_test_id'].action).toBe('submit');
+  });
+
+  test('18b. stores new optional PWA fields (tagline, eyebrow, lat, lng) when provided', async () => {
+    mockVerifyStudioToken.mockResolvedValue({ uid: 'u1', studioRole: 'editor' });
+    mockDuplicateHash.mockReturnValue('berlin:kreativ:topferkurs');
+    const db = makeDbMock(null);
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const payload = {
+      ...validPayload,
+      tagline: 'Keramik für entspannte Nachmittage.',
+      eyebrow: 'KREATIV WERDEN',
+      lat: 52.52,
+      lng: 13.405,
+    };
+    const res = await submitHandler(post(payload));
+    expect(res.statusCode).toBe(201);
+    const sug = db._mockUpdate.mock.calls[0][0]['suggestions/sug_test_id'];
+    expect(sug.tagline).toBe('Keramik für entspannte Nachmittage.');
+    expect(sug.eyebrow).toBe('KREATIV WERDEN');
+    expect(sug.lat).toBe(52.52);
+    expect(sug.lng).toBe(13.405);
   });
 });
 

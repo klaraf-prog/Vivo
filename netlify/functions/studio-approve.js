@@ -38,11 +38,15 @@ exports.handler = async (event) => {
   await db.ref().update({
     [`activities/${activityId}`]: {
       title: sug.title,
+      tagline: sug.tagline || null,
       description: sug.description,
       category: sug.category,
+      eyebrow: sug.eyebrow || null,
       city: sug.city,
       district: sug.district || null,
       location: sug.location || null,
+      lat: sug.lat || null,
+      lng: sug.lng || null,
       providerId: sug.providerId || null,
       providerName: sug.providerName || null,
       website: sug.website || null,
