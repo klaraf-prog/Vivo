@@ -374,14 +374,9 @@ const isCodespaces    = _h.endsWith('.app.github.dev');
 if (isLocalEmulator) {
   auth.useEmulator('http://127.0.0.1:9099');
   db.useEmulator('127.0.0.1', 9000);
-} else if (isCodespaces) {
-  // Auth: proxied through Netlify Dev on the same origin (port 8888).
-  // netlify.toml forwards /identitytoolkit.googleapis.com/* and
-  // /securetoken.googleapis.com/* to 127.0.0.1:9099 inside the container.
-  // This keeps port 9099 completely private — no public exposure needed.
-  auth.useEmulator(`${location.protocol}//${location.host}`);
-  // RTDB SDK emulator skipped intentionally — see attachListeners()
 }
+// Codespaces: auth is handled server-side via studio-auth function.
+// Port 9099 stays private. RTDB data loaded via studio-data function.
 
 // ── State ────────────────────────────────────────────────────────
 let _me          = null;
@@ -398,6 +393,8 @@ let _pollTimer   = null;   // used in Codespaces mode instead of realtime listen
 
 // ── Auth ─────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
+  // Codespaces: sign-in is handled by signInViaFunction(); SDK state ignored.
+  if (isCodespaces) return;
   if (!user) {
     showLogin();
     return;
@@ -422,16 +419,42 @@ async function signIn() {
   loginErr('');
   btn.disabled = true; btn.textContent = '…';
   try {
-    await auth.signInWithEmailAndPassword(email, pw);
+    if (isCodespaces) {
+      await signInViaFunction(email, pw);
+    } else {
+      await auth.signInWithEmailAndPassword(email, pw);
+    }
   } catch (err) {
-    loginErr(fmtAuthErr(err.code));
+    loginErr(fmtAuthErr(err.code || err.message));
     btn.disabled = false; btn.textContent = 'Anmelden';
   }
 }
 
+async function signInViaFunction(email, pw) {
+  const res = await fetch('/.netlify/functions/studio-auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: pw }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data.error || 'Anmeldung fehlgeschlagen');
+    err.code = data.error;
+    throw err;
+  }
+  _idToken = data.idToken;
+  _role    = data.role;
+  _me      = { email: data.email, uid: data.uid, getIdToken: async () => _idToken };
+  showDashboard();
+}
+
 async function signOut() {
   detachListeners();
-  await auth.signOut();
+  if (!isCodespaces) await auth.signOut();
+  _me      = null;
+  _idToken = null;
+  _role    = null;
+  showLogin();
 }
 
 function loginErr(msg) {
@@ -706,6 +729,7 @@ function showPlaceholder() {
 
 // ── Approve / Reject ─────────────────────────────────────────────
 async function refreshIdToken() {
+  if (isCodespaces) return; // emulator tokens don't expire; reuse _idToken
   _idToken = await _me.getIdToken(true);
 }
 

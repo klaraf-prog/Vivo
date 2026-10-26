@@ -23,6 +23,7 @@ const approveHandler = require('../netlify/functions/studio-approve').handler;
 const rejectHandler  = require('../netlify/functions/studio-reject').handler;
 const submitHandler  = require('../netlify/functions/studio-submit').handler;
 const setRoleHandler = require('../netlify/functions/studio-set-role').handler;
+const authHandler    = require('../netlify/functions/studio-auth').handler;
 
 // ─── DB mock factory ─────────────────────────────────────────────────────────
 function makeDbMock(snapData) {
@@ -364,5 +365,91 @@ describe('studio-set-role', () => {
     const updateArg = db._mockUpdate.mock.calls[0][0];
     expect(updateArg['studioAdminUsers/uid_other'].role).toBe('editor');
     expect(updateArg['studioAuditLog/log_test_id'].action).toBe('set_role');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STUDIO-AUTH (server-side sign-in for Codespaces)
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('studio-auth', () => {
+  const OLD_ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...OLD_ENV, FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099' };
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    process.env = OLD_ENV;
+  });
+
+  function makeAuthPost(body) {
+    return { httpMethod: 'POST', headers: {}, body: JSON.stringify(body) };
+  }
+
+  function mockFetch(status, body) {
+    return jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+    });
+  }
+
+  test('23. returns 405 for non-POST', async () => {
+    const res = await authHandler({ httpMethod: 'GET', headers: {}, body: '' });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('24. returns 400 when email missing', async () => {
+    const res = await authHandler(makeAuthPost({ password: 'pw' }));
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/email/);
+  });
+
+  test('25. returns 503 when FIREBASE_AUTH_EMULATOR_HOST not set', async () => {
+    delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    const res = await authHandler(makeAuthPost({ email: 'a@b.com', password: 'pw' }));
+    expect(res.statusCode).toBe(503);
+    expect(JSON.parse(res.body).error).toMatch(/not configured/);
+  });
+
+  test('26. returns 503 when emulator unreachable', async () => {
+    jest.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    const res = await authHandler(makeAuthPost({ email: 'a@b.com', password: 'pw' }));
+    expect(res.statusCode).toBe(503);
+    expect(JSON.parse(res.body).error).toMatch(/unreachable/);
+  });
+
+  test('27. returns 401 when emulator rejects credentials', async () => {
+    mockFetch(400, { error: { message: 'INVALID_PASSWORD' } });
+    const res = await authHandler(makeAuthPost({ email: 'a@b.com', password: 'wrong' }));
+    expect(res.statusCode).toBe(401);
+    expect(JSON.parse(res.body).error).toBe('INVALID_PASSWORD');
+  });
+
+  test('28. returns 403 when account has no studioRole', async () => {
+    mockFetch(200, { idToken: 'tok123', localId: 'uid1' });
+    const mockAuth = { verifyIdToken: jest.fn().mockResolvedValue({ uid: 'uid1', email: 'a@b.com' }) };
+    mockInitAdmin.mockReturnValue({ auth: () => mockAuth });
+    const res = await authHandler(makeAuthPost({ email: 'a@b.com', password: 'pw' }));
+    expect(res.statusCode).toBe(403);
+    expect(JSON.parse(res.body).error).toMatch(/studio role/);
+  });
+
+  test('29. returns 200 with idToken, email, role, uid on success', async () => {
+    mockFetch(200, { idToken: 'tok_abc', localId: 'uid_super' });
+    const mockAuth = {
+      verifyIdToken: jest.fn().mockResolvedValue({
+        uid: 'uid_super', email: 'admin@test.local', studioRole: 'superadmin',
+      }),
+    };
+    mockInitAdmin.mockReturnValue({ auth: () => mockAuth });
+    const res = await authHandler(makeAuthPost({ email: 'admin@test.local', password: 'pw' }));
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.idToken).toBe('tok_abc');
+    expect(body.email).toBe('admin@test.local');
+    expect(body.role).toBe('superadmin');
+    expect(body.uid).toBe('uid_super');
   });
 });
