@@ -362,6 +362,12 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
+// Connect to local emulators when running on localhost
+if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+  auth.useEmulator('http://127.0.0.1:9099');
+  db.useEmulator('127.0.0.1', 9000);
+}
+
 // ── State ────────────────────────────────────────────────────────
 let _me       = null;
 let _idToken  = null;

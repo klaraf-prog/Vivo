@@ -3,3 +3,6 @@ node_modules/
 service-account.json
 *.service-account.json
 database-debug.log
+.env
+.env.local
+.env.studio-test
