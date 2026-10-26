@@ -601,7 +601,9 @@ async function selectSuggestion(id) {
   const sug = _allSugs[id];
   if (!sug) return;
 
-  const auditLog = await loadAuditForSuggestion(id);
+  // Render detail panel immediately — do NOT await the audit log first.
+  // loadAuditForSuggestion uses the RTDB Client SDK which points to production
+  // in Codespaces; awaiting it before rendering caused the panel to never open.
   const rp = document.getElementById('right-panel');
   const canAct = ['editor','superadmin'].includes(_role) && sug.status === 'submitted';
 
@@ -667,10 +669,23 @@ async function selectSuggestion(id) {
 
       <div class="section">
         <h4>Änderungsprotokoll</h4>
-        ${renderAuditLog(auditLog)}
+        <div id="audit-log-entries"><p style="color:var(--muted);font-size:.875rem">Lade…</p></div>
       </div>
     </div>
   `;
+
+  // Load audit log after the panel is visible — runs in background,
+  // updates only the #audit-log-entries div. Errors are silenced so
+  // they never block the detail view (Client SDK → production in Codespaces).
+  loadAuditForSuggestion(id)
+    .then(entries => {
+      const el = document.getElementById('audit-log-entries');
+      if (el) el.innerHTML = renderAuditLog(entries);
+    })
+    .catch(() => {
+      const el = document.getElementById('audit-log-entries');
+      if (el) el.innerHTML = '<p style="color:var(--muted);font-size:.875rem">Nicht verfügbar.</p>';
+    });
 }
 
 // ── Detail: activity ─────────────────────────────────────────────
