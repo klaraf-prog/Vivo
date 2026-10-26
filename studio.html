@@ -8,281 +8,347 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --amber:  #F5A623;
-      --bg:     #F7F5F2;
-      --card:   #FFFFFF;
-      --text:   #1A1612;
-      --muted:  #8A8078;
-      --border: #EDE8E0;
-      --pink:   #E8534A;
-      --green:  #2E9E6B;
-      --blue:   #3B82F6;
-      --shadow: 0 2px 12px rgba(0,0,0,.08);
+      --amber:   #F5A623;
+      --amber-l: #FFF3DC;
+      --bg:      #F7F5F2;
+      --card:    #FFFFFF;
+      --text:    #1A1612;
+      --muted:   #8A8078;
+      --border:  #EDE8E0;
+      --pink:    #E8534A;
+      --green:   #2E9E6B;
+      --blue:    #3B82F6;
+      --purple:  #8B5CF6;
+      --shadow:  0 2px 12px rgba(0,0,0,.08);
+      --radius:  14px;
     }
 
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
            background: var(--bg); color: var(--text); min-height: 100vh; }
 
     /* ── LOGIN ── */
-    #screen-login {
-      min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
+    #login-screen {
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center;
     }
     .login-box {
       background: var(--card); border-radius: 20px;
-      padding: 48px 40px; width: 100%; max-width: 400px;
+      padding: 48px 40px; width: 100%; max-width: 380px;
       box-shadow: var(--shadow);
       display: flex; flex-direction: column; gap: 18px;
     }
-    .login-logo {
-      font-family: Georgia, serif; font-size: 1.75rem; font-weight: 700;
-      color: var(--amber); text-align: center; letter-spacing: -.3px;
-    }
-    .login-logo span { color: var(--text); font-size: 1rem; font-weight: 500;
-                       font-family: inherit; display: block; margin-top: 4px; }
+    .login-logo { font-family: Georgia, serif; font-size: 2rem; font-weight: 700;
+                  text-align: center; color: var(--amber); letter-spacing: -.5px; }
+    .login-sub  { font-size: .9rem; color: var(--muted); text-align: center; margin-top: -8px; }
     .login-box input {
       width: 100%; padding: 12px 16px; border-radius: 12px;
       border: 1.5px solid var(--border); font-size: 1rem;
-      background: var(--bg); outline: none;
+      background: var(--bg); outline: none; transition: border-color .15s;
     }
     .login-box input:focus { border-color: var(--amber); }
-    .btn-primary {
+    .login-box button {
       width: 100%; padding: 13px; border-radius: 12px;
       background: var(--amber); border: none; color: #fff;
-      font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: opacity .15s;
     }
-    .btn-primary:hover { opacity: .88; }
-    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-    .login-err { font-size: .875rem; color: var(--pink); text-align: center; }
+    .login-box button:hover { opacity: .88; }
+    .login-error { font-size: .875rem; color: var(--pink); text-align: center; min-height: 1.2em; }
 
-    /* ── APP SHELL ── */
-    #screen-app { display: none; height: 100vh; flex-direction: column; }
+    /* ── DASHBOARD ── */
+    #dashboard { display: none; }
 
-    .topbar {
+    .top-bar {
       background: var(--card); border-bottom: 1px solid var(--border);
-      padding: 0 24px; height: 56px;
+      padding: 0 24px; height: 56px; position: sticky; top: 0; z-index: 20;
       display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 20; flex-shrink: 0;
     }
-    .topbar-logo {
-      font-family: Georgia, serif; font-size: 1.1rem; font-weight: 700;
-      color: var(--amber); letter-spacing: -.2px;
+    .top-logo { font-family: Georgia, serif; font-weight: 700; font-size: 1.125rem;
+                color: var(--text); letter-spacing: -.3px; }
+    .top-logo span { color: var(--amber); }
+    .top-right { display: flex; align-items: center; gap: 12px; }
+    .top-user { font-size: .875rem; color: var(--muted); }
+    .top-badge {
+      font-size: .75rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 50px; background: var(--amber-l); color: #9a6000;
     }
-    .topbar-logo span { color: var(--muted); font-size: .875rem;
-                        font-family: inherit; margin-left: 8px; }
-    .topbar-right { display: flex; align-items: center; gap: 12px; }
     .btn-sm {
       padding: 6px 14px; border-radius: 9px;
       border: 1.5px solid var(--border); background: var(--card);
       font-size: .875rem; font-weight: 500; cursor: pointer; color: var(--muted);
+      transition: border-color .15s, color .15s;
     }
-    .btn-sm:hover { color: var(--pink); border-color: var(--pink); }
+    .btn-sm:hover { border-color: var(--pink); color: var(--pink); }
 
+    /* ── LAYOUT ── */
     .app-body {
-      display: flex; flex: 1; overflow: hidden;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: calc(100vh - 56px);
     }
 
-    /* ── SIDEBAR ── */
-    .sidebar {
-      width: 340px; flex-shrink: 0;
+    /* ── LEFT PANEL ── */
+    .left-panel {
       border-right: 1px solid var(--border);
       display: flex; flex-direction: column;
-      background: var(--card); overflow: hidden;
+      overflow: hidden;
     }
-    .sidebar-head {
-      padding: 16px 20px 12px;
+    .panel-head {
+      padding: 16px 16px 0;
+      display: flex; flex-direction: column; gap: 12px;
       border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      background: var(--card);
     }
-    .sidebar-head h2 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+    .panel-tabs { display: flex; gap: 4px; }
+    .panel-tab {
+      padding: 6px 12px; border-radius: 8px; font-size: .875rem;
+      font-weight: 500; cursor: pointer; border: none; background: none;
+      color: var(--muted); transition: background .15s, color .15s;
+    }
+    .panel-tab.active { background: var(--amber-l); color: #9a6000; }
+    .filter-row { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 12px; }
+    .filter-pill {
+      padding: 4px 10px; border-radius: 50px; font-size: .8125rem;
+      font-weight: 500; cursor: pointer; border: 1.5px solid var(--border);
+      background: none; color: var(--muted); transition: all .15s;
+      white-space: nowrap;
+    }
+    .filter-pill.active { border-color: var(--amber); background: var(--amber-l); color: #9a6000; }
+    .search-wrap { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .search-wrap input {
+      width: 100%; padding: 8px 12px; border-radius: 10px;
+      border: 1.5px solid var(--border); font-size: .9rem;
+      background: var(--bg); outline: none;
+    }
+    .search-wrap input:focus { border-color: var(--amber); }
+    .list-scroll { flex: 1; overflow-y: auto; }
+    .sug-card {
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background .1s;
+    }
+    .sug-card:hover   { background: var(--bg); }
+    .sug-card.active  { background: var(--amber-l); }
+    .sug-title { font-weight: 600; font-size: .9375rem; margin-bottom: 3px; }
+    .sug-meta  { font-size: .8125rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.submitted  { background: var(--blue); }
+    .status-dot.draft      { background: var(--muted); }
+    .status-dot.approved   { background: var(--green); }
+    .status-dot.rejected   { background: var(--pink); }
+    .empty-state { padding: 40px 16px; text-align: center; color: var(--muted); font-size: .9rem; }
 
-    .filter-tabs {
-      display: flex; gap: 4px; flex-wrap: wrap;
+    /* ── RIGHT PANEL ── */
+    .right-panel {
+      overflow-y: auto;
+      background: var(--bg);
     }
-    .filter-tab {
-      padding: 5px 10px; border-radius: 8px; font-size: .8125rem; font-weight: 500;
-      cursor: pointer; border: 1.5px solid transparent; transition: all .12s;
-      color: var(--muted); background: var(--bg);
+    .detail-wrap { max-width: 760px; margin: 0 auto; padding: 24px 24px 60px; }
+    .placeholder-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%;
+      color: var(--muted); gap: 12px; font-size: .9375rem;
     }
-    .filter-tab.active { background: var(--amber); color: #fff; border-color: var(--amber); }
-    .filter-tab:hover:not(.active) { border-color: var(--border); color: var(--text); }
+    .placeholder-icon { font-size: 3rem; }
 
-    .suggestion-list {
-      flex: 1; overflow-y: auto; padding: 8px;
-    }
-    .suggestion-item {
-      padding: 12px 14px; border-radius: 12px; cursor: pointer;
-      border: 1.5px solid transparent; transition: all .12s; margin-bottom: 4px;
-    }
-    .suggestion-item:hover { background: var(--bg); }
-    .suggestion-item.selected { background: #FFF8EE; border-color: var(--amber); }
-    .sug-title { font-size: .9375rem; font-weight: 600; }
-    .sug-meta  { font-size: .8125rem; color: var(--muted); margin-top: 3px; }
-    .status-badge {
-      display: inline-block; font-size: .7rem; font-weight: 700;
-      padding: 2px 7px; border-radius: 50px; text-transform: uppercase; letter-spacing: .04em;
+    /* ── DETAIL ── */
+    .detail-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+    .detail-title  { font-size: 1.375rem; font-weight: 700; flex: 1; line-height: 1.3; }
+    .status-badge  {
+      padding: 4px 12px; border-radius: 50px; font-size: .8125rem;
+      font-weight: 700; white-space: nowrap; flex-shrink: 0;
     }
     .status-badge.submitted  { background: #DBEAFE; color: #1D4ED8; }
-    .status-badge.draft      { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+    .status-badge.draft      { background: var(--border); color: var(--muted); }
     .status-badge.approved   { background: #D1FAE5; color: #065F46; }
     .status-badge.rejected   { background: #FEE2E2; color: #991B1B; }
 
-    .empty-state {
-      text-align: center; padding: 40px 20px; color: var(--muted); font-size: .9rem;
+    .detail-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .chip {
+      padding: 4px 10px; border-radius: 50px;
+      font-size: .8125rem; font-weight: 500;
+      background: var(--card); border: 1.5px solid var(--border); color: var(--text);
     }
 
-    /* ── DETAIL PANEL ── */
-    .detail-panel {
-      flex: 1; overflow-y: auto; padding: 24px 28px;
+    .section { background: var(--card); border-radius: var(--radius);
+                padding: 18px 20px; margin-bottom: 14px; }
+    .section h4 { font-size: .8125rem; font-weight: 700; color: var(--muted);
+                  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+    .field-row { display: flex; gap: 6px; margin-bottom: 8px; font-size: .9375rem; }
+    .field-label { color: var(--muted); font-size: .875rem; min-width: 100px; flex-shrink: 0; }
+    .field-value { word-break: break-word; }
+    .field-value a { color: var(--blue); text-decoration: none; }
+    .field-value a:hover { text-decoration: underline; }
+
+    .sources-list { display: flex; flex-direction: column; gap: 6px; }
+    .source-link {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 9px;
+      background: var(--bg); font-size: .875rem;
+      color: var(--blue); text-decoration: none; word-break: break-all;
     }
-    .detail-placeholder {
-      display: flex; align-items: center; justify-content: center;
-      height: 100%; color: var(--muted); font-size: .9375rem;
+    .source-link:hover { background: var(--border); }
+
+    /* ── PREVIEW CARD ── */
+    .preview-card {
+      background: linear-gradient(135deg, #1A1612 0%, #2d2520 100%);
+      border-radius: 16px; padding: 20px; color: #fff;
+    }
+    .preview-category { font-size: .75rem; font-weight: 600; opacity: .6;
+                        text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    .preview-title    { font-size: 1.125rem; font-weight: 700; margin-bottom: 6px; }
+    .preview-location { font-size: .875rem; opacity: .7; margin-bottom: 12px; }
+    .preview-price    {
+      display: inline-block; padding: 4px 10px; border-radius: 50px;
+      background: rgba(255,255,255,.15); font-size: .8125rem; font-weight: 600;
     }
 
-    .detail-header {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      gap: 16px; margin-bottom: 20px;
-    }
-    .detail-title { font-size: 1.375rem; font-weight: 700; line-height: 1.25; }
-    .detail-meta  { font-size: .875rem; color: var(--muted); margin-top: 4px; }
-
-    .detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .btn-approve {
-      padding: 9px 18px; border-radius: 10px;
-      background: var(--green); border: none; color: #fff;
-      font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
-    }
-    .btn-approve:hover { opacity: .85; }
-    .btn-approve:disabled { opacity: .45; cursor: not-allowed; }
-    .btn-reject {
-      padding: 9px 18px; border-radius: 10px;
-      background: var(--card); border: 1.5px solid var(--pink); color: var(--pink);
-      font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
-    }
-    .btn-reject:hover { background: #FEE2E2; }
-    .btn-reject:disabled { opacity: .45; cursor: not-allowed; }
-
-    .detail-section { margin-bottom: 20px; }
-    .detail-section-title {
-      font-size: .75rem; font-weight: 700; color: var(--muted);
-      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
-    }
-    .field-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-    }
-    .field-item { display: flex; flex-direction: column; gap: 2px; }
-    .field-label { font-size: .8125rem; color: var(--muted); }
-    .field-value { font-size: .9375rem; font-weight: 500; word-break: break-word; }
-    .field-link  { color: var(--blue); text-decoration: none; }
-    .field-link:hover { text-decoration: underline; }
-
-    .note-input-wrap { margin: 16px 0 12px; }
-    .note-input-wrap label { font-size: .875rem; font-weight: 500; display: block; margin-bottom: 6px; }
-    .note-input-wrap textarea {
+    /* ── ACTIONS ── */
+    .action-section { background: var(--card); border-radius: var(--radius);
+                       padding: 18px 20px; margin-bottom: 14px; }
+    .action-section h4 { font-size: .8125rem; font-weight: 700; color: var(--muted);
+                          text-transform: uppercase; letter-spacing: .05em; margin-bottom: 14px; }
+    .note-input {
       width: 100%; padding: 10px 14px; border-radius: 10px;
-      border: 1.5px solid var(--border); font-size: .9rem;
-      background: var(--bg); resize: vertical; min-height: 72px; outline: none;
+      border: 1.5px solid var(--border); font-size: .9375rem;
+      font-family: inherit; resize: vertical; min-height: 64px;
+      background: var(--bg); outline: none; margin-bottom: 12px;
     }
-    .note-input-wrap textarea:focus { border-color: var(--amber); }
-
-    .action-feedback {
-      padding: 10px 14px; border-radius: 10px; font-size: .875rem;
-      margin-top: 10px; display: none;
+    .note-input:focus { border-color: var(--amber); }
+    .action-row { display: flex; gap: 10px; }
+    .btn-approve {
+      flex: 1; padding: 11px; border-radius: 11px;
+      background: var(--green); border: none; color: #fff;
+      font-size: .9375rem; font-weight: 600; cursor: pointer;
+      transition: opacity .15s;
     }
-    .action-feedback.ok  { background: #D1FAE5; color: #065F46; }
-    .action-feedback.err { background: #FEE2E2; color: #991B1B; }
+    .btn-approve:hover:not(:disabled) { opacity: .85; }
+    .btn-approve:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-reject {
+      flex: 1; padding: 11px; border-radius: 11px;
+      background: none; border: 2px solid var(--pink); color: var(--pink);
+      font-size: .9375rem; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-reject:hover:not(:disabled) { background: #FEE2E2; }
+    .btn-reject:disabled { opacity: .5; cursor: not-allowed; }
+    .action-result {
+      margin-top: 10px; font-size: .875rem; padding: 8px 12px;
+      border-radius: 8px; display: none;
+    }
+    .action-result.ok  { background: #D1FAE5; color: #065F46; display: block; }
+    .action-result.err { background: #FEE2E2; color: #991B1B; display: block; }
 
     /* ── AUDIT LOG ── */
-    .audit-list { display: flex; flex-direction: column; gap: 8px; }
+    .audit-timeline { display: flex; flex-direction: column; gap: 0; }
     .audit-item {
-      display: flex; gap: 10px; align-items: flex-start;
-      padding: 10px 12px; background: var(--bg); border-radius: 10px;
+      display: flex; gap: 12px; padding: 10px 0;
+      border-bottom: 1px solid var(--border); font-size: .875rem;
     }
-    .audit-dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px;
+    .audit-item:last-child { border-bottom: none; }
+    .audit-action {
+      padding: 2px 8px; border-radius: 6px; font-size: .75rem;
+      font-weight: 700; white-space: nowrap; flex-shrink: 0;
+      align-self: flex-start; margin-top: 2px;
     }
-    .audit-dot.approve { background: var(--green); }
-    .audit-dot.reject  { background: var(--pink); }
-    .audit-dot.submit  { background: var(--blue); }
-    .audit-dot.set_role { background: var(--amber); }
-    .audit-dot.bootstrap_superadmin { background: var(--amber); }
-    .audit-text { font-size: .875rem; line-height: 1.4; }
-    .audit-ts   { font-size: .8125rem; color: var(--muted); }
+    .audit-action.approve { background: #D1FAE5; color: #065F46; }
+    .audit-action.reject  { background: #FEE2E2; color: #991B1B; }
+    .audit-action.submit  { background: #DBEAFE; color: #1D4ED8; }
+    .audit-action.edit    { background: var(--amber-l); color: #9a6000; }
+    .audit-body  { flex: 1; }
+    .audit-who   { font-weight: 500; }
+    .audit-note  { color: var(--muted); margin-top: 2px; }
+    .audit-ts    { font-size: .8rem; color: var(--muted); margin-top: 2px; }
 
-    /* ── SPINNER ── */
-    .spinner {
-      width: 22px; height: 22px; border-radius: 50%;
-      border: 2.5px solid var(--border); border-top-color: var(--amber);
-      animation: spin .7s linear infinite; display: inline-block;
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: #fff; padding: 10px 20px; border-radius: 10px;
+      font-size: .9rem; z-index: 9999; opacity: 0; transition: opacity .25s;
+      pointer-events: none; white-space: nowrap;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    #toast.show { opacity: 1; }
 
+    /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
-      .sidebar { width: 100%; height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
-      .app-body { flex-direction: column; }
-      .detail-panel { padding: 16px; }
-      .field-grid { grid-template-columns: 1fr; }
+      .app-body { grid-template-columns: 1fr; }
+      .right-panel { display: none; }
+      .right-panel.mobile-open { display: block; position: fixed; inset: 56px 0 0; z-index: 10; }
     }
   </style>
 </head>
 <body>
 
-<!-- ══════════════ LOGIN ══════════════ -->
-<div id="screen-login">
+<!-- ══ LOGIN ══════════════════════════════════════════════════════ -->
+<div id="login-screen">
   <div class="login-box">
-    <div class="login-logo">someday<span>Studio — Redaktion</span></div>
-    <input type="email"    id="inp-email" placeholder="E-Mail-Adresse"
-      onkeydown="if(event.key==='Enter') document.getElementById('inp-pw').focus()">
-    <input type="password" id="inp-pw" placeholder="Passwort"
-      onkeydown="if(event.key==='Enter') doLogin()">
-    <button class="btn-primary" id="login-btn" onclick="doLogin()">Anmelden</button>
-    <p class="login-err" id="login-err" style="display:none"></p>
+    <div class="login-logo">someday</div>
+    <p class="login-sub">Studio — Internes Redaktionssystem</p>
+    <input type="email"    id="inp-email" placeholder="E-Mail" autocomplete="email">
+    <input type="password" id="inp-pw"    placeholder="Passwort"
+      onkeydown="if(event.key==='Enter') signIn()">
+    <button onclick="signIn()" id="sign-in-btn">Anmelden</button>
+    <p class="login-error" id="login-err"></p>
   </div>
 </div>
 
-<!-- ══════════════ APP ══════════════ -->
-<div id="screen-app">
-  <div class="topbar">
-    <div class="topbar-logo">someday<span id="role-badge"></span></div>
-    <div class="topbar-right">
-      <span id="user-email" style="font-size:.8125rem;color:var(--muted)"></span>
-      <button class="btn-sm" onclick="doLogout()">Abmelden</button>
+<!-- ══ DASHBOARD ══════════════════════════════════════════════════ -->
+<div id="dashboard">
+  <div class="top-bar">
+    <div class="top-logo">someday <span>studio</span></div>
+    <div class="top-right">
+      <span class="top-user" id="top-user-email"></span>
+      <span class="top-badge" id="top-user-role"></span>
+      <button class="btn-sm" onclick="signOut()">Abmelden</button>
     </div>
   </div>
 
   <div class="app-body">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="sidebar-head">
-        <h2>Vorschläge</h2>
-        <div class="filter-tabs">
-          <button class="filter-tab active" data-filter="all"       onclick="setFilter('all')">Alle</button>
-          <button class="filter-tab"        data-filter="submitted" onclick="setFilter('submitted')">Eingereicht</button>
-          <button class="filter-tab"        data-filter="draft"     onclick="setFilter('draft')">Entwürfe</button>
-          <button class="filter-tab"        data-filter="approved"  onclick="setFilter('approved')">Genehmigt</button>
-          <button class="filter-tab"        data-filter="rejected"  onclick="setFilter('rejected')">Abgelehnt</button>
+    <!-- ── LEFT: list ── -->
+    <div class="left-panel">
+      <div class="panel-head">
+        <div class="panel-tabs">
+          <button class="panel-tab active" onclick="switchTab('suggestions', this)">Vorschläge</button>
+          <button class="panel-tab" onclick="switchTab('activities', this)">Aktivitäten</button>
+        </div>
+        <div class="filter-row" id="suggestions-filters">
+          <button class="filter-pill active" onclick="setFilter('all', this)">Alle</button>
+          <button class="filter-pill" onclick="setFilter('submitted', this)">Eingereicht</button>
+          <button class="filter-pill" onclick="setFilter('draft', this)">Entwürfe</button>
+          <button class="filter-pill" onclick="setFilter('approved', this)">Genehmigt</button>
+          <button class="filter-pill" onclick="setFilter('rejected', this)">Abgelehnt</button>
         </div>
       </div>
-      <div class="suggestion-list" id="suggestion-list">
-        <div class="empty-state"><div class="spinner"></div></div>
+      <div class="search-wrap">
+        <input type="text" id="search-inp" placeholder="Suchen…" oninput="renderList()">
+      </div>
+      <div class="list-scroll" id="list-scroll">
+        <div class="empty-state">Lade Daten…</div>
       </div>
     </div>
 
-    <!-- Detail panel -->
-    <div class="detail-panel" id="detail-panel">
-      <div class="detail-placeholder">Einen Vorschlag auswählen</div>
+    <!-- ── RIGHT: detail ── -->
+    <div class="right-panel" id="right-panel">
+      <div style="height:100%;display:flex;align-items:center;justify-content:center">
+        <div class="placeholder-state">
+          <div class="placeholder-icon">✏️</div>
+          <div>Vorschlag auswählen</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Firebase SDK -->
+<div id="toast"></div>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
-// ── Firebase init ──────────────────────────────────────────────────────────
+// ── Firebase init ────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyAuapMaw8Tpw0HC_TlMUvCbw0PPfWOaL-Y",
   authDomain:        "vivo-mvp.firebaseapp.com",
@@ -296,16 +362,19 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
-// ── State ──────────────────────────────────────────────────────────────────
-let _user        = null;
-let _idToken     = null;
-let _role        = null;
-let _suggestions = {};
-let _filter      = 'all';
-let _selected    = null;
-let _sugListener = null;
+// ── State ────────────────────────────────────────────────────────
+let _me       = null;
+let _idToken  = null;
+let _role     = null;
+let _allSugs  = {};
+let _allActs  = {};
+let _filter   = 'all';
+let _activeTab = 'suggestions';
+let _activeSugId = null;
+let _unsubSugs = null;
+let _unsubActs = null;
 
-// ── Auth ───────────────────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
   if (!user) {
     showLogin();
@@ -315,298 +384,430 @@ auth.onAuthStateChanged(async user => {
   const role = result.claims.studioRole;
   if (!role) {
     await auth.signOut();
-    showLoginError('Kein Studio-Zugriff für diesen Account.');
+    loginErr('Kein Zugang: Dein Account hat keine Studio-Berechtigung.');
     return;
   }
-  _user    = user;
+  _me      = user;
   _idToken = result.token;
   _role    = role;
-  showApp();
+  showDashboard();
 });
 
-async function doLogin() {
+async function signIn() {
   const email = document.getElementById('inp-email').value.trim();
   const pw    = document.getElementById('inp-pw').value;
-  const btn   = document.getElementById('login-btn');
-  if (!email || !pw) { showLoginError('E-Mail und Passwort erforderlich.'); return; }
+  const btn   = document.getElementById('sign-in-btn');
+  loginErr('');
   btn.disabled = true; btn.textContent = '…';
   try {
     await auth.signInWithEmailAndPassword(email, pw);
   } catch (err) {
-    showLoginError(err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'
-      ? 'E-Mail oder Passwort falsch.'
-      : err.message);
+    loginErr(fmtAuthErr(err.code));
     btn.disabled = false; btn.textContent = 'Anmelden';
   }
 }
 
-async function doLogout() {
-  if (_sugListener) { db.ref('suggestions').off('value', _sugListener); _sugListener = null; }
+async function signOut() {
+  detachListeners();
   await auth.signOut();
 }
 
+function loginErr(msg) {
+  document.getElementById('login-err').textContent = msg;
+}
+
+function fmtAuthErr(code) {
+  if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+    return 'E-Mail oder Passwort falsch.';
+  }
+  return 'Anmeldung fehlgeschlagen (' + code + ')';
+}
+
 function showLogin() {
-  document.getElementById('screen-login').style.display = 'flex';
-  document.getElementById('screen-app').style.display   = 'none';
-  document.getElementById('login-btn').disabled = false;
-  document.getElementById('login-btn').textContent = 'Anmelden';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('sign-in-btn').disabled = false;
+  document.getElementById('sign-in-btn').textContent = 'Anmelden';
 }
 
-function showLoginError(msg) {
-  const el = document.getElementById('login-err');
-  el.textContent = msg; el.style.display = 'block';
+function showDashboard() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  document.getElementById('top-user-email').textContent = _me.email || '';
+  document.getElementById('top-user-role').textContent  = _role;
+  attachListeners();
 }
 
-function showApp() {
-  document.getElementById('screen-login').style.display = 'none';
-  document.getElementById('screen-app').style.display   = 'flex';
-  document.getElementById('user-email').textContent = _user.email || '';
-  document.getElementById('role-badge').textContent = '· ' + _role;
-  loadSuggestions();
-}
-
-// ── Load suggestions ───────────────────────────────────────────────────────
-function loadSuggestions() {
-  if (_sugListener) { db.ref('suggestions').off('value', _sugListener); }
-  _sugListener = db.ref('suggestions').on('value', snap => {
-    _suggestions = snap.val() || {};
-    renderList();
+// ── Realtime listeners ───────────────────────────────────────────
+function attachListeners() {
+  _unsubSugs = db.ref('suggestions').on('value', snap => {
+    _allSugs = snap.val() || {};
+    if (_activeTab === 'suggestions') renderList();
+  });
+  _unsubActs = db.ref('activities').on('value', snap => {
+    _allActs = snap.val() || {};
+    if (_activeTab === 'activities') renderList();
   });
 }
 
-// ── Filter ─────────────────────────────────────────────────────────────────
-function setFilter(f) {
+function detachListeners() {
+  if (_unsubSugs) { db.ref('suggestions').off('value', _unsubSugs); _unsubSugs = null; }
+  if (_unsubActs) { db.ref('activities').off('value', _unsubActs);  _unsubActs = null; }
+}
+
+// ── Tab switching ────────────────────────────────────────────────
+function switchTab(tab, el) {
+  _activeTab = tab;
+  _activeSugId = null;
+  document.querySelectorAll('.panel-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('suggestions-filters').style.display =
+    tab === 'suggestions' ? '' : 'none';
+  renderList();
+  showPlaceholder();
+}
+
+// ── Filtering ────────────────────────────────────────────────────
+function setFilter(f, el) {
   _filter = f;
-  document.querySelectorAll('.filter-tab').forEach(el =>
-    el.classList.toggle('active', el.dataset.filter === f)
-  );
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
   renderList();
 }
 
-// ── Render list ────────────────────────────────────────────────────────────
+// ── List render ──────────────────────────────────────────────────
 function renderList() {
-  const entries = Object.entries(_suggestions)
-    .filter(([, s]) => _filter === 'all' || s.status === _filter)
-    .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0));
+  const q = (document.getElementById('search-inp').value || '').toLowerCase();
+  const container = document.getElementById('list-scroll');
 
-  const container = document.getElementById('suggestion-list');
-  if (!entries.length) {
-    container.innerHTML = '<div class="empty-state">Keine Vorschläge gefunden.</div>';
-    return;
-  }
-  container.innerHTML = entries.map(([id, s]) => `
-    <div class="suggestion-item${_selected === id ? ' selected' : ''}"
-         onclick="selectSuggestion('${esc(id)}')">
-      <div class="sug-title">${esc(s.title || '—')}</div>
-      <div class="sug-meta">
-        ${esc(s.city || '')}${s.category ? ' · ' + esc(s.category) : ''}
-        <span class="status-badge ${esc(s.status || 'draft')}">${esc(s.status || 'draft')}</span>
+  let items;
+  if (_activeTab === 'suggestions') {
+    items = Object.entries(_allSugs)
+      .filter(([, s]) => _filter === 'all' || s.status === _filter)
+      .filter(([, s]) => !q || (s.title || '').toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q))
+      .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state">Keine Vorschläge</div>';
+      return;
+    }
+
+    container.innerHTML = items.map(([id, s]) => `
+      <div class="sug-card${id === _activeSugId ? ' active' : ''}" onclick="selectSuggestion('${esc(id)}')">
+        <div class="sug-title">${esc(s.title || '—')}</div>
+        <div class="sug-meta">
+          <span class="status-dot ${esc(s.status)}"></span>
+          <span>${esc(s.city || '')}</span>
+          <span>·</span>
+          <span>${esc(s.category || '')}</span>
+        </div>
       </div>
-    </div>`).join('');
+    `).join('');
+
+  } else {
+    items = Object.entries(_allActs)
+      .filter(([, a]) => !q || (a.title || '').toLowerCase().includes(q))
+      .sort(([, a], [, b]) => (b.publishedAt || 0) - (a.publishedAt || 0));
+
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state">Keine veröffentlichten Aktivitäten</div>';
+      return;
+    }
+
+    container.innerHTML = items.map(([id, a]) => `
+      <div class="sug-card${id === _activeSugId ? ' active' : ''}" onclick="selectActivity('${esc(id)}')">
+        <div class="sug-title">${esc(a.title || '—')}</div>
+        <div class="sug-meta">
+          <span class="status-dot approved"></span>
+          <span>${esc(a.city || '')}</span>
+          <span>·</span>
+          <span>${esc(a.category || '')}</span>
+        </div>
+      </div>
+    `).join('');
+  }
 }
 
-// ── Select suggestion ──────────────────────────────────────────────────────
+// ── Detail: suggestion ───────────────────────────────────────────
 async function selectSuggestion(id) {
-  _selected = id;
+  _activeSugId = id;
   renderList();
-  const s = _suggestions[id];
-  if (!s) return;
 
-  // Load audit log entries for this suggestion
-  let auditEntries = [];
-  try {
-    const snap = await db.ref('studioAuditLog').orderByChild('suggestionId').equalTo(id).once('value');
-    const raw = snap.val() || {};
-    auditEntries = Object.values(raw).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  } catch(e) { /* not critical */ }
+  const sug = _allSugs[id];
+  if (!sug) return;
 
-  const canAct = ['editor', 'superadmin'].includes(_role);
-  const isSubmitted = s.status === 'submitted';
+  const auditLog = await loadAuditForSuggestion(id);
+  const rp = document.getElementById('right-panel');
+  const canAct = ['editor','superadmin'].includes(_role) && sug.status === 'submitted';
 
-  document.getElementById('detail-panel').innerHTML = `
-    <div>
+  rp.innerHTML = `
+    <div class="detail-wrap">
       <div class="detail-header">
-        <div>
-          <div class="detail-title">${esc(s.title || '—')}</div>
-          <div class="detail-meta">
-            <span class="status-badge ${esc(s.status || 'draft')}">${esc(s.status || 'draft')}</span>
-            ${s.city ? ' · ' + esc(s.city) : ''}
-            ${s.category ? ' · ' + esc(s.category) : ''}
-          </div>
+        <div class="detail-title">${esc(sug.title || '—')}</div>
+        <span class="status-badge ${esc(sug.status)}">${statusLabel(sug.status)}</span>
+      </div>
+
+      <div class="detail-chips">
+        ${sug.category ? `<span class="chip">🏷 ${esc(sug.category)}</span>` : ''}
+        ${sug.city     ? `<span class="chip">📍 ${esc(sug.city)}${sug.district ? ', ' + esc(sug.district) : ''}</span>` : ''}
+        ${priceChip(sug.price)}
+      </div>
+
+      <div class="section">
+        <h4>Beschreibung</h4>
+        <p style="font-size:.9375rem;line-height:1.6">${esc(sug.description || '—')}</p>
+      </div>
+
+      <div class="section">
+        <h4>Details</h4>
+        ${fieldRow('Anbieter',   sug.providerName)}
+        ${fieldRow('Website',    sug.website, true)}
+        ${fieldRow('Instagram',  sug.instagram ? '@' + sug.instagram : null)}
+        ${fieldRow('Buchung',    sug.bookingUrl, true)}
+        ${fieldRow('Adresse',    sug.location?.address)}
+        ${sug.schedule ? fieldRow('Termine', formatSchedule(sug.schedule)) : ''}
+      </div>
+
+      ${sug.sources?.length ? `
+      <div class="section">
+        <h4>Quellen</h4>
+        <div class="sources-list">
+          ${sug.sources.map(s => `<a class="source-link" href="${esc(s)}" target="_blank" rel="noopener">🔗 ${esc(s)}</a>`).join('')}
         </div>
-        ${canAct && isSubmitted ? `
-        <div class="detail-actions">
-          <button class="btn-approve" id="btn-approve" onclick="doApprove('${esc(id)}')">✓ Freigeben</button>
-          <button class="btn-reject"  id="btn-reject"  onclick="doReject('${esc(id)}')">✕ Ablehnen</button>
-        </div>` : ''}
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">Inhalt</div>
-        <div style="font-size:.9375rem;line-height:1.55;color:var(--text)">${esc(s.description || '—')}</div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">Details</div>
-        <div class="field-grid">
-          ${fieldRow('Anbieter', s.providerName)}
-          ${fieldRow('Stadt', s.city)}
-          ${fieldRow('Bezirk', s.district)}
-          ${fieldRow('Adresse', s.location?.address)}
-          ${fieldRow('Preis', s.price ? fmtPrice(s.price) : null)}
-          ${fieldRow('Buchungslink', s.bookingUrl, true)}
-          ${fieldRow('Zeitplan', s.schedule ? fmtSchedule(s.schedule) : null)}
-          ${fieldRow('Instagram', s.instagram ? '@' + s.instagram : null)}
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">Quellen</div>
-        ${s.sources && s.sources.length ? s.sources.map(url =>
-          `<div style="margin-bottom:4px"><a class="field-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></div>`
-        ).join('') : '<span style="color:var(--muted);font-size:.875rem">Keine Quellen angegeben</span>'}
-        ${s.website ? `<div style="margin-top:6px"><a class="field-link" href="${esc(s.website)}" target="_blank" rel="noopener">Website: ${esc(s.website)}</a></div>` : ''}
-      </div>
-
-      ${canAct && isSubmitted ? `
-      <div class="detail-section">
-        <div class="detail-section-title">Aktion</div>
-        <div class="note-input-wrap">
-          <label for="action-note">Notiz (optional für Freigabe, Pflicht für Ablehnung)</label>
-          <textarea id="action-note" placeholder="Begründung oder Hinweis…"></textarea>
-        </div>
-        <div class="action-feedback" id="action-feedback"></div>
       </div>` : ''}
 
-      ${s.reviewNotes ? `
-      <div class="detail-section">
-        <div class="detail-section-title">Prüfnotiz</div>
-        <div style="font-size:.9rem;color:var(--muted)">${esc(s.reviewNotes)}</div>
+      <div class="section">
+        <h4>Vorschau</h4>
+        <div class="preview-card">
+          <div class="preview-category">${esc(sug.category || '')}</div>
+          <div class="preview-title">${esc(sug.title || '')}</div>
+          <div class="preview-location">📍 ${esc(sug.city || '')}${sug.location?.address ? ' · ' + esc(sug.location.address) : ''}</div>
+          ${sug.price ? `<span class="preview-price">${formatPrice(sug.price)}</span>` : ''}
+        </div>
+      </div>
+
+      ${canAct ? `
+      <div class="action-section" id="action-section">
+        <h4>Entscheidung</h4>
+        <textarea class="note-input" id="action-note" placeholder="Notiz (optional bei Freigabe, Pflicht bei Ablehnung)…"></textarea>
+        <div class="action-row">
+          <button class="btn-approve" id="btn-approve" onclick="approve('${esc(id)}')">✓ Freigeben</button>
+          <button class="btn-reject"  id="btn-reject"  onclick="reject('${esc(id)}')">✕ Ablehnen</button>
+        </div>
+        <div class="action-result" id="action-result"></div>
       </div>` : ''}
 
-      <div class="detail-section">
-        <div class="detail-section-title">Änderungsprotokoll</div>
-        ${renderAuditLog(auditEntries)}
+      <div class="section">
+        <h4>Änderungsprotokoll</h4>
+        ${renderAuditLog(auditLog)}
+      </div>
+    </div>
+  `;
+}
+
+// ── Detail: activity ─────────────────────────────────────────────
+function selectActivity(id) {
+  _activeSugId = id;
+  renderList();
+  const act = _allActs[id];
+  if (!act) return;
+
+  const rp = document.getElementById('right-panel');
+  rp.innerHTML = `
+    <div class="detail-wrap">
+      <div class="detail-header">
+        <div class="detail-title">${esc(act.title || '—')}</div>
+        <span class="status-badge approved">Veröffentlicht</span>
+      </div>
+      <div class="detail-chips">
+        ${act.category ? `<span class="chip">🏷 ${esc(act.category)}</span>` : ''}
+        ${act.city     ? `<span class="chip">📍 ${esc(act.city)}</span>` : ''}
+        ${priceChip(act.price)}
+      </div>
+      <div class="section">
+        <h4>Beschreibung</h4>
+        <p style="font-size:.9375rem;line-height:1.6">${esc(act.description || '—')}</p>
+      </div>
+      <div class="section">
+        <h4>Details</h4>
+        ${fieldRow('Anbieter', act.providerName)}
+        ${fieldRow('Website',  act.website, true)}
+        ${fieldRow('Buchung',  act.bookingUrl, true)}
+        ${fieldRow('Veröffentlicht', act.publishedAt ? fmtDate(act.publishedAt) : null)}
+        ${fieldRow('Vorschlag-ID', act.suggestionId)}
+      </div>
+      <div class="section">
+        <h4>Vorschau</h4>
+        <div class="preview-card">
+          <div class="preview-category">${esc(act.category || '')}</div>
+          <div class="preview-title">${esc(act.title || '')}</div>
+          <div class="preview-location">📍 ${esc(act.city || '')}</div>
+          ${act.price ? `<span class="preview-price">${formatPrice(act.price)}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showPlaceholder() {
+  document.getElementById('right-panel').innerHTML = `
+    <div style="height:100%;display:flex;align-items:center;justify-content:center">
+      <div class="placeholder-state">
+        <div class="placeholder-icon">✏️</div>
+        <div>${_activeTab === 'suggestions' ? 'Vorschlag auswählen' : 'Aktivität auswählen'}</div>
       </div>
     </div>`;
 }
 
-function fieldRow(label, value, isLink = false) {
-  if (!value) return '';
-  const display = isLink
-    ? `<a class="field-link" href="${esc(value)}" target="_blank" rel="noopener">${esc(value)}</a>`
-    : `<span class="field-value">${esc(value)}</span>`;
-  return `<div class="field-item"><span class="field-label">${esc(label)}</span>${display}</div>`;
+// ── Approve / Reject ─────────────────────────────────────────────
+async function refreshIdToken() {
+  _idToken = await _me.getIdToken(true);
 }
 
-function fmtPrice(p) {
-  if (!p) return null;
-  if (p.type === 'free') return 'Kostenlos';
-  if (p.amount) return `${p.amount} ${p.currency || 'EUR'}${p.note ? ' · ' + p.note : ''}`;
-  return p.type || '—';
-}
-
-function fmtSchedule(s) {
-  if (!s) return null;
-  const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-  const dayStr = s.daysOfWeek ? s.daysOfWeek.map(d => days[d]).join(', ') : '';
-  return `${s.type === 'recurring' ? 'Regelmäßig' : 'Einmalig'}${dayStr ? ' · ' + dayStr : ''}${s.time ? ' · ' + s.time : ''}${s.note ? ' · ' + s.note : ''}`;
-}
-
-function renderAuditLog(entries) {
-  if (!entries.length) return '<span style="color:var(--muted);font-size:.875rem">Noch keine Einträge</span>';
-  return `<div class="audit-list">${entries.map(e => `
-    <div class="audit-item">
-      <div class="audit-dot ${esc(e.action || '')}"></div>
-      <div>
-        <div class="audit-text">${auditLabel(e)}</div>
-        <div class="audit-ts">${e.timestamp ? new Date(e.timestamp).toLocaleString('de-DE') : '—'}</div>
-      </div>
-    </div>`).join('')}</div>`;
-}
-
-function auditLabel(e) {
-  const actor = e.actorEmail || e.actorUid || 'unbekannt';
-  if (e.action === 'approve')   return `Freigegeben von ${esc(actor)}${e.details ? ' — ' + esc(e.details) : ''}`;
-  if (e.action === 'reject')    return `Abgelehnt von ${esc(actor)} — ${esc(e.details || '')}`;
-  if (e.action === 'submit')    return `Eingereicht von ${esc(actor)}`;
-  if (e.action === 'set_role')  return `Rolle geändert von ${esc(actor)}: ${esc(e.details || '')}`;
-  return `${esc(e.action)} von ${esc(actor)}`;
-}
-
-// ── Approve ────────────────────────────────────────────────────────────────
-async function doApprove(id) {
-  const notes = document.getElementById('action-note')?.value.trim() || '';
-  setActing(true);
+async function approve(suggestionId) {
+  const note = document.getElementById('action-note')?.value?.trim() || '';
+  setActionBtns(true);
   try {
-    _idToken = await _user.getIdToken(true);
-    const result = await callFunction('studio-approve', { suggestionId: id, notes });
-    if (result.activityId) {
-      showFeedback('ok', result.idempotent
-        ? `Bereits freigegeben. Aktivität: ${result.activityId}`
-        : `✓ Freigegeben. Aktivität: ${result.activityId}`);
-    } else {
-      showFeedback('err', result.error || 'Unbekannter Fehler');
-    }
-  } catch(err) {
-    showFeedback('err', err.message || 'Netzwerkfehler');
+    await refreshIdToken();
+    const res = await callFunction('studio-approve', { suggestionId, notes: note }, _idToken);
+    if (res.error) throw new Error(res.error);
+    showActionResult('ok', res.idempotent
+      ? `Bereits freigegeben — Aktivitäts-ID: ${res.activityId}`
+      : `Freigegeben ✓ Aktivitäts-ID: ${res.activityId}`);
+    toast('Freigegeben!');
+  } catch (err) {
+    showActionResult('err', 'Fehler: ' + err.message);
+    setActionBtns(false);
   }
-  setActing(false);
 }
 
-// ── Reject ─────────────────────────────────────────────────────────────────
-async function doReject(id) {
-  const reason = document.getElementById('action-note')?.value.trim();
+async function reject(suggestionId) {
+  const reason = document.getElementById('action-note')?.value?.trim() || '';
   if (!reason) {
-    showFeedback('err', 'Bitte eine Begründung für die Ablehnung eingeben.');
+    showActionResult('err', 'Bitte eine Begründung eingeben.');
     return;
   }
-  setActing(true);
+  setActionBtns(true);
   try {
-    _idToken = await _user.getIdToken(true);
-    const result = await callFunction('studio-reject', { suggestionId: id, reason });
-    if (result.ok) {
-      showFeedback('ok', '✓ Abgelehnt und archiviert.');
-    } else {
-      showFeedback('err', result.error || 'Unbekannter Fehler');
-    }
-  } catch(err) {
-    showFeedback('err', err.message || 'Netzwerkfehler');
+    await refreshIdToken();
+    const res = await callFunction('studio-reject', { suggestionId, reason }, _idToken);
+    if (res.error) throw new Error(res.error);
+    showActionResult('ok', 'Abgelehnt.');
+    toast('Abgelehnt.');
+  } catch (err) {
+    showActionResult('err', 'Fehler: ' + err.message);
+    setActionBtns(false);
   }
-  setActing(false);
 }
 
-function setActing(acting) {
-  const ba = document.getElementById('btn-approve');
-  const br = document.getElementById('btn-reject');
-  if (ba) ba.disabled = acting;
-  if (br) br.disabled = acting;
+function setActionBtns(disabled) {
+  const a = document.getElementById('btn-approve');
+  const r = document.getElementById('btn-reject');
+  if (a) a.disabled = disabled;
+  if (r) r.disabled = disabled;
 }
 
-function showFeedback(type, msg) {
-  const el = document.getElementById('action-feedback');
+function showActionResult(type, msg) {
+  const el = document.getElementById('action-result');
   if (!el) return;
+  el.className = 'action-result ' + type;
   el.textContent = msg;
-  el.className = `action-feedback ${type}`;
-  el.style.display = 'block';
 }
 
-// ── Netlify Function call ──────────────────────────────────────────────────
-async function callFunction(name, body) {
+// ── Netlify Function call ────────────────────────────────────────
+async function callFunction(name, body, idToken) {
   const res = await fetch(`/.netlify/functions/${name}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${_idToken}`,
+      'Authorization': `Bearer ${idToken}`,
     },
     body: JSON.stringify(body),
   });
   return res.json();
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Audit log ────────────────────────────────────────────────────
+async function loadAuditForSuggestion(suggestionId) {
+  const snap = await db.ref('studioAuditLog')
+    .orderByChild('suggestionId')
+    .equalTo(suggestionId)
+    .once('value');
+  const val = snap.val() || {};
+  return Object.values(val).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+
+function renderAuditLog(entries) {
+  if (!entries.length) return '<p style="color:var(--muted);font-size:.875rem">Noch keine Einträge.</p>';
+  return `<div class="audit-timeline">
+    ${entries.map(e => `
+      <div class="audit-item">
+        <span class="audit-action ${esc(e.action)}">${actionLabel(e.action)}</span>
+        <div class="audit-body">
+          <div class="audit-who">${esc(e.actorEmail || e.actorUid || '—')}</div>
+          ${e.details ? `<div class="audit-note">${esc(e.details)}</div>` : ''}
+          <div class="audit-ts">${e.timestamp ? fmtDate(e.timestamp) : ''}</div>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(ts) {
+  return new Date(ts).toLocaleString('de-DE', {
+    day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  });
+}
+
+function statusLabel(s) {
+  return { submitted:'Eingereicht', draft:'Entwurf', approved:'Genehmigt', rejected:'Abgelehnt' }[s] || s;
+}
+
+function actionLabel(a) {
+  return { approve:'Freigabe', reject:'Ablehnung', submit:'Einreichung', edit:'Bearbeitung',
+           set_role:'Rolle', bootstrap_superadmin:'Bootstrap' }[a] || a;
+}
+
+function fieldRow(label, value, isLink = false) {
+  if (!value) return '';
+  const content = isLink
+    ? `<a href="${esc(value)}" target="_blank" rel="noopener">${esc(value)}</a>`
+    : esc(value);
+  return `<div class="field-row"><span class="field-label">${esc(label)}</span><span class="field-value">${content}</span></div>`;
+}
+
+function priceChip(price) {
+  if (!price) return '';
+  return `<span class="chip">💶 ${formatPrice(price)}</span>`;
+}
+
+function formatPrice(price) {
+  if (!price) return '';
+  if (price.type === 'free') return 'Kostenlos';
+  if (price.type === 'donation') return 'Spende';
+  const amt = price.amount ? `${price.amount} ${price.currency || 'EUR'}` : '';
+  return amt + (price.note ? ` · ${price.note}` : '');
+}
+
+function formatSchedule(schedule) {
+  if (!schedule) return '';
+  if (schedule.note) return schedule.note;
+  const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const dayStr = schedule.daysOfWeek ? schedule.daysOfWeek.map(d => days[d]).join(', ') : '';
+  return [dayStr, schedule.time, schedule.type === 'recurring' ? '(wiederkehrend)' : ''].filter(Boolean).join(' ');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
 }
 </script>
 </body>
