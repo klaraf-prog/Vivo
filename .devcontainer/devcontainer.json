@@ -10,22 +10,23 @@
 
   "portsAttributes": {
     "8888": {
+      // Studio UI: private (only accessible to authenticated GitHub user).
+      // Auth and RTDB emulators are proxied through this port — no other
+      // port needs to be opened to the network.
       "label": "Studio UI (netlify dev)",
       "onAutoForward": "notify"
     },
     "9099": {
-      // Must be public: Firebase Auth Client SDK makes unauthenticated
-      // cross-origin requests from the browser. Codespaces auth cookies
-      // are not included in those XHR requests.
+      // Auth emulator: private. Requests from the browser are proxied via
+      // port 8888 (see netlify.toml), not sent directly to this port.
       "label": "Firebase Auth Emulator",
-      "onAutoForward": "silent",
-      "visibility": "public"
+      "onAutoForward": "silent"
     },
     "9000": {
-      // Must be public: same reason as 9099.
+      // RTDB emulator: private. Browser never connects directly — data is
+      // loaded via the studio-data Netlify Function (Admin SDK, server-side).
       "label": "Firebase RTDB Emulator",
-      "onAutoForward": "silent",
-      "visibility": "public"
+      "onAutoForward": "silent"
     }
   },
 

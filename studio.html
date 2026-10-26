@@ -375,8 +375,11 @@ if (isLocalEmulator) {
   auth.useEmulator('http://127.0.0.1:9099');
   db.useEmulator('127.0.0.1', 9000);
 } else if (isCodespaces) {
-  const _base = _h.replace(/-\d+\.app\.github\.dev$/, '');
-  auth.useEmulator(`https://${_base}-9099.app.github.dev`);
+  // Auth: proxied through Netlify Dev on the same origin (port 8888).
+  // netlify.toml forwards /identitytoolkit.googleapis.com/* and
+  // /securetoken.googleapis.com/* to 127.0.0.1:9099 inside the container.
+  // This keeps port 9099 completely private — no public exposure needed.
+  auth.useEmulator(`${location.protocol}//${location.host}`);
   // RTDB SDK emulator skipped intentionally — see attachListeners()
 }
 

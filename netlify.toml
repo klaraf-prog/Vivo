@@ -8,3 +8,29 @@
 [functions."motivate"]
   schedule = "0 15,16,17,18 * * *"
 
+# ── Firebase Auth Emulator proxy ────────────────────────────────────────────
+# Problem: Firebase Auth Client SDK macht Cross-Origin-XHR-Requests.
+# In Codespaces gehen diese an https://<name>-9099.app.github.dev, aber die
+# Codespaces-Session-Cookies werden nicht mitgesendet (CORS-Policy), sodass
+# der private Port 9099 einen 401 zurückgibt.
+#
+# Lösung: Die Auth-SDK-Paths über denselben Port 8888 proxyen (same-origin).
+# Die Netlify-Dev-Instanz läuft im Container und kann 127.0.0.1:9099 direkt
+# erreichen. Port 9099 bleibt dabei vollständig privat.
+#
+# In Produktion werden diese Paths nie aufgerufen, weil auth.useEmulator()
+# nur auf localhost / *.app.github.dev aktiv ist. Die Regeln sind dort
+# tote Proxys (Verbindung zu 127.0.0.1:9099 schlägt fehl → 502, was nie
+# passiert, weil kein Client die Paths aufruft).
+[[redirects]]
+  from   = "/identitytoolkit.googleapis.com/*"
+  to     = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/:splat"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from   = "/securetoken.googleapis.com/*"
+  to     = "http://127.0.0.1:9099/securetoken.googleapis.com/:splat"
+  status = 200
+  force  = true
+
