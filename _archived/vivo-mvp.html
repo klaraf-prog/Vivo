@@ -1,0 +1,2681 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>vivo</title>
+  <meta name="description" content="vivo – die fehlende Infrastruktur für das reale Sozialleben">
+  <meta name="theme-color" content="#F5A623">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    /* ── RESET ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    button { font-family: inherit; cursor: pointer; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── TOKENS ── */
+    :root {
+      --bg:           #FAF8F4;
+      --amber:        #F5A623;
+      --amber-light:  #FADA8E;
+      --pink:         #EF6B82;
+      --text:         #1A1714;
+      --muted:        #8A847D;
+      --card:         #FFFFFF;
+      --border:       #EDE8E0;
+      --shadow:       0 2px 16px rgba(26,23,20,.07);
+      --shadow-lg:    0 8px 32px rgba(26,23,20,.12);
+      --r:            16px;
+      --r-sm:         10px;
+      --serif:        'Playfair Display', Georgia, serif;
+      --sans:         'DM Sans', system-ui, sans-serif;
+      --max:          480px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; min-height: 100vh; flex-direction: column; background: var(--bg); }
+    .screen.active { display: flex; animation: fadeIn .18s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* ── LOGO ── */
+    .logo {
+      font-family: var(--serif);
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -.02em;
+      color: var(--text);
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 24px; border-radius: 50px; border: none;
+      font-family: var(--sans); font-size: .9375rem; font-weight: 600;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary  { background: var(--amber); color: var(--text); }
+    .btn-primary:hover  { background: #e8961f; }
+    .btn-outline  { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-outline:hover  { border-color: var(--muted); }
+    .btn-ghost    { background: transparent; color: var(--muted); padding: 10px 16px; }
+    .btn-google   { background: #fff; border: 1.5px solid var(--border); color: var(--text); font-weight: 500; }
+    .btn-google:hover { background: #f7f7f7; }
+    .btn-full     { width: 100%; }
+    .btn-sm       { padding: 9px 16px; font-size: .875rem; }
+
+    /* ── INPUTS ── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: .875rem; font-weight: 500; color: var(--muted); }
+    input[type=text], input[type=email], input[type=password],
+    input[type=date], input[type=time] {
+      width: 100%; padding: 13px 16px;
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      font-family: var(--sans); font-size: 1rem; color: var(--text);
+      background: #fff; outline: none; transition: border-color .15s;
+    }
+    input:focus { border-color: var(--amber); }
+    input::placeholder { color: var(--muted); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--muted); font-size: .875rem; margin: 20px 0;
+    }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background: var(--border); }
+
+    /* ── AVATAR ── */
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--amber-light); border: none; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .875rem; flex-shrink: 0;
+    }
+
+    /* ── PROFILE SCREEN ── */
+    #screen-profile { align-items: stretch; }
+    .prof-body {
+      flex: 1; overflow-y: auto;
+      padding: 0 20px 120px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .prof-av-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 8px;
+    }
+    .prof-av-xl {
+      width: 96px; height: 96px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.25rem; font-weight: 700; color: #fff;
+      margin-bottom: 12px; flex-shrink: 0;
+    }
+    .prof-foot {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 16px 20px 36px;
+      background: linear-gradient(to top, var(--bg) 65%, transparent);
+    }
+    .prof-foot .inner { max-width: var(--max); margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+    .rsvp-as-label { font-size: .875rem; color: var(--muted); margin-bottom: 12px; }
+    .rsvp-hint { text-align:center; font-size:.8125rem; color:var(--muted); margin-top:8px; }
+
+    /* ── USERNAME HINT ── */
+    .username-hint { font-size:.75rem; color:var(--muted); min-height:1em; }
+    .username-hint.err { color:var(--pink); }
+    .username-hint.ok  { color:#5CB87A; }
+
+    /* ── CONNECT BANNER (on login screen) ── */
+    .connect-banner {
+      display:flex; align-items:center; gap:12px;
+      background:#FFF8EC; border:1.5px solid var(--amber-light);
+      border-radius:var(--r-sm); padding:12px 14px; margin-bottom:4px;
+    }
+    .connect-banner-av {
+      width:40px; height:40px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:1rem; color:#fff;
+    }
+    .connect-banner-text { font-size:.875rem; line-height:1.4; }
+    .connect-banner-text strong { display:block; font-size:.9375rem; }
+
+    /* ── FRIENDS ── */
+    .friend-list { display:flex; flex-direction:column; gap:10px; }
+    .friend-item {
+      display:flex; align-items:center; gap:12px;
+      padding:12px 16px; background:var(--card);
+      border-radius:var(--r); box-shadow:var(--shadow);
+    }
+    .friend-av {
+      width:44px; height:44px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:1.125rem; color:#fff;
+    }
+    .friend-info { flex:1; min-width:0; }
+    .friend-name { font-weight:600; font-size:.9375rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .friend-user { font-size:.8125rem; color:var(--muted); }
+
+    /* ── PUBLIC PROFILE ── */
+    #screen-pub-profile { align-items: stretch; }
+    #screen-pub-space   { align-items: stretch; }
+    #screen-datenschutz { align-items: stretch; }
+    .legal-body {
+      flex: 1; overflow-y: auto; padding: 24px 20px 60px;
+      font-size: .9375rem; line-height: 1.6; color: var(--text);
+    }
+    .legal-body h1 { font-size: 1.5rem; margin: 0 0 16px; }
+    .legal-body h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+    .legal-body h3 { font-size: 1rem; margin: 16px 0 6px; }
+    .legal-body p  { margin: 0 0 10px; }
+    .legal-body ul { padding-left: 20px; margin: 0 0 10px; }
+    .legal-body li { margin-bottom: 6px; }
+    .legal-body a  { color: var(--pink); text-decoration: none; }
+    .legal-body a:hover { text-decoration: underline; }
+    .legal-body .seal { font-size:.8rem; color:var(--muted); margin-top:32px; }
+    .pubprof-body {
+      flex:1; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:40px 24px; gap:14px;
+    }
+    .pubprof-av {
+      width:96px; height:96px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:2.25rem; font-weight:700; color:#fff;
+    }
+    .pubprof-name { font-size:1.375rem; font-weight:700; text-align:center; }
+    .pubprof-user { font-size:.9375rem; color:var(--muted); }
+    .pubprof-actions { display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px; margin-top:8px; }
+
+    /* ── BADGE ── */
+    .badge {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--pink); color: #fff;
+      font-size: .75rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* ── SPINNER ── */
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2.5px solid var(--border); border-top-color: var(--amber);
+      border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 80px; left: 50%; z-index: 9999;
+      transform: translateX(-50%) translateY(12px);
+      background: var(--text); color: #fff;
+      padding: 11px 22px; border-radius: 50px;
+      font-size: .875rem; font-weight: 500;
+      opacity: 0; transition: all .25s ease; white-space: nowrap;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── OVERLAY / SHEET ── */
+    .overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(26,23,20,.45); backdrop-filter: blur(4px);
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .sheet {
+      background: #fff; border-radius: var(--r) var(--r) 0 0;
+      padding: 24px 20px 44px; width: 100%; max-width: var(--max);
+      animation: slideUp .28s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(32px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* ── BACK BTN ── */
+    .back-btn {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      background: #fff; border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text);
+    }
+
+    /* ══════════════════════════════
+       LOADING
+    ══════════════════════════════ */
+    #loading {
+      position: fixed; inset: 0; z-index: 9998;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+    }
+    #loading .logo { font-size: 2.25rem; }
+
+    /* ══════════════════════════════
+       LOGIN SCREEN
+    ══════════════════════════════ */
+    #screen-login {
+      align-items: center; justify-content: center;
+      padding: 32px 24px;
+    }
+    .login-box { width: 100%; max-width: 400px; }
+    .login-head { text-align: center; margin-bottom: 36px; }
+    .login-head .logo { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+    .login-head p { color: var(--muted); font-size: .9375rem; }
+
+    .auth-tabs {
+      display: flex; background: var(--border);
+      border-radius: 50px; padding: 4px; margin-bottom: 26px;
+    }
+    .auth-tab {
+      flex: 1; padding: 10px; border-radius: 50px; border: none;
+      background: transparent; font-family: var(--sans);
+      font-size: .9375rem; font-weight: 500; color: var(--muted);
+      cursor: pointer; transition: all .2s;
+    }
+    .auth-tab.on {
+      background: #fff; color: var(--text); font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,.09);
+    }
+
+    .auth-form { display: flex; flex-direction: column; gap: 14px; }
+    .auth-err {
+      background: #FEF0F2; border: 1px solid #FBCDD5;
+      color: var(--pink); padding: 11px 14px;
+      border-radius: var(--r-sm); font-size: .875rem; display: none;
+    }
+    .auth-err.show { display: block; }
+
+    /* ══════════════════════════════
+       HOME SCREEN
+    ══════════════════════════════ */
+    .home-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 20px 8px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+    .home-body {
+      flex: 1; overflow-y: auto;
+      padding-bottom: 80px;
+    }
+
+    /* Tab panel visibility */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .section {
+      padding: 20px 20px 4px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+    .section-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .section-head h2 {
+      font-size: .8125rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    }
+    .events-stack { display: flex; flex-direction: column; gap: 12px; }
+    #past-chevron { transition: transform .2s ease; }
+    #past-chevron.open { transform: rotate(180deg); }
+
+    /* Event card */
+    .ecard {
+      background: #fff; border-radius: var(--r);
+      border: 1px solid var(--border); box-shadow: var(--shadow);
+      padding: 16px; cursor: pointer; transition: box-shadow .15s;
+    }
+    .ecard:hover { box-shadow: var(--shadow-lg); }
+    .ecard-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+    .ecard-emoji {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; flex-shrink: 0;
+    }
+    .ecard-info { flex: 1; min-width: 0; }
+    .ecard-title {
+      font-size: 1.0625rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .ecard-meta { font-size: .8125rem; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+
+    .attendee-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+    .achip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #F5F3EF; border-radius: 50px;
+      padding: 4px 10px 4px 7px; font-size: .8125rem;
+    }
+    .adot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+    .adot.maybe { background: #c8a84b; }
+
+    /* Inline RSVP on home cards */
+    .inline-rsvp { display: flex; gap: 7px; }
+    .irsvp-btn {
+      flex: 1; padding: 9px 6px; border-radius: 50px;
+      border: 1.5px solid var(--border); background: #fff;
+      font-family: var(--sans); font-size: .8125rem; font-weight: 600;
+      color: var(--muted); transition: all .15s;
+    }
+    .irsvp-btn:hover { border-color: var(--amber); color: var(--text); }
+
+    /* Delete button on event card */
+    .del-btn {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      background: transparent; border: none; color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all .15s;
+    }
+    .del-btn:hover { background: #FEF0F2; color: var(--pink); }
+
+    /* Declined / Abgesagt card */
+    .ecard.declined { background: #F7F5F2; box-shadow: none; opacity: .72; }
+    .ecard.declined .ecard-title { color: var(--muted); }
+    .ecard.declined .ecard-emoji { opacity: .45; }
+    .ecard.declined .attendee-chips { opacity: .6; }
+
+    /* Bottom tab bar */
+    .tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: var(--card); border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      height: calc(60px + max(0px, env(safe-area-inset-bottom)));
+    }
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      background: none; border: none; padding: 8px 0;
+      color: var(--muted); font-size: .6875rem; font-weight: 500; cursor: pointer;
+      transition: color .15s;
+    }
+    .tab-btn svg { transition: color .15s; }
+    .tab-btn.active { color: var(--amber); }
+    .tab-create {
+      width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
+      background: var(--amber); border: none;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(245,166,35,.5); cursor: pointer;
+      transition: all .15s;
+    }
+    .tab-create:hover  { background: #e8961f; }
+    .tab-create:active { transform: scale(.93); }
+
+    /* Space cards */
+    .space-list { display: flex; flex-direction: column; gap: 10px; }
+    .space-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; background: var(--card);
+      border-radius: var(--r); box-shadow: var(--shadow);
+      cursor: pointer; transition: box-shadow .15s;
+    }
+    .space-card:active { box-shadow: none; }
+    .space-icon {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.375rem;
+    }
+    .space-info { flex: 1; min-width: 0; }
+    .space-name { font-weight: 600; font-size: .9375rem; }
+    .space-meta { font-size: .8125rem; color: var(--muted); }
+
+    /* Member selection (space creation) */
+    .member-sel-list { display: flex; flex-direction: column; gap: 8px; }
+    .member-sel-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; background: var(--card);
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      cursor: pointer; transition: border-color .15s;
+    }
+    .member-sel-item.on { border-color: var(--amber); background: #FFF8EC; }
+    .member-sel-check {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-left: auto;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; color: transparent; transition: all .15s;
+    }
+    .member-sel-item.on .member-sel-check {
+      background: var(--amber); border-color: var(--amber); color: #fff;
+    }
+
+    /* Space chips in event create form */
+    .space-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .space-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 50px;
+      border: 1.5px solid var(--border); background: #fff;
+      font-family: var(--sans); font-size: .875rem; font-weight: 500;
+      color: var(--muted); cursor: pointer; transition: all .15s;
+    }
+    .space-chip.on { border-color: var(--amber); background: #FFF8EC; color: var(--text); }
+
+    /* Space view */
+    #screen-space { align-items: stretch; }
+    .space-member-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 16px; max-width: var(--max); margin: 0 auto; width: 100%; }
+    .smc {
+      display: flex; align-items: center; gap: 6px;
+      background: #F5F3EF; border-radius: 50px;
+      padding: 4px 10px 4px 5px; font-size: .8125rem;
+    }
+    .smc-av {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .625rem; color: #fff;
+    }
+
+
+    .empty { text-align: center; padding: 36px 20px; color: var(--muted); }
+    .empty .ei { font-size: 2rem; margin-bottom: 8px; }
+    .empty p { font-size: .9375rem; }
+
+    /* ══════════════════════════════
+       CREATE SCREEN
+    ══════════════════════════════ */
+    .scr-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 20px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+    .scr-header h1 { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; }
+
+    .create-body {
+      flex: 1; overflow-y: auto;
+      padding: 4px 20px 120px;
+      max-width: var(--max); margin: 0 auto; width: 100%;
+    }
+
+    /* Emoji grid */
+    .emoji-label { font-size: .875rem; font-weight: 500; color: var(--muted); margin-bottom: 10px; display: block; }
+    .emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin-bottom: 22px; }
+    .egi {
+      aspect-ratio: 1; border-radius: 10px;
+      border: 2px solid transparent; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.375rem; cursor: pointer; transition: all .12s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .egi:hover { transform: scale(1.1); border-color: var(--amber-light); }
+    .egi.on { border-color: var(--amber); background: #FFF9EE; }
+
+    .form-stack { display: flex; flex-direction: column; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .create-foot { padding: 24px 0 40px; }
+
+    /* Success screen */
+    #screen-success { align-items: center; justify-content: center; padding: 40px 32px; text-align: center; }
+    .suc-icon {
+      width: 84px; height: 84px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; margin-bottom: 20px;
+    }
+    .suc-title { font-family: var(--serif); font-size: 1.875rem; font-weight: 600; margin-bottom: 8px; }
+    .suc-sub { color: var(--muted); margin-bottom: 36px; font-size: .9375rem; }
+    .share-stack { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+
+    /* ══════════════════════════════
+       EVENT VIEW SCREEN
+    ══════════════════════════════ */
+    #screen-event { align-items: center; }
+    #screen-event > .ev-inner {
+      max-width: var(--max); width: 100%; margin: 0 auto;
+      display: flex; flex-direction: column; flex: 1;
+    }
+
+    .ev-header { display: flex; align-items: center; padding: 16px 20px; }
+    .ev-body { flex: 1; overflow-y: auto; padding-bottom: 48px; }
+
+    /* Hero */
+    .ev-hero { text-align: center; padding: 20px 20px 28px; }
+    .ev-hero-emoji {
+      width: 76px; height: 76px; border-radius: 22px;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; margin: 0 auto 16px;
+    }
+    .ev-hero-title {
+      font-family: var(--serif); font-size: 1.875rem; font-weight: 700;
+      line-height: 1.2; margin-bottom: 16px;
+    }
+    .ev-details {
+      background: #fff; border-radius: var(--r);
+      border: 1px solid var(--border); padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px; text-align: left;
+    }
+    .ev-row { display: flex; align-items: center; gap: 12px; font-size: .9375rem; }
+    .ev-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: #F5F3EF; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem;
+    }
+
+    /* Section */
+    .ev-sec { padding: 16px 20px 4px; }
+    .ev-sec-title {
+      font-size: .8125rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* Attendees list */
+    .att-list { display: flex; flex-direction: column; gap: 8px; }
+    .att-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: #fff;
+      border-radius: var(--r-sm); border: 1px solid var(--border);
+    }
+    .att-info { display: flex; align-items: center; gap: 10px; }
+    .att-av {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8125rem; font-weight: 700;
+    }
+    .att-name { font-weight: 500; font-size: .9375rem; }
+    .att-count { display: inline-block; background: var(--border); color: var(--muted); font-size: .75rem; font-weight: 600; border-radius: 99px; padding: 1px 7px; margin-left: 4px; vertical-align: middle; }
+    .att-sec-empty { font-size: .875rem; color: var(--muted); padding: 6px 0 8px; }
+    .pill {
+      font-size: .75rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 50px;
+    }
+    .pill.dabei      { background: var(--amber-light); color: var(--text); }
+    .pill.vielleicht { background: #FEF9EE; color: #9a6f00; border: 1px solid var(--amber-light); }
+    .pill.nein       { background: #F5F3EF; color: var(--muted); }
+
+    /* RSVP form */
+    .rsvp-box {
+      background: #fff; border-radius: var(--r);
+      border: 1px solid var(--border); padding: 18px;
+    }
+    .rsvp-btns { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+    .rbtn {
+      padding: 14px 6px; border-radius: var(--r-sm);
+      border: 2px solid var(--border); background: #fff;
+      font-family: var(--sans); font-size: .875rem; font-weight: 600;
+      color: var(--muted); transition: all .15s;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .rbtn .ri { font-size: 1.25rem; }
+    .rbtn:hover { border-color: var(--amber); color: var(--text); }
+    .rbtn.on.dabei      { background: var(--amber);       border-color: var(--amber);       color: var(--text); }
+    .rbtn.on.vielleicht { background: var(--amber-light); border-color: var(--amber-light); color: var(--text); }
+    .rbtn.on.nein       { background: #F5F3EF;            border-color: #EDE8E0;            color: var(--muted); }
+
+    .rsvp-name { display: none; }
+    .rsvp-name.open { display: flex; flex-direction: column; gap: 10px; }
+
+    /* Calendar buttons */
+    .cal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cal-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px; background: #fff; border: 1.5px solid var(--border);
+      border-radius: var(--r-sm); font-family: var(--sans);
+      font-size: .875rem; font-weight: 500; color: var(--text);
+      cursor: pointer; transition: border-color .15s;
+    }
+    .cal-btn:hover { border-color: var(--muted); }
+
+    /* Signup upsell banner */
+    .upsell-head { text-align: center; margin-bottom: 24px; }
+    .upsell-icon { font-size: 2.25rem; margin-bottom: 10px; }
+    .upsell-title { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+    .upsell-sub { color: var(--muted); font-size: .9375rem; line-height: 1.55; }
+
+    /* Profile sheet */
+    .prof-head { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+    .prof-av {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.375rem; font-weight: 700;
+    }
+    .prof-name  { font-size: 1.125rem; font-weight: 600; }
+    .prof-email { font-size: .875rem; color: var(--muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<button id="lang-toggle" onclick="toggleLang()" style="
+  position:fixed;top:12px;right:16px;z-index:200;
+  background:none;border:none;font-size:1.25rem;cursor:pointer;
+  padding:4px;line-height:1;opacity:0.8
+">🇩🇪</button>
+
+<!-- ═══════════════════════════ LOADING ═══════════════════════════ -->
+<div id="loading">
+  <div class="logo">vivo</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- ═══════════════════════════ LOGIN ═══════════════════════════ -->
+<div id="screen-login" class="screen">
+  <div class="login-box">
+    <div class="login-head">
+      <span class="logo">vivo</span>
+      <p>Die Infrastruktur für dein reales Sozialleben.</p>
+    </div>
+
+    <div id="connect-banner" style="display:none" class="connect-banner">
+      <div class="connect-banner-av" id="connect-banner-av"></div>
+      <div class="connect-banner-text">
+        <strong id="connect-banner-name"></strong>
+        Melde dich an oder registriere dich um zu connecten.
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab on" onclick="switchTab('login')" data-i18n="login_btn">Anmelden</button>
+      <button class="auth-tab"    onclick="switchTab('register')" data-i18n="login_register_link">Registrieren</button>
+    </div>
+
+    <div id="auth-err" class="auth-err"></div>
+
+    <form class="auth-form" onsubmit="handleAuth(event)">
+      <div class="field" id="name-field" style="display:none">
+        <label data-i18n="register_name">Dein Name <span style="color:var(--pink)">*</span></label>
+        <input type="text" id="inp-name" placeholder="z.B. Klara" autocomplete="name">
+      </div>
+      <div class="field">
+        <label data-i18n="login_email">E-Mail</label>
+        <input type="email" id="inp-email" placeholder="du@beispiel.de" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label data-i18n="login_password">Passwort</label>
+        <input type="password" id="inp-pw" placeholder="Mindestens 6 Zeichen" required minlength="6" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="auth-btn" data-i18n="login_btn">Anmelden</button>
+      <p id="dsgvo-hint" style="display:none;margin:10px 0 0;font-size:.8125rem;color:var(--muted);text-align:center;line-height:1.5">
+        Mit der Registrierung stimmst du unserer
+        <button type="button" onclick="showDatenschutz('login')" style="background:none;border:none;padding:0;color:var(--pink);font-size:.8125rem;cursor:pointer;text-decoration:underline">Datenschutzerklärung</button>
+        zu.
+      </p>
+    </form>
+
+    <div class="divider">oder</div>
+
+    <button class="btn btn-google btn-full" onclick="googleLogin()" data-i18n="login_google">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.017 17.64 11.71 17.64 9.2z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+        <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Mit Google anmelden
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ HOME ═══════════════════════════ -->
+<div id="screen-home" class="screen">
+  <div class="home-bar">
+    <span class="logo" onclick="navHome()" style="cursor:pointer">vivo</span>
+    <button class="avatar" id="avatar-btn" onclick="openProfileScreen()"></button>
+  </div>
+
+  <div class="home-body">
+    <!-- Events tab -->
+    <div class="tab-panel active" id="tab-events">
+      <div class="section">
+        <div class="section-head"><h2 data-i18n="home_my_events">Deine Events</h2></div>
+        <div class="events-stack" id="my-list">
+          <div style="text-align:center;padding:32px"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="section" id="pending-sec" style="display:none">
+        <div class="section-head">
+          <h2 data-i18n="home_pending">Ausstehend</h2>
+          <div class="badge" id="pending-count">0</div>
+        </div>
+        <div class="events-stack" id="pending-list"></div>
+      </div>
+
+      <div class="section" id="past-sec" style="display:none">
+        <div class="section-head" onclick="togglePastEvents()" style="cursor:pointer;user-select:none">
+          <h2 data-i18n="home_past">Vergangene Events</h2>
+          <svg id="past-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);flex-shrink:0">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="events-stack" id="past-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Friends tab -->
+    <div class="tab-panel" id="tab-friends">
+      <div class="section" style="padding-bottom:8px">
+        <button class="btn btn-outline btn-full" onclick="openCreateSpace()" data-i18n="friends_create_space">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Space erstellen
+        </button>
+      </div>
+      <div class="section">
+        <div class="section-head"><h2 data-i18n="friends_my_label">Freunde</h2></div>
+        <div id="friends-list"></div>
+      </div>
+      <div class="section" id="spaces-sec" style="display:none">
+        <div class="section-head"><h2 data-i18n="friends_spaces_label">Spaces</h2></div>
+        <div class="space-list" id="spaces-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-btn-events" onclick="switchHomeTab('events')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span data-i18n="nav_home">Events</span>
+    </button>
+    <button class="tab-btn" id="tab-btn-friends" onclick="switchHomeTab('friends')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span data-i18n="nav_friends">Freunde</span>
+    </button>
+    <button class="tab-create" onclick="showCreate()" title="Event erstellen">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ CREATE ═══════════════════════════ -->
+<div id="screen-create" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="navHome()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 data-i18n="nav_create">Event erstellen</h1>
+  </div>
+
+  <div class="create-body">
+    <span class="emoji-label">Emoji</span>
+    <div class="emoji-grid" id="emoji-grid"></div>
+
+    <div class="form-stack">
+      <div class="field">
+        <label data-i18n="create_title_label">Titel *</label>
+        <input type="text" id="ev-title" placeholder="z.B. Grillabend 🔥" maxlength="60" data-i18n-placeholder="create_title_placeholder">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label data-i18n="create_date_label">Datum</label>
+          <input type="date" id="ev-date">
+        </div>
+        <div class="field">
+          <label data-i18n="create_time_label">Uhrzeit</label>
+          <input type="time" id="ev-time">
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="create_location_label">Ort</label>
+        <input type="text" id="ev-location" placeholder="z.B. Mauerpark, Berlin" data-i18n-placeholder="create_location_placeholder">
+      </div>
+      <div class="field">
+        <label data-i18n="create_details_label">Details <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <textarea id="ev-details" placeholder="Was erwartet die Gäste?"
+          rows="3" style="resize:vertical;font-family:inherit;font-size:1rem;padding:13px 16px;border:1.5px solid var(--border);border-radius:var(--r-sm);color:var(--text);background:#fff;width:100%;line-height:1.5" data-i18n-placeholder="create_details_placeholder"></textarea>
+      </div>
+      <div class="field" id="invites-wrap" style="display:none">
+        <label data-i18n="create_invites_label">Freunde einladen <span style="color:var(--muted);font-weight:400" data-i18n="create_invites_optional">(optional)</span></label>
+        <div id="invites-spaces-row" style="display:none">
+          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500" data-i18n="create_spaces_sublabel">🏠 Friend Spaces</p>
+          <div class="space-chips" id="space-chips"></div>
+        </div>
+        <div id="invites-friends-row" style="display:none">
+          <p style="font-size:.8125rem;color:var(--muted);margin:8px 0 4px;font-weight:500" data-i18n="create_friends_sublabel">👤 Einzelne Freunde</p>
+          <div class="space-chips" id="friend-chips"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="create-foot">
+      <button class="btn btn-primary btn-full" id="create-btn" data-i18n="btn_create_event">
+        Event erstellen &amp; teilen ✨
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SUCCESS ═══════════════════════════ -->
+<div id="screen-success" class="screen">
+  <div class="suc-icon" id="suc-emoji">🎉</div>
+  <div class="suc-title">Event erstellt!</div>
+  <p class="suc-sub">Jetzt teilen und Zusagen sammeln</p>
+  <div class="share-stack">
+    <button class="btn btn-primary btn-full" onclick="shareWA()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      WhatsApp teilen
+    </button>
+    <button class="btn btn-outline btn-full" onclick="copyLink()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2v1"/></svg>
+      Link kopieren
+    </button>
+    <button class="btn btn-ghost btn-full" onclick="goHome()">Zur Übersicht</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ EVENT VIEW ═══════════════════════════ -->
+<div id="screen-event" class="screen">
+  <div class="ev-inner">
+    <div class="ev-header">
+      <button class="back-btn" id="ev-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="logo" onclick="navHome()" style="cursor:pointer;font-size:1.125rem;margin-left:8px">vivo</span>
+    </div>
+    <div class="ev-body" id="ev-body">
+      <div style="display:flex;align-items:center;justify-content:center;padding:80px 0">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PROFILE SHEET ═══════════════════════════ -->
+<!-- ═══════════════════════════ PROFILE ═══════════════════════════ -->
+<div id="screen-profile" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="showScreen('home')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 data-i18n="profile_title">Profil</h1>
+  </div>
+
+  <div class="prof-body">
+    <!-- Avatar -->
+    <div class="prof-av-wrap">
+      <div class="prof-av-xl" id="prof-av-xl"></div>
+    </div>
+
+    <!-- Name -->
+    <div class="field">
+      <label data-i18n="profile_name_label">Anzeigename</label>
+      <input type="text" id="prof-name-inp" placeholder="Dein Name" autocomplete="name" data-i18n-placeholder="profile_name_placeholder">
+    </div>
+
+    <!-- Username -->
+    <div class="field">
+      <label data-i18n="profile_username_label">Benutzername</label>
+      <input type="text" id="prof-user-inp" placeholder="@benutzername"
+        autocomplete="username" autocapitalize="none" spellcheck="false"
+        oninput="validateUsernameInput(this)">
+      <span class="username-hint" id="user-hint"></span>
+    </div>
+
+    <!-- Location -->
+    <div class="field">
+      <label data-i18n="profile_location_label">Standort</label>
+      <input type="text" id="prof-location-inp" placeholder="z.B. Berlin" data-i18n-placeholder="profile_location_placeholder">
+    </div>
+
+    <!-- Email (read-only) -->
+    <div class="field">
+      <label data-i18n="profile_email_label">E-Mail</label>
+      <input type="text" id="prof-email-inp" disabled style="color:var(--muted);background:#F7F5F2">
+    </div>
+  </div>
+
+  <div class="prof-foot">
+    <div class="inner">
+      <button class="btn btn-primary btn-full" id="save-prof-btn" onclick="saveProfile()" data-i18n="btn_save">Änderungen speichern</button>
+      <button class="btn btn-outline btn-full" id="share-prof-btn" onclick="shareProfile()" style="display:none" data-i18n="profile_share">Profil teilen 🔗</button>
+      <button class="btn btn-outline btn-full" onclick="doSignOut()" data-i18n="btn_signout">Abmelden</button>
+      <button class="btn btn-ghost btn-full" style="color:var(--muted);font-size:.875rem;margin-top:4px" onclick="showDatenschutz('profile')" data-i18n="profile_privacy">Datenschutzerklärung</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ CREATE SPACE ═══════════════════════════ -->
+<div id="screen-create-space" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" onclick="showScreen('home'); switchHomeTab('friends')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Space erstellen</h1>
+  </div>
+  <div class="create-body">
+    <div class="form-stack">
+      <div class="field">
+        <label>Name des Spaces</label>
+        <input type="text" id="space-name-inp" placeholder="z.B. Weekenders" maxlength="40">
+      </div>
+    </div>
+    <div class="section-head" style="padding:20px 0 10px">
+      <h2>Freunde hinzufügen</h2>
+    </div>
+    <div class="member-sel-list" id="member-sel-list"></div>
+    <div class="create-foot">
+      <button class="btn btn-primary btn-full" id="save-space-btn" onclick="saveSpace()">
+        Space erstellen ✨
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SPACE VIEW ═══════════════════════════ -->
+<div id="screen-space" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="space-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 id="space-title"></h1>
+    <button id="space-share-btn" class="btn btn-ghost btn-sm" style="margin-left:auto;color:var(--pink)" onclick="">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Teilen
+    </button>
+  </div>
+  <div class="ev-inner" style="overflow-y:auto;flex:1">
+    <div class="space-member-chips" id="space-member-chips"></div>
+    <div id="space-ev-body" style="padding:0 20px 60px">
+      <div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ DATENSCHUTZ ════════════════════════ -->
+<div id="screen-datenschutz" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="datenschutz-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1>Datenschutz</h1>
+  </div>
+  <div class="legal-body">
+    <h1>Datenschutzerklärung</h1>
+    <h2 id="m716">Präambel</h2>
+    <p>Mit der folgenden Datenschutzerklärung möchten wir Sie darüber aufklären, welche Arten Ihrer personenbezogenen Daten (nachfolgend auch kurz als "Daten" bezeichnet) wir zu welchen Zwecken und in welchem Umfang verarbeiten. Die Datenschutzerklärung gilt für alle von uns durchgeführten Verarbeitungen personenbezogener Daten, sowohl im Rahmen der Erbringung unserer Leistungen als auch insbesondere auf unseren Webseiten, in mobilen Applikationen sowie innerhalb externer Onlinepräsenzen, wie z. B. unserer Social-Media-Profile (nachfolgend zusammenfassend bezeichnet als "Onlineangebot").</p>
+    <p>Die verwendeten Begriffe sind nicht geschlechtsspezifisch.</p>
+    <p>Stand: 6. Mai 2026</p>
+    <h2>Inhaltsübersicht</h2>
+    <ul class="index">
+      <li><a href="#m716">Präambel</a></li>
+      <li><a href="#m3">Verantwortlicher</a></li>
+      <li><a href="#mOverview">Übersicht der Verarbeitungen</a></li>
+      <li><a href="#m2427">Maßgebliche Rechtsgrundlagen</a></li>
+      <li><a href="#m27">Sicherheitsmaßnahmen</a></li>
+      <li><a href="#m25">Übermittlung von personenbezogenen Daten</a></li>
+      <li><a href="#m24">Internationale Datentransfers</a></li>
+      <li><a href="#m12">Allgemeine Informationen zur Datenspeicherung und Löschung</a></li>
+      <li><a href="#m10">Rechte der betroffenen Personen</a></li>
+      <li><a href="#m225">Bereitstellung des Onlineangebots und Webhosting</a></li>
+      <li><a href="#m134">Einsatz von Cookies</a></li>
+      <li><a href="#m367">Registrierung, Anmeldung und Nutzerkonto</a></li>
+      <li><a href="#m432">Community Funktionen</a></li>
+      <li><a href="#m451">Single-Sign-On-Anmeldung</a></li>
+      <li><a href="#m17">Newsletter und elektronische Benachrichtigungen</a></li>
+      <li><a href="#m15">Änderung und Aktualisierung</a></li>
+      <li><a href="#m42">Begriffsdefinitionen</a></li>
+    </ul>
+    <h2 id="m3">Verantwortlicher</h2>
+    <p>Klara Faiß<br>Adresse wird nachgereicht</p>
+    <p>E-Mail-Adresse: <a href="mailto:hey.vivo.app@gmail.com">hey.vivo.app@gmail.com</a></p>
+    <h2 id="mOverview">Übersicht der Verarbeitungen</h2>
+    <p>Die nachfolgende Übersicht fasst die Arten der verarbeiteten Daten und die Zwecke ihrer Verarbeitung zusammen und verweist auf die betroffenen Personen.</p>
+    <h3>Arten der verarbeiteten Daten</h3>
+    <ul><li>Bestandsdaten.</li><li>Beschäftigtendaten.</li><li>Kontaktdaten.</li><li>Inhaltsdaten.</li><li>Nutzungsdaten.</li><li>Meta-, Kommunikations- und Verfahrensdaten.</li><li>Protokolldaten.</li></ul>
+    <h3>Kategorien betroffener Personen</h3>
+    <ul><li>Beschäftigte.</li><li>Kommunikationspartner.</li><li>Nutzer.</li><li>Dritte Personen.</li><li>Hinweisgeber.</li></ul>
+    <h3>Zwecke der Verarbeitung</h3>
+    <ul><li>Erbringung vertraglicher Leistungen und Erfüllung vertraglicher Pflichten.</li><li>Sicherheitsmaßnahmen.</li><li>Direktmarketing.</li><li>Organisations- und Verwaltungsverfahren.</li><li>Anmeldeverfahren.</li><li>Bereitstellung unseres Onlineangebotes und Nutzerfreundlichkeit.</li><li>Informationstechnische Infrastruktur.</li><li>Hinweisgeberschutz.</li></ul>
+    <h2 id="m2427">Maßgebliche Rechtsgrundlagen</h2>
+    <p><strong>Maßgebliche Rechtsgrundlagen nach der DSGVO:</strong> Im Folgenden erhalten Sie eine Übersicht der Rechtsgrundlagen der DSGVO, auf deren Basis wir personenbezogene Daten verarbeiten. Bitte nehmen Sie zur Kenntnis, dass neben den Regelungen der DSGVO nationale Datenschutzvorgaben in Ihrem bzw. unserem Wohn- oder Sitzland gelten können. Sollten ferner im Einzelfall speziellere Rechtsgrundlagen maßgeblich sein, teilen wir Ihnen diese in der Datenschutzerklärung mit.</p>
+    <ul><li><strong>Einwilligung (Art. 6 Abs. 1 S. 1 lit. a) DSGVO)</strong> – Die betroffene Person hat ihre Einwilligung in die Verarbeitung der sie betreffenden personenbezogenen Daten für einen spezifischen Zweck oder mehrere bestimmte Zwecke gegeben.</li><li><strong>Vertragserfüllung und vorvertragliche Anfragen (Art. 6 Abs. 1 S. 1 lit. b) DSGVO)</strong> – Die Verarbeitung ist für die Erfüllung eines Vertrags erforderlich.</li><li><strong>Rechtliche Verpflichtung (Art. 6 Abs. 1 S. 1 lit. c) DSGVO)</strong> – Die Verarbeitung ist zur Erfüllung einer rechtlichen Verpflichtung erforderlich.</li><li><strong>Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO)</strong> – Die Verarbeitung ist zur Wahrung der berechtigten Interessen des Verantwortlichen oder eines Dritten notwendig.</li></ul>
+    <p><strong>Nationale Datenschutzregelungen in Deutschland:</strong> Zusätzlich zu den Datenschutzregelungen der DSGVO gelten nationale Regelungen zum Datenschutz in Deutschland, insbesondere das Bundesdatenschutzgesetz (BDSG).</p>
+    <h2 id="m27">Sicherheitsmaßnahmen</h2>
+    <p>Wir treffen nach Maßgabe der gesetzlichen Vorgaben unter Berücksichtigung des Stands der Technik, der Implementierungskosten und der Art, des Umfangs, der Umstände und der Zwecke der Verarbeitung sowie der unterschiedlichen Eintrittswahrscheinlichkeiten und des Ausmaßes der Bedrohung der Rechte und Freiheiten natürlicher Personen geeignete technische und organisatorische Maßnahmen, um ein dem Risiko angemessenes Schutzniveau zu gewährleisten.</p>
+    <p>Zu den Maßnahmen gehören insbesondere die Sicherung der Vertraulichkeit, Integrität und Verfügbarkeit von Daten durch Kontrolle des physischen und elektronischen Zugangs zu den Daten als auch des sie betreffenden Zugriffs, der Eingabe, der Weitergabe, der Sicherung der Verfügbarkeit und ihrer Trennung.</p>
+    <p>Sicherung von Online-Verbindungen durch TLS-/SSL-Verschlüsselungstechnologie (HTTPS): Um die Daten der Nutzer zu schützen, setzen wir auf TLS/SSL-Verschlüsselung. Dies wird durch HTTPS in der URL signalisiert.</p>
+    <h2 id="m25">Übermittlung von personenbezogenen Daten</h2>
+    <p>Im Rahmen unserer Verarbeitung von personenbezogenen Daten kommt es vor, dass diese an andere Stellen übermittelt werden. Zu den Empfängern dieser Daten können z. B. mit IT-Aufgaben beauftragte Dienstleister gehören oder Anbieter von Diensten und Inhalten, die in eine Website eingebunden sind.</p>
+    <h2 id="m24">Internationale Datentransfers</h2>
+    <p>Sofern wir Daten in ein Drittland übermitteln, erfolgt dies stets im Einklang mit den gesetzlichen Vorgaben. Für Datenübermittlungen in die USA stützen wir uns vorrangig auf das Data Privacy Framework (DPF) sowie Standardvertragsklauseln. Weitere Informationen: <a href="https://www.dataprivacyframework.gov/" target="_blank">https://www.dataprivacyframework.gov/</a></p>
+    <h2 id="m12">Allgemeine Informationen zur Datenspeicherung und Löschung</h2>
+    <p>Wir löschen personenbezogene Daten, die wir verarbeiten, gemäß den gesetzlichen Bestimmungen, sobald die zugrundeliegenden Einwilligungen widerrufen werden oder keine weiteren rechtlichen Grundlagen für die Verarbeitung bestehen.</p>
+    <p>Aufbewahrung und Löschung von Daten – allgemeine Fristen nach deutschem Recht:</p>
+    <ul>
+      <li>10 Jahre – Bücher, Aufzeichnungen, Jahresabschlüsse (§ 147 Abs. 1 Nr. 1 AO, § 257 Abs. 1 Nr. 1 HGB).</li>
+      <li>8 Jahre – Buchungsbelege (§ 147 Abs. 1 Nr. 4 AO, § 257 Abs. 1 Nr. 4 HGB).</li>
+      <li>6 Jahre – Übrige Geschäftsunterlagen (§ 147 Abs. 1 Nr. 2, 3, 5 AO, § 257 Abs. 1 Nr. 2 u. 3 HGB).</li>
+      <li>3 Jahre – Daten für potenzielle Gewährleistungs- und Schadensersatzansprüche (§§ 195, 199 BGB).</li>
+    </ul>
+    <h2 id="m10">Rechte der betroffenen Personen</h2>
+    <p>Ihnen stehen als Betroffene nach der DSGVO verschiedene Rechte zu (Art. 15–21 DSGVO):</p>
+    <ul>
+      <li><strong>Widerspruchsrecht</strong> gegen die Verarbeitung Ihrer personenbezogenen Daten.</li>
+      <li><strong>Widerrufsrecht bei Einwilligungen</strong> – jederzeit möglich.</li>
+      <li><strong>Auskunftsrecht</strong> über verarbeitete Daten.</li>
+      <li><strong>Recht auf Berichtigung</strong> unrichtiger Daten.</li>
+      <li><strong>Recht auf Löschung und Einschränkung</strong> der Verarbeitung.</li>
+      <li><strong>Recht auf Datenübertragbarkeit</strong> in einem maschinenlesbaren Format.</li>
+      <li><strong>Beschwerderecht bei einer Aufsichtsbehörde.</strong></li>
+    </ul>
+    <h2 id="m225">Bereitstellung des Onlineangebots und Webhosting</h2>
+    <p>Wir verarbeiten die Daten der Nutzer, um ihnen unsere Online-Dienste zur Verfügung stellen zu können. Zu diesem Zweck verarbeiten wir die IP-Adresse des Nutzers.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Nutzungsdaten; Meta-, Kommunikations- und Verfahrensdaten; Protokolldaten.</li><li><strong>Betroffene Personen:</strong> Nutzer.</li><li><strong>Rechtsgrundlagen:</strong> Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <p><strong>Erhebung von Zugriffsdaten und Logfiles:</strong> Der Zugriff auf unser Onlineangebot wird in Form von Server-Logfiles protokolliert. Logfile-Informationen werden für die Dauer von maximal 30 Tagen gespeichert und danach gelöscht oder anonymisiert.</p>
+    <h2 id="m134">Einsatz von Cookies</h2>
+    <p>Unter dem Begriff „Cookies" werden Funktionen verstanden, die Informationen auf Endgeräten der Nutzer speichern und aus ihnen auslesen. Wir verwenden Cookies gemäß den gesetzlichen Vorschriften.</p>
+    <p><strong>Speicherdauer:</strong></p>
+    <ul><li><strong>Temporäre Cookies (Session-Cookies):</strong> Werden gelöscht, nachdem ein Nutzer das Onlineangebot verlassen und sein Endgerät geschlossen hat.</li><li><strong>Permanente Cookies:</strong> Bleiben auch nach dem Schließen des Endgeräts gespeichert, bis zu zwei Jahre.</li></ul>
+    <ul><li><strong>Rechtsgrundlagen:</strong> Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO); Einwilligung (Art. 6 Abs. 1 S. 1 lit. a) DSGVO).</li></ul>
+    <h2 id="m367">Registrierung, Anmeldung und Nutzerkonto</h2>
+    <p>Nutzer können ein Nutzerkonto anlegen. Im Rahmen der Registrierung werden die erforderlichen Pflichtangaben verarbeitet. Zu den verarbeiteten Daten gehören insbesondere die Login-Informationen (Nutzername, Passwort sowie eine E-Mail-Adresse).</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Kontaktdaten; Inhaltsdaten; Nutzungsdaten; Protokolldaten.</li><li><strong>Betroffene Personen:</strong> Nutzer.</li><li><strong>Rechtsgrundlagen:</strong> Vertragserfüllung (Art. 6 Abs. 1 S. 1 lit. b) DSGVO); Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <ul><li><strong>Profile der Nutzer sind öffentlich</strong> sichtbar und zugänglich.</li><li><strong>Löschung von Daten nach Kündigung:</strong> Wenn Nutzer ihr Nutzerkonto kündigen, werden deren Daten gelöscht, vorbehaltlich gesetzlicher Aufbewahrungspflichten.</li></ul>
+    <h2 id="m432">Community Funktionen</h2>
+    <p>Die von uns bereitgestellten Community-Funktionen erlauben es Nutzern, miteinander in Konversationen oder sonst miteinander in einen Austausch zu treten.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Nutzungsdaten.</li><li><strong>Rechtsgrundlagen:</strong> Vertragserfüllung (Art. 6 Abs. 1 S. 1 lit. b) DSGVO); Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <h2 id="m451">Single-Sign-On-Anmeldung</h2>
+    <p>Als "Single-Sign-On" werden Verfahren bezeichnet, die es Nutzern erlauben, sich mit Hilfe eines Nutzerkontos bei einem Anbieter (z. B. Google) auch bei unserem Onlineangebot anzumelden. Die Authentifizierung erfolgt direkt beim jeweiligen Single-Sign-On-Anbieter.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Kontaktdaten; Nutzungsdaten; Meta-, Kommunikations- und Verfahrensdaten.</li><li><strong>Rechtsgrundlagen:</strong> Vertragserfüllung (Art. 6 Abs. 1 S. 1 lit. b) DSGVO); Berechtigte Interessen (Art. 6 Abs. 1 S. 1 lit. f) DSGVO).</li></ul>
+    <ul><li><strong>Google Single-Sign-On:</strong> Authentifizierungsdienste; <strong>Dienstanbieter:</strong> Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland; <strong>Datenschutzerklärung:</strong> <a href="https://policies.google.com/privacy" target="_blank">https://policies.google.com/privacy</a>; <strong>Grundlage Drittlandtransfers:</strong> Data Privacy Framework (DPF).</li></ul>
+    <h2 id="m17">Newsletter und elektronische Benachrichtigungen</h2>
+    <p>Wir versenden Newsletter, E-Mails und weitere elektronische Benachrichtigungen ausschließlich mit der Einwilligung der Empfänger oder aufgrund einer gesetzlichen Grundlage.</p>
+    <ul><li><strong>Verarbeitete Datenarten:</strong> Bestandsdaten; Kontaktdaten; Meta-, Kommunikations- und Verfahrensdaten; Nutzungsdaten.</li><li><strong>Betroffene Personen:</strong> Kommunikationspartner.</li><li><strong>Rechtsgrundlagen:</strong> Einwilligung (Art. 6 Abs. 1 S. 1 lit. a) DSGVO).</li></ul>
+    <h2 id="m15">Änderung und Aktualisierung</h2>
+    <p>Wir bitten Sie, sich regelmäßig über den Inhalt unserer Datenschutzerklärung zu informieren. Wir passen die Datenschutzerklärung an, sobald die Änderungen der von uns durchgeführten Datenverarbeitungen dies erforderlich machen.</p>
+    <h2 id="m42">Begriffsdefinitionen</h2>
+    <ul class="glossary">
+      <li><strong>Bestandsdaten:</strong> Informationen zur Identifikation und Verwaltung von Vertragspartnern und Benutzerkonten (Namen, Kontaktinformationen, Benutzer-IDs).</li>
+      <li><strong>Inhaltsdaten:</strong> Informationen, die im Zuge der Erstellung und Veröffentlichung von Inhalten generiert werden (Texte, Bilder, Videos etc.).</li>
+      <li><strong>Kontaktdaten:</strong> Informationen, die die Kommunikation ermöglichen (Telefonnummern, E-Mail-Adressen, postalische Adressen).</li>
+      <li><strong>Meta-, Kommunikations- und Verfahrensdaten:</strong> Informationen über die Art und Weise der Datenverarbeitung und -übermittlung (IP-Adressen, Zeitangaben, Identifikationsnummern).</li>
+      <li><strong>Nutzungsdaten:</strong> Informationen darüber, wie Nutzer mit digitalen Produkten interagieren (Seitenaufrufe, Klickpfade, Geräteinformationen).</li>
+      <li><strong>Personenbezogene Daten:</strong> Alle Informationen, die sich auf eine identifizierte oder identifizierbare natürliche Person beziehen.</li>
+      <li><strong>Protokolldaten:</strong> Informationen über Ereignisse oder Aktivitäten, die in einem System protokolliert wurden.</li>
+      <li><strong>Verantwortlicher:</strong> Die natürliche oder juristische Person, die über die Zwecke und Mittel der Verarbeitung personenbezogener Daten entscheidet.</li>
+      <li><strong>Verarbeitung:</strong> Jeder Vorgang im Zusammenhang mit personenbezogenen Daten (Erheben, Speichern, Übermitteln, Löschen etc.).</li>
+    </ul>
+    <p class="seal"><a href="https://datenschutz-generator.de/" target="_blank" rel="noopener noreferrer nofollow">Erstellt mit kostenlosem Datenschutz-Generator.de von Dr. Thomas Schwenke</a></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════ PUBLIC SPACE VIEW ══════════════════════════ -->
+<div id="screen-pub-space" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="pubspace-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 id="pubspace-title"></h1>
+  </div>
+  <div class="pubprof-body" id="pubspace-body">
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PUBLIC PROFILE ═══════════════════════════ -->
+<div id="screen-pub-profile" class="screen">
+  <div class="scr-header">
+    <button class="back-btn" id="pubprof-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 id="pubprof-title"></h1>
+  </div>
+  <div class="pubprof-body" id="pubprof-body">
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<!-- Post-RSVP signup banner -->
+<div class="overlay" id="signup-sheet" onclick="closeSignupSheet(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="upsell-head">
+      <div class="upsell-icon">🗓️</div>
+      <div class="upsell-title">Möchtest du deine Events im Überblick behalten?</div>
+      <p class="upsell-sub">Erstell dir kostenlos einen Account – dieses Event erscheint dann sofort in deinem Dashboard.</p>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="goToRegister()">
+      Jetzt kostenlosen Account erstellen &nbsp;→
+    </button>
+    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="closeSignupSheet()">Nein danke</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE CONFIG  ← paste your config values here
+// ─────────────────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyAuapMaw8Tpw0HC_TlMUvCbw0PPfWOaL-Y",
+  authDomain:        "vivo-mvp.firebaseapp.com",
+  databaseURL:       "https://vivo-mvp-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "vivo-mvp",
+  storageBucket:     "vivo-mvp.firebasestorage.app",
+  messagingSenderId: "662578995457",
+  appId:             "1:662578995457:web:ee580f001d212cd73d7b00"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let me           = null;  // current firebase user
+let createdId    = null;  // last created event ID (for share sheet)
+let pickedEmoji  = '🎉';
+let evUnsubscribe = null; // real-time event listener cleanup
+let _pendingRsvp      = null;  // { eventId, rsvpKey, status, name } – set after guest RSVP
+let _pendingConnect   = null;  // { theirUid, theirUsername, theirName } – set before login
+let _pendingSpaceJoin = null;  // { spaceId, spaceName } – set before login when joining via link
+let _myUsername       = null;  // cached username from DB
+let _selectedMembers  = new Set(); // uids selected during space creation
+let _selectedSpaces   = new Set(); // space IDs selected during event creation
+let _selectedFriends  = new Set(); // friend UIDs selected during event creation
+let _spacesOff        = null;  // real-time spaces listener cleanup
+let _spaceEvOff       = null;  // space events view listener cleanup
+
+const EMOJIS = [
+  '🎉','🔥','🍕','🎂','🎸','⚽','🏊','🧗','🎬','🍺',
+  '🌿','🎮','🎤','🏕','🌊','🚀','🎨','🍣','🥂','🌮',
+  '🧁','🎭','🏖','🎺','🏋','🌺','🎻','🎯','🥳','🎪',
+  '🪩','🌙','☀️','🌈','🍦','🎠','🧩','🛤','🎆','🎑',
+  '🪄','🦋','🌻','🍀','🎐','🛸','🦄','🎋','🎊','🌟'
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTING  (hash-based: #event/<id>)
+// ─────────────────────────────────────────────────────────────────────────────
+function route() {
+  const h = location.hash;
+  if (h.startsWith('#event/')) return { screen: 'event',       id: h.slice(7) };
+  if (h.startsWith('#u/'))     return { screen: 'pub-profile', username: h.slice(3) };
+  if (h.startsWith('#space/')) return { screen: 'pub-space',   id: h.slice(7) };
+  return { screen: 'home' };
+}
+
+// Handle Google redirect result before onAuthStateChanged fires
+auth.getRedirectResult().catch(err => {
+  if (err.code && err.code !== 'auth/popup-closed-by-user') {
+    document.getElementById('loading').style.display = 'none';
+    showScreen('login');
+    authErr(fmtAuthErr(err.code, err.message));
+  }
+});
+
+auth.onAuthStateChanged(async user => {
+  me = user;
+  document.getElementById('loading').style.display = 'none';
+
+  // Auto-link a pending guest RSVP to the newly created account
+  if (user && _pendingRsvp) {
+    const { eventId, rsvpKey, status } = _pendingRsvp;
+    _pendingRsvp = null;
+    try {
+      await db.ref('events/' + eventId + '/rsvps/' + rsvpKey).update({ userId: user.uid });
+      await db.ref('userEvents/' + user.uid + '/' + eventId).set(status);
+      toast('🎉 Event ist jetzt in deinem Dashboard!');
+    } catch(e) { console.error('RSVP link error:', e); }
+  }
+
+  // Auto-connect a pending profile connection after login/register
+  if (user && _pendingConnect) {
+    const { theirUid, theirName } = _pendingConnect;
+    _pendingConnect = null;
+    hidePendingConnectBanner();
+    try {
+      const batch = {};
+      batch['friends/' + user.uid + '/' + theirUid] = true;
+      batch['friends/' + theirUid + '/' + user.uid] = true;
+      await db.ref().update(batch);
+      toast('🤝 Verbunden mit ' + theirName + '!');
+    } catch(e) { console.error('pendingConnect error:', e); }
+  }
+
+  // Auto-join a pending space after login/register
+  if (user && _pendingSpaceJoin) {
+    const { spaceId, spaceName } = _pendingSpaceJoin;
+    _pendingSpaceJoin = null;
+    try {
+      const batch = {};
+      batch['spaces/' + spaceId + '/members/' + user.uid] = true;
+      batch['userSpaces/' + user.uid + '/' + spaceId] = true;
+      await db.ref().update(batch);
+      toast('🏠 ' + spaceName + ' beigetreten!');
+    } catch(e) { console.error('pendingSpaceJoin error:', e); }
+  }
+
+  const r = route();
+  if (r.screen === 'event') {
+    loadEventScreen(r.id);
+    showScreen('event');
+  } else if (r.screen === 'pub-profile') {
+    loadPubProfile(r.username);
+    showScreen('pub-profile');
+  } else if (r.screen === 'pub-space') {
+    loadPubSpace(r.id);
+    showScreen('pub-space');
+  } else if (user) {
+    setAvatar(user);
+    showScreen('home');
+    loadHome();
+  } else {
+    showScreen('login');
+  }
+});
+
+window.addEventListener('hashchange', () => {
+  const r = route();
+  if (r.screen === 'event') {
+    loadEventScreen(r.id);
+    showScreen('event');
+  } else if (r.screen === 'pub-profile') {
+    loadPubProfile(r.username);
+    showScreen('pub-profile');
+  } else if (r.screen === 'pub-space') {
+    loadPubSpace(r.id);
+    showScreen('pub-space');
+  } else if (me) {
+    showScreen('home');
+    loadHome();
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────────────────────
+let authMode = 'login';
+
+function switchTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t, i) =>
+    t.classList.toggle('on', (i === 0) === (mode === 'login'))
+  );
+  const nameField = document.getElementById('name-field');
+  nameField.style.display = mode === 'register' ? 'flex' : 'none';
+  if (mode === 'login') document.getElementById('inp-name').value = '';
+  document.getElementById('auth-btn').textContent = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  document.getElementById('dsgvo-hint').style.display = mode === 'register' ? 'block' : 'none';
+  authErr('');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('inp-email').value.trim();
+  const pw    = document.getElementById('inp-pw').value;
+  const btn   = document.getElementById('auth-btn');
+  authErr('');
+  btn.disabled = true; btn.textContent = '…';
+
+  try {
+    if (authMode === 'login') {
+      await auth.signInWithEmailAndPassword(email, pw);
+    } else {
+      const name = document.getElementById('inp-name').value.trim();
+      if (!name) {
+        authErr('Bitte gib einen Anzeigenamen ein.');
+        btn.disabled = false; btn.textContent = 'Konto erstellen';
+        return;
+      }
+      const c = await auth.createUserWithEmailAndPassword(email, pw);
+      await c.user.updateProfile({ displayName: name });
+      // Mirror name to DB so friends lists and space chips show it immediately
+      await db.ref('users/' + c.user.uid + '/displayName').set(name);
+    }
+  } catch (err) {
+    authErr(fmtAuthErr(err.code, err.message));
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  }
+}
+
+async function googleLogin() {
+  const btn = document.querySelector('.btn-google');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verbinde…'; }
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Mit Google anmelden'; }
+    if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      authErr(fmtAuthErr(err.code, err.message));
+    }
+  }
+}
+
+async function doSignOut() {
+  cleanEv();
+  await auth.signOut();
+  location.hash = '';
+  showScreen('login');
+}
+
+function authErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+function fmtAuthErr(code, message) {
+  const known = {
+    'auth/invalid-email':          'Ungültige E-Mail-Adresse.',
+    'auth/user-not-found':         'Kein Konto mit dieser E-Mail.',
+    'auth/wrong-password':         'Falsches Passwort.',
+    'auth/invalid-credential':     'E-Mail oder Passwort falsch.',
+    'auth/email-already-in-use':   'Diese E-Mail ist bereits registriert.',
+    'auth/weak-password':          'Passwort muss mind. 6 Zeichen haben.',
+    'auth/too-many-requests':      'Zu viele Versuche – bitte warte kurz.',
+    'auth/operation-not-allowed':  'Login-Methode nicht aktiviert. Bitte in der Firebase Console unter Authentication → Sign-in methods aktivieren.',
+    'auth/network-request-failed': 'Netzwerkfehler – bitte Verbindung prüfen.',
+    'auth/popup-blocked':          'Popup wurde blockiert – bitte Blocker deaktivieren.',
+    'auth/unauthorized-domain':    'Diese Domain ist in Firebase nicht autorisiert.',
+    'auth/internal-error':         'Interner Firebase-Fehler. Bitte erneut versuchen.',
+    'auth/missing-password':       'Bitte ein Passwort eingeben.',
+  };
+  return known[code] || `Fehler (${code || message || 'unbekannt'}) – bitte erneut versuchen.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AVATAR / PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  '#E05C5C','#E07A5C','#E0A45C','#5C9CE0','#5C7AE0',
+  '#7A5CE0','#A45CE0','#5CC0A4','#5CB87A','#C05C7A'
+];
+
+function avatarColor(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function applyAvatar(el, user, size) {
+  const label = user.displayName || user.email || '?';
+  const init  = label[0].toUpperCase();
+  el.textContent       = init;
+  el.style.background  = avatarColor(label);
+  el.style.color       = '#fff';
+  if (size) el.style.fontSize = size;
+}
+
+function setAvatar(user) {
+  applyAvatar(document.getElementById('avatar-btn'), user, '.875rem');
+}
+
+async function openProfileScreen() {
+  if (!me) return;
+  applyAvatar(document.getElementById('prof-av-xl'), me, '2.25rem');
+  document.getElementById('prof-name-inp').value  = me.displayName || '';
+  document.getElementById('prof-email-inp').value = me.email || '';
+  document.getElementById('save-prof-btn').disabled    = false;
+  document.getElementById('save-prof-btn').textContent = 'Änderungen speichern';
+  showUsernameHint('', '');
+
+  // Load current username from DB
+  const snap = await db.ref('users/' + me.uid + '/username').once('value');
+  _myUsername = snap.val() || null;
+  document.getElementById('prof-user-inp').value = _myUsername || '';
+  const shareBtn = document.getElementById('share-prof-btn');
+  shareBtn.style.display = _myUsername ? '' : 'none';
+
+  showScreen('profile');
+}
+
+function validateUsernameInput(el) {
+  const raw = el.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  el.value = raw;
+  if (!raw)         { showUsernameHint('', ''); return; }
+  if (raw.length < 3) { showUsernameHint('Mindestens 3 Zeichen', 'err'); return; }
+  showUsernameHint('@' + raw, 'ok');
+}
+
+function showUsernameHint(msg, type) {
+  const el = document.getElementById('user-hint');
+  if (!el) return;
+  el.textContent = msg;
+  el.className   = 'username-hint' + (type ? ' ' + type : '');
+}
+
+function shareProfile() {
+  if (!_myUsername) { toast('Bitte zuerst einen Benutzernamen speichern'); return; }
+  const link = location.origin + location.pathname + '#u/' + _myUsername;
+  const text = 'Lass uns auf vivo befreundet sein! 🧡 Hier ist mein Profil: ' + link;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+async function saveProfile() {
+  const name    = document.getElementById('prof-name-inp').value.trim();
+  const rawUser = document.getElementById('prof-user-inp').value.trim();
+  const btn     = document.getElementById('save-prof-btn');
+
+  if (rawUser && rawUser.length < 3) {
+    showUsernameHint('Mindestens 3 Zeichen', 'err'); return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Speichern…';
+
+  try {
+    // Username uniqueness check if changed
+    if (rawUser && rawUser !== _myUsername) {
+      const snap = await db.ref('usernames/' + rawUser).once('value');
+      if (snap.exists() && snap.val() !== me.uid) {
+        showUsernameHint('@' + rawUser + ' ist bereits vergeben', 'err');
+        btn.disabled = false; btn.textContent = 'Änderungen speichern';
+        return;
+      }
+    }
+
+    const displayName = name || me.email.split('@')[0];
+    await auth.currentUser.updateProfile({ displayName });
+    me = auth.currentUser;
+
+    // Atomic batch: username index + user record
+    const batch = {};
+    batch['users/' + me.uid + '/displayName'] = displayName;
+    if (rawUser) {
+      if (_myUsername && _myUsername !== rawUser) {
+        batch['usernames/' + _myUsername] = null; // free old username
+      }
+      batch['usernames/' + rawUser]              = me.uid;
+      batch['users/'    + me.uid + '/username']  = rawUser;
+      _myUsername = rawUser;
+    }
+    await db.ref().update(batch);
+
+    setAvatar(me);
+    document.getElementById('share-prof-btn').style.display = _myUsername ? '' : 'none';
+    toast('Profil gespeichert ✓');
+    showScreen('home');
+    loadHome();
+  } catch(err) {
+    console.error('saveProfile:', err);
+    toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
+    btn.disabled = false; btn.textContent = 'Änderungen speichern';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCREENS
+// ─────────────────────────────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+function navHome() {
+  if (me) { location.hash = ''; showScreen('home'); loadHome(); }
+  else     { showScreen('login'); }
+}
+
+function showCreate() {
+  initCreateForm();
+  showScreen('create');
+  loadUserSpacesForCreate();
+  loadFriendsForCreate();
+}
+
+let _prevScreen = 'home';
+function showDatenschutz(from) {
+  _prevScreen = from || 'home';
+  document.getElementById('datenschutz-back').onclick = () => showScreen(_prevScreen);
+  showScreen('datenschutz');
+}
+
+function goHome() { navHome(); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC PROFILE + FRIENDS
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadPubProfile(username) {
+  const body    = document.getElementById('pubprof-body');
+  const backBtn = document.getElementById('pubprof-back');
+  body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  backBtn.onclick = navHome;
+
+  // usernames/ is public; users/ may require auth — fetch defensively
+  let uidSnap;
+  try { uidSnap = await db.ref('usernames/' + username).once('value'); }
+  catch(err) {
+    body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Fehler beim Laden.</p></div>';
+    return;
+  }
+
+  if (!uidSnap.exists()) {
+    body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Nutzer nicht gefunden.</p></div>';
+    return;
+  }
+
+  const theirUid = uidSnap.val();
+
+  // users/ might be restricted for guests — fall back to username as display name
+  let displayName = username;
+  try {
+    const userSnap = await db.ref('users/' + theirUid).once('value');
+    displayName = (userSnap.val() || {}).displayName || username;
+  } catch(_) { /* permission denied for guests — username used as label */ }
+
+  let isSelf = false, isConnected = false;
+  if (me) {
+    isSelf = me.uid === theirUid;
+    if (!isSelf) {
+      try {
+        const fSnap = await db.ref('friends/' + me.uid + '/' + theirUid).once('value');
+        isConnected = fSnap.exists();
+      } catch(_) {}
+    }
+  }
+
+  let actionHTML;
+  if (isSelf) {
+    actionHTML = `<p style="text-align:center;color:var(--muted);font-size:.9375rem">Das bist du 👋</p>`;
+  } else if (!me) {
+    actionHTML = `<button class="btn btn-primary btn-full"
+      onclick="pendingConnectLogin('${theirUid}','${esc(username)}','${esc(displayName)}')">
+      Connecten 🤝
+    </button>`;
+  } else if (isConnected) {
+    actionHTML = `<button class="btn btn-outline btn-full" disabled>Bereits verbunden ✓</button>`;
+  } else {
+    actionHTML = `<button class="btn btn-primary btn-full"
+      onclick="connectUser('${theirUid}','${esc(username)}','${esc(displayName)}')">
+      Connecten 🤝
+    </button>`;
+  }
+
+  body.innerHTML = `
+    <div class="pubprof-av" id="pubprof-av-el"></div>
+    <div class="pubprof-name">${esc(displayName)}</div>
+    <div class="pubprof-user">@${esc(username)}</div>
+    <div class="pubprof-actions">${actionHTML}</div>`;
+  applyAvatar(document.getElementById('pubprof-av-el'), { displayName, email: username }, '2.25rem');
+}
+
+async function connectUser(theirUid, theirUsername, theirName) {
+  if (!me) return;
+  try {
+    const batch = {};
+    batch['friends/' + me.uid  + '/' + theirUid] = true;
+    batch['friends/' + theirUid + '/' + me.uid]  = true;
+    await db.ref().update(batch);
+    toast('🤝 Verbunden mit ' + theirName + '!');
+    loadPubProfile(theirUsername);
+  } catch(err) {
+    console.error('connectUser:', err);
+    toast('Fehler beim Verbinden');
+  }
+}
+
+function pendingConnectLogin(theirUid, theirUsername, theirName) {
+  _pendingConnect = { theirUid, theirUsername, theirName };
+
+  // Show banner on login screen
+  const banner   = document.getElementById('connect-banner');
+  const bannerAv = document.getElementById('connect-banner-av');
+  const bannerNm = document.getElementById('connect-banner-name');
+  bannerNm.textContent = theirName + ' (@' + theirUsername + ')';
+  applyAvatar(bannerAv, { displayName: theirName, email: theirUsername }, '1rem');
+  banner.style.display = 'flex';
+
+  showScreen('login');
+  switchTab('login');
+}
+
+function hidePendingConnectBanner() {
+  const el = document.getElementById('connect-banner');
+  if (el) el.style.display = 'none';
+}
+
+function switchHomeTab(tab) {
+  document.getElementById('tab-events').classList.toggle('active', tab === 'events');
+  document.getElementById('tab-friends').classList.toggle('active', tab === 'friends');
+  document.getElementById('tab-btn-events').classList.toggle('active', tab === 'events');
+  document.getElementById('tab-btn-friends').classList.toggle('active', tab === 'friends');
+}
+
+let friendsOff = null;
+
+function loadFriends() {
+  if (!me) return;
+  if (friendsOff) { friendsOff(); friendsOff = null; }
+  const list = document.getElementById('friends-list');
+
+  const ref = db.ref('friends/' + me.uid);
+  const cb  = ref.on('value', async snap => {
+    const uids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!uids.length) {
+      list.innerHTML = `
+        <div class="empty">
+          <div class="ei">👥</div>
+          <p>Noch keine Freunde –<br>teile deinen Profil-Link!</p>
+          <button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="shareProfOrPrompt()">
+            Profil-Link teilen 🔗
+          </button>
+        </div>`;
+      return;
+    }
+
+    const snaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value')));
+    list.innerHTML = `<div class="friend-list">` + snaps.map((s, i) => {
+      const d     = s.val() || {};
+      const label = d.displayName || d.username || uids[i].slice(0, 8);
+      const user  = d.username ? '@' + d.username : '';
+      return `
+        <div class="friend-item">
+          <div class="friend-av" style="background:${avatarColor(label)}">${esc(label[0].toUpperCase())}</div>
+          <div class="friend-info">
+            <div class="friend-name">${esc(label)}</div>
+            ${user ? `<div class="friend-user">${esc(user)}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('') + `</div>`;
+  });
+  friendsOff = () => ref.off('value', cb);
+}
+
+function shareProfOrPrompt() {
+  if (_myUsername) {
+    const link = location.origin + location.pathname + '#u/' + _myUsername;
+    const text = 'Lass uns auf vivo befreundet sein! 🧡 Hier ist mein Profil: ' + link;
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  } else {
+    openProfileScreen();
+    toast('Bitte zuerst einen Benutzernamen festlegen');
+  }
+}
+
+function shareSpace(spaceId, spaceName) {
+  const link = location.origin + location.pathname + '#space/' + spaceId;
+  const text = 'Trete meinem vivo Friendspace ' + spaceName + ' bei! 👥 ' + link;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+async function loadPubSpace(spaceId) {
+  const bodyEl  = document.getElementById('pubspace-body');
+  const titleEl = document.getElementById('pubspace-title');
+  document.getElementById('pubspace-back').onclick = () => {
+    history.replaceState(null, '', location.pathname);
+    if (me) { showScreen('home'); switchHomeTab('friends'); } else { showScreen('login'); }
+  };
+  bodyEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  try {
+    const snap = await db.ref('spaces/' + spaceId).once('value');
+    if (!snap.exists()) {
+      titleEl.textContent = 'Space';
+      bodyEl.innerHTML = '<div class="empty"><div class="ei">😕</div><p>Space nicht gefunden.</p></div>';
+      return;
+    }
+    const sp = snap.val();
+    titleEl.textContent = sp.name;
+    const isMember = me && sp.members && sp.members[me.uid];
+    if (isMember) { openSpaceView(spaceId); return; }
+    const cnt = sp.members ? Object.keys(sp.members).length : 1;
+    bodyEl.innerHTML = `
+      <div style="text-align:center;padding:48px 24px">
+        <div style="font-size:56px;margin-bottom:16px">🏠</div>
+        <h2 style="margin:0 0 6px;font-size:1.4rem">${esc(sp.name)}</h2>
+        <p style="color:var(--muted);margin:0 0 32px">${cnt} Mitglied${cnt !== 1 ? 'er' : ''} · Friend Space auf vivo</p>
+        <button class="btn btn-primary btn-full" onclick="joinSpace('${spaceId}', ${JSON.stringify(sp.name)})">
+          Space beitreten 👥
+        </button>
+      </div>`;
+  } catch(e) {
+    bodyEl.innerHTML = '<div class="empty"><div class="ei">😕</div><p>Space konnte nicht geladen werden.</p></div>';
+  }
+}
+
+async function joinSpace(spaceId, spaceName) {
+  if (!me) {
+    _pendingSpaceJoin = { spaceId, spaceName };
+    showScreen('login');
+    return;
+  }
+  const btn = document.querySelector('#pubspace-body .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Beitreten…'; }
+  try {
+    const batch = {};
+    batch['spaces/' + spaceId + '/members/' + me.uid] = true;
+    batch['userSpaces/' + me.uid + '/' + spaceId] = true;
+    await db.ref().update(batch);
+    toast('🏠 ' + spaceName + ' beigetreten!');
+    history.replaceState(null, '', location.pathname);
+    showScreen('home');
+    switchHomeTab('friends');
+  } catch(e) {
+    console.error('joinSpace error:', e);
+    toast('Fehler beim Beitreten');
+    if (btn) { btn.disabled = false; btn.textContent = 'Space beitreten 👥'; }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPACES
+// ─────────────────────────────────────────────────────────────────────────────
+async function openCreateSpace() {
+  if (!me) return;
+  _selectedMembers = new Set();
+  document.getElementById('space-name-inp').value = '';
+  const btn = document.getElementById('save-space-btn');
+  btn.disabled = false; btn.textContent = 'Space erstellen ✨';
+
+  const listEl = document.getElementById('member-sel-list');
+  listEl.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+  showScreen('create-space');
+
+  const snap = await db.ref('friends/' + me.uid).once('value');
+  const uids = snap.val() ? Object.keys(snap.val()) : [];
+  if (!uids.length) {
+    listEl.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px 0">Noch keine Freunde. Teile deinen Profil-Link um Freunde einzuladen!</p>';
+    return;
+  }
+
+  const userSnaps = await Promise.all(uids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
+  listEl.innerHTML = userSnaps.map((s, i) => {
+    const d     = (s && s.val()) || {};
+    const label = d.displayName || d.username || uids[i].slice(0, 8);
+    const sub   = d.username ? '@' + d.username : '';
+    return `
+      <div class="member-sel-item" id="msel-${uids[i]}" onclick="toggleSpaceMember('${uids[i]}', this)">
+        <div class="friend-av" style="background:${avatarColor(label)};width:36px;height:36px;font-size:.875rem">${esc(label[0].toUpperCase())}</div>
+        <div class="friend-info">
+          <div class="friend-name">${esc(label)}</div>
+          ${sub ? `<div class="friend-user">${esc(sub)}</div>` : ''}
+        </div>
+        <div class="member-sel-check">✓</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleSpaceMember(uid, el) {
+  if (_selectedMembers.has(uid)) { _selectedMembers.delete(uid); el.classList.remove('on'); }
+  else                           { _selectedMembers.add(uid);    el.classList.add('on'); }
+}
+
+async function saveSpace() {
+  const name = document.getElementById('space-name-inp').value.trim();
+  if (!name) { toast('Bitte einen Space-Namen eingeben'); return; }
+  const btn = document.getElementById('save-space-btn');
+  btn.disabled = true; btn.textContent = 'Erstelle…';
+
+  try {
+    const spaceRef = db.ref('spaces').push();
+    const spaceId  = spaceRef.key;
+    const members  = [me.uid, ..._selectedMembers];
+    const batch    = {};
+    batch['spaces/' + spaceId] = {
+      name, createdBy: me.uid, createdAt: Date.now(),
+      members: Object.fromEntries(members.map(u => [u, true]))
+    };
+    members.forEach(uid => { batch['userSpaces/' + uid + '/' + spaceId] = true; });
+    await db.ref().update(batch);
+    toast('Space "' + name + '" erstellt! 🎉');
+    showScreen('home');
+    switchHomeTab('friends');
+  } catch(err) {
+    console.error('saveSpace:', err);
+    toast('Fehler beim Erstellen');
+    btn.disabled = false; btn.textContent = 'Space erstellen ✨';
+  }
+}
+
+function loadSpaces() {
+  if (!me) return;
+  if (_spacesOff) { _spacesOff(); _spacesOff = null; }
+  const listEl = document.getElementById('spaces-list');
+  const secEl  = document.getElementById('spaces-sec');
+
+  const ref = db.ref('userSpaces/' + me.uid);
+  const cb  = ref.on('value', async snap => {
+    const ids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!ids.length) { secEl.style.display = 'none'; return; }
+    secEl.style.display = 'block';
+
+    const spaceSnaps = await Promise.all(ids.map(id => db.ref('spaces/' + id).once('value')));
+    listEl.innerHTML = spaceSnaps.map((s, i) => {
+      if (!s.exists()) return '';
+      const sp  = s.val();
+      const cnt = sp.members ? Object.keys(sp.members).length : 1;
+      return `
+        <div class="space-card" onclick="openSpaceView('${ids[i]}')">
+          <div class="space-icon">🏠</div>
+          <div class="space-info">
+            <div class="space-name">${esc(sp.name)}</div>
+            <div class="space-meta">${cnt} Mitglied${cnt !== 1 ? 'er' : ''}</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>`;
+    }).join('');
+  });
+  _spacesOff = () => ref.off('value', cb);
+}
+
+async function openSpaceView(spaceId) {
+  if (_spaceEvOff) { _spaceEvOff(); _spaceEvOff = null; }
+  const titleEl = document.getElementById('space-title');
+  const chipsEl = document.getElementById('space-member-chips');
+  const bodyEl  = document.getElementById('space-ev-body');
+  document.getElementById('space-back').onclick = () => { showScreen('home'); switchHomeTab('friends'); };
+  document.getElementById('space-share-btn').onclick = () => {}; // will be set after name loads
+  bodyEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  chipsEl.innerHTML = '';
+  showScreen('space');
+
+  const spaceSnap = await db.ref('spaces/' + spaceId).once('value');
+  if (!spaceSnap.exists()) {
+    titleEl.textContent = 'Space';
+    bodyEl.innerHTML = '<div class="empty"><div class="ei">😕</div><p>Space nicht gefunden.</p></div>';
+    return;
+  }
+  const space      = spaceSnap.val();
+  titleEl.textContent = space.name;
+  document.getElementById('space-share-btn').onclick = () => shareSpace(spaceId, space.name);
+
+  const memberUids  = space.members ? Object.keys(space.members) : [];
+  const memberSnaps = await Promise.all(memberUids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
+  chipsEl.innerHTML = memberSnaps.map((s, i) => {
+    const d = (s && s.val()) || {};
+    const lbl = d.displayName || d.username || memberUids[i].slice(0, 8);
+    return `<div class="smc"><div class="smc-av" style="background:${avatarColor(lbl)}">${esc(lbl[0].toUpperCase())}</div><span>${esc(lbl)}</span></div>`;
+  }).join('');
+
+  const ref = db.ref('spaceEvents/' + spaceId);
+  const cb  = ref.on('value', async snap => {
+    const ids = snap.val() ? Object.keys(snap.val()) : [];
+    if (!ids.length) {
+      bodyEl.innerHTML = '<div class="empty"><div class="ei">📅</div><p>Noch keine Events in diesem Space.</p></div>';
+      return;
+    }
+    const evSnaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
+    const evs = evSnaps.filter(s => s.exists()).map(s => ({ id: s.key, ...s.val() }));
+    evs.sort((a, b) => new Date(a.date + 'T' + (a.time||'12:00')) - new Date(b.date + 'T' + (b.time||'12:00')));
+    bodyEl.innerHTML = `<div class="events-stack">${evs.map(ev => cardHTML(ev, false)).join('')}</div>`;
+  }, err => {
+    console.error('spaceEvents read error:', err);
+    bodyEl.innerHTML = '<div class="empty"><div class="ei">🔒</div><p>Zugriffsfehler – bitte Firebase-Regeln für spaceEvents prüfen.</p></div>';
+  });
+  _spaceEvOff = () => ref.off('value', cb);
+}
+
+function updateInvitesWrap() {
+  const sr  = document.getElementById('invites-spaces-row');
+  const fr  = document.getElementById('invites-friends-row');
+  const has = sr.style.display !== 'none' || fr.style.display !== 'none';
+  document.getElementById('invites-wrap').style.display = has ? 'block' : 'none';
+}
+
+async function loadUserSpacesForCreate() {
+  _selectedSpaces = new Set();
+  const row = document.getElementById('invites-spaces-row');
+  if (!me) { row.style.display = 'none'; updateInvitesWrap(); return; }
+
+  const snap = await db.ref('userSpaces/' + me.uid).once('value');
+  const ids  = snap.val() ? Object.keys(snap.val()) : [];
+  if (!ids.length) { row.style.display = 'none'; updateInvitesWrap(); return; }
+
+  const spaceSnaps = await Promise.all(ids.map(id => db.ref('spaces/' + id).once('value')));
+  const spaces = spaceSnaps.filter(s => s.exists()).map(s => ({ id: s.key, name: s.val().name }));
+  if (!spaces.length) { row.style.display = 'none'; updateInvitesWrap(); return; }
+
+  row.style.display = 'block';
+  document.getElementById('space-chips').innerHTML = spaces.map(sp => `
+    <button type="button" class="space-chip" onclick="toggleEventSpace('${sp.id}', this)">
+      ${esc(sp.name)}
+    </button>`).join('');
+  updateInvitesWrap();
+}
+
+function toggleEventSpace(spaceId, el) {
+  if (_selectedSpaces.has(spaceId)) { _selectedSpaces.delete(spaceId); el.classList.remove('on'); }
+  else                              { _selectedSpaces.add(spaceId);    el.classList.add('on'); }
+}
+
+function toggleEventFriend(uid, el) {
+  if (_selectedFriends.has(uid)) { _selectedFriends.delete(uid); el.classList.remove('on'); }
+  else                           { _selectedFriends.add(uid);    el.classList.add('on'); }
+}
+
+async function loadFriendsForCreate() {
+  _selectedFriends = new Set();
+  const row = document.getElementById('invites-friends-row');
+  if (!me) { row.style.display = 'none'; updateInvitesWrap(); return; }
+
+  const snap = await db.ref('friends/' + me.uid).once('value');
+  const friendUids = snap.val() ? Object.keys(snap.val()) : [];
+  if (!friendUids.length) { row.style.display = 'none'; updateInvitesWrap(); return; }
+
+  const userSnaps = await Promise.all(friendUids.map(uid => db.ref('users/' + uid).once('value').catch(() => null)));
+  const friends = userSnaps.map((s, i) => {
+    const d = (s && s.val()) || {};
+    return { uid: friendUids[i], name: d.displayName || d.username || friendUids[i].slice(0, 8) };
+  });
+
+  row.style.display = 'block';
+  document.getElementById('friend-chips').innerHTML = friends.map(f => `
+    <button type="button" class="space-chip" onclick="toggleEventFriend('${f.uid}', this)">
+      ${esc(f.name)}
+    </button>`).join('');
+  updateInvitesWrap();
+}
+
+async function shareEventToSpaces(eventId, spaceIds) {
+  // Write each spaceEvents entry individually so a rule failure on one
+  // space doesn't silently block the others.
+  const failed = [];
+  await Promise.all(spaceIds.map(async spaceId => {
+    try {
+      await db.ref('spaceEvents/' + spaceId + '/' + eventId).set(true);
+    } catch(e) {
+      console.error('spaceEvents write failed for', spaceId, e);
+      failed.push(spaceId);
+    }
+  }));
+  if (failed.length) throw new Error('space_write_failed');
+
+  // Fan out to members' home feeds (best-effort).
+  try {
+    const fanout = {};
+    await Promise.all(spaceIds.map(async spaceId => {
+      const snap = await db.ref('spaces/' + spaceId + '/members').once('value');
+      const members = snap.val() || {};
+      Object.keys(members).forEach(uid => {
+        if (uid !== me.uid) fanout['userEvents/' + uid + '/' + eventId] = 'space';
+      });
+    }));
+    if (Object.keys(fanout).length) await db.ref().update(fanout);
+  } catch(e) {
+    console.warn('Space member fanout skipped:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOME
+// ─────────────────────────────────────────────────────────────────────────────
+let homeOff = null;
+
+async function loadHome() {
+  if (!me) return;
+  if (homeOff) { homeOff(); homeOff = null; }
+  loadFriends();
+  loadSpaces();
+
+  const myEl   = document.getElementById('my-list');
+  const pEl    = document.getElementById('pending-list');
+  const pastEl = document.getElementById('past-list');
+  const pSec   = document.getElementById('pending-sec');
+  const pastSec = document.getElementById('past-sec');
+  myEl.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
+
+  const ref = db.ref('userEvents/' + me.uid);
+  const cb = ref.on('value', async snap => {
+    const map = snap.val() ? { ...snap.val() } : {};
+
+    // Merge in events from all spaces the user belongs to
+    try {
+      const spacesSnap = await db.ref('userSpaces/' + me.uid).once('value');
+      const spaceIds   = spacesSnap.val() ? Object.keys(spacesSnap.val()) : [];
+      if (spaceIds.length) {
+        const spEvSnaps = await Promise.all(spaceIds.map(sid => db.ref('spaceEvents/' + sid).once('value')));
+        spEvSnaps.forEach(s => {
+          if (!s.exists()) return;
+          Object.keys(s.val()).forEach(evId => {
+            if (!map[evId]) map[evId] = 'space';
+          });
+        });
+      }
+    } catch(e) { console.warn('space events merge:', e); }
+
+    // Merge in direct friend invitations (invites/{me.uid})
+    try {
+      const invSnap = await db.ref('invites/' + me.uid).once('value');
+      if (invSnap.val()) {
+        Object.keys(invSnap.val()).forEach(evId => {
+          if (!map[evId]) map[evId] = 'pending';
+        });
+      }
+    } catch(e) { console.warn('invites merge:', e); }
+
+    const ids = Object.keys(map);
+    if (!ids.length) {
+      myEl.innerHTML = `<div class="empty"><div class="ei">🌱</div><p>Noch keine Events. Erstelle dein erstes!</p></div>`;
+      pSec.style.display = 'none';
+      pastSec.style.display = 'none';
+      return;
+    }
+
+    const snaps = await Promise.all(ids.map(id => db.ref('events/' + id).once('value')));
+    const myEvs = [], pEvs = [], pastEvs = [];
+
+    snaps.forEach((s, i) => {
+      if (!s.exists()) return;
+      const ev  = { id: s.key, ...s.val(), _st: map[ids[i]] };
+      const past = isEventPast(ev);
+      if (past) {
+        pastEvs.push(ev);
+      } else if (ev._st === 'pending' || ev._st === 'space') {
+        pEvs.push(ev);
+      } else {
+        myEvs.push(ev); // created / dabei / vielleicht / nein (grayed out)
+      }
+    });
+
+    const asc  = (a, b) => new Date(a.date + 'T' + (a.time || '12:00')) - new Date(b.date + 'T' + (b.time || '12:00'));
+    const desc = (a, b) => -asc(a, b);
+    myEvs.sort(asc); pEvs.sort(asc); pastEvs.sort(desc);
+
+    myEl.innerHTML = myEvs.length
+      ? myEvs.map(ev => cardHTML(ev, false)).join('')
+      : '<div class="empty"><div class="ei">🌱</div><p>Noch keine kommenden Events.</p></div>';
+
+    if (pEvs.length) {
+      pSec.style.display = 'block';
+      document.getElementById('pending-count').textContent = pEvs.length;
+      pEl.innerHTML = pEvs.map(ev => cardHTML(ev, true)).join('');
+    } else {
+      pSec.style.display = 'none';
+    }
+
+    if (pastEvs.length) {
+      pastSec.style.display = 'block';
+      pastEl.innerHTML = pastEvs.map(ev => cardHTML(ev, false)).join('');
+    } else {
+      pastSec.style.display = 'none';
+    }
+  });
+
+  homeOff = () => ref.off('value', cb);
+}
+
+function isEventPast(ev) {
+  const d = new Date(ev.date + 'T' + (ev.time || '23:59') + ':00');
+  return d < new Date();
+}
+
+function togglePastEvents() {
+  const list    = document.getElementById('past-list');
+  const chevron = document.getElementById('past-chevron');
+  const nowOpen = list.style.display === 'none';
+  list.style.display = nowOpen ? '' : 'none';
+  chevron.classList.toggle('open', nowOpen);
+}
+
+function cardHTML(ev, showRsvp) {
+  const rsvps     = ev.rsvps ? Object.values(ev.rsvps) : [];
+  const dabei     = rsvps.filter(r => r.status === 'dabei');
+  const vl        = rsvps.filter(r => r.status === 'vielleicht');
+  const isCreator = me && ev.createdBy === me.uid;
+  const isDeclined = ev._st === 'nein';
+
+  const chips = [
+    ...dabei.slice(0,3).map(r => `<span class="achip"><span class="adot"></span>${esc(r.name)}</span>`),
+    ...vl.slice(0,2).map(r    => `<span class="achip"><span class="adot maybe"></span>${esc(r.name)}</span>`),
+  ].join('') || '<span style="font-size:.8125rem;color:var(--muted)">Noch keine Zusagen</span>';
+
+  const rsvpRow = showRsvp ? `
+    <div class="inline-rsvp" onclick="event.stopPropagation()">
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','dabei')">✓ Dabei</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','vielleicht')">~ Vielleicht</button>
+      <button class="irsvp-btn" onclick="quickRsvp('${ev.id}','nein')">✗ Nein</button>
+    </div>` : '';
+
+  const delBtn = isCreator ? `
+    <button class="del-btn" onclick="deleteEvent('${ev.id}',event)" title="Event löschen">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+    </button>` : '';
+
+  return `
+    <div class="ecard${isDeclined ? ' declined' : ''}" onclick="openEv('${ev.id}')">
+      <div class="ecard-top">
+        <div class="ecard-emoji">${ev.emoji || '🎉'}</div>
+        <div class="ecard-info">
+          <div class="ecard-title">${esc(ev.title)}</div>
+          <div class="ecard-meta">
+            <span>📅 ${fmtDate(ev.date, ev.time)}</span>
+            ${ev.location ? `<span>📍 ${esc(ev.location)}</span>` : ''}
+          </div>
+        </div>
+        ${delBtn}
+      </div>
+      <div class="attendee-chips">${chips}</div>
+      ${rsvpRow}
+    </div>`;
+}
+
+async function quickRsvp(eventId, status) {
+  if (!me) return;
+  const name = me.displayName || me.email.split('@')[0];
+  const ref  = db.ref('events/' + eventId + '/rsvps');
+  const snap = await ref.orderByChild('userId').equalTo(me.uid).once('value');
+  const upd  = {};
+  snap.forEach(c => { upd[c.key] = null; });
+  if (Object.keys(upd).length) await ref.update(upd);
+  await ref.push({ name, status, userId: me.uid, ts: Date.now() });
+  await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
+  db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
+  toast({ dabei: '🎉 Du bist dabei!', vielleicht: '~ Als Vielleicht eingetragen', nein: 'Als Nein eingetragen' }[status]);
+}
+
+async function deleteEvent(eventId, e) {
+  e.stopPropagation();
+  if (!me) return;
+  if (!confirm('Event wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
+
+  try {
+    // Only delete paths the creator is allowed to write.
+    // Other users' stale userEvents entries resolve to null gracefully in loadHome.
+    await db.ref('events/' + eventId).remove();
+    await db.ref('userEvents/' + me.uid + '/' + eventId).remove();
+    toast('Event gelöscht.');
+  } catch(err) {
+    console.error('deleteEvent:', err);
+    toast('Fehler beim Löschen.');
+  }
+}
+
+async function deleteEventFromView(eventId) {
+  const fakeEvt = { stopPropagation: () => {} };
+  await deleteEvent(eventId, fakeEvt);
+  if (me) { location.hash = ''; showScreen('home'); loadHome(); }
+}
+
+function openEv(id) { location.hash = 'event/' + id; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE
+// ─────────────────────────────────────────────────────────────────────────────
+function initEmojiGrid() {
+  document.getElementById('emoji-grid').innerHTML = EMOJIS.map((em, i) =>
+    `<button type="button" class="egi${i===0?' on':''}" onclick="pickEmoji('${em}',this)">${em}</button>`
+  ).join('');
+}
+
+function pickEmoji(em, el) {
+  document.querySelectorAll('.egi').forEach(e => e.classList.remove('on'));
+  el.classList.add('on');
+  pickedEmoji = em;
+}
+
+function initCreateForm() {
+  pickedEmoji = '🎉';
+  _selectedSpaces  = new Set();
+  _selectedFriends = new Set();
+  document.querySelectorAll('.egi').forEach((e, i) => e.classList.toggle('on', i === 0));
+  document.getElementById('ev-title').value    = '';
+  document.getElementById('ev-date').value     = new Date().toISOString().split('T')[0];
+  document.getElementById('ev-time').value     = '18:00';
+  document.getElementById('ev-location').value = '';
+  document.getElementById('ev-details').value  = '';
+  document.getElementById('invites-wrap').style.display        = 'none';
+  document.getElementById('invites-spaces-row').style.display  = 'none';
+  document.getElementById('invites-friends-row').style.display = 'none';
+}
+
+async function createEvent() {
+  const titleEl = document.getElementById('ev-title');
+  const dateEl  = document.getElementById('ev-date');
+  const title   = titleEl.value.trim();
+  const date    = dateEl.value;
+  const time     = document.getElementById('ev-time').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const details  = document.getElementById('ev-details').value.trim();
+  const btn      = document.getElementById('create-btn');
+
+  if (!title) {
+    titleEl.style.borderColor = 'var(--pink)';
+    titleEl.focus();
+    toast('Bitte einen Titel eingeben');
+    return;
+  }
+  titleEl.style.borderColor = '';
+
+  btn.disabled = true;
+  btn.textContent = 'Erstelle…';
+
+  try {
+    const data = {
+      emoji:       pickedEmoji,
+      title,
+      date:        date || new Date().toISOString().split('T')[0],
+      time:        time || null,
+      location:    location || null,
+      details:     details  || null,
+      createdBy:   me ? me.uid : null,
+      creatorName: me ? (me.displayName || me.email.split('@')[0]) : 'Anonym',
+      createdAt:   Date.now()
+    };
+
+    const ref = db.ref('events').push();
+    await ref.set(data);
+    createdId = ref.key;
+
+    if (me) {
+      await db.ref('userEvents/' + me.uid + '/' + createdId).set('created');
+      // Auto-RSVP creator as dabei so they appear in the attendee list
+      await db.ref('events/' + createdId + '/rsvps').push({
+        name:   me.displayName || me.email.split('@')[0],
+        status: 'dabei',
+        userId: me.uid,
+        ts:     Date.now()
+      });
+    }
+    if (me && _selectedSpaces.size > 0) {
+      try { await shareEventToSpaces(createdId, [..._selectedSpaces]); }
+      catch(e) {
+        console.error('shareEventToSpaces:', e);
+        toast('⚠️ Event erstellt, aber Space-Zuweisung fehlgeschlagen. Bitte Firebase-Regeln für spaceEvents prüfen.');
+      }
+    }
+    if (me && _selectedFriends.size > 0) {
+      await Promise.all([..._selectedFriends].map(uid =>
+        db.ref('invites/' + uid + '/' + createdId).set(true)
+          .catch(e => console.warn('invite write failed for', uid, e))
+      ));
+    }
+
+    document.getElementById('suc-emoji').textContent = pickedEmoji;
+    showScreen('success');
+  } catch(err) {
+    console.error('createEvent error:', err);
+    toast('Fehler: ' + (err.message || err.code || 'unbekannt'));
+    btn.disabled = false;
+    btn.textContent = 'Event erstellen & teilen ✨';
+  }
+}
+
+function evLink(id) {
+  return location.origin + location.pathname + '#event/' + (id || createdId);
+}
+
+function shareWA() {
+  const title    = document.getElementById('ev-title').value.trim();
+  const date     = document.getElementById('ev-date').value;
+  const time     = document.getElementById('ev-time').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const details  = document.getElementById('ev-details').value.trim();
+
+  const lines = [
+    '👋 Hey!',
+    `${pickedEmoji} ${title}`,
+    `📅 ${fmtDate(date, '')}`,
+  ];
+  if (time) lines.push(`⏰ ${time} Uhr`);
+  if (location) lines.push(`📍 ${location}`);
+  if (details) lines.push(details);
+  lines.push(`\nKomm dazu 👉 ${evLink()}`);
+
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank');
+}
+
+async function copyLink(id) {
+  const link = evLink(id);
+  try { await navigator.clipboard.writeText(link); }
+  catch { fallbackCopy(link); }
+  toast('Link kopiert! 📋');
+}
+
+function fallbackCopy(text) {
+  const el = Object.assign(document.createElement('input'), { value: text });
+  document.body.appendChild(el); el.select(); document.execCommand('copy');
+  document.body.removeChild(el);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function cleanEv() {
+  if (evUnsubscribe) { evUnsubscribe(); evUnsubscribe = null; }
+}
+
+function loadEventScreen(id) {
+  cleanEv();
+  const body   = document.getElementById('ev-body');
+  const backBtn = document.getElementById('ev-back');
+  body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="spinner"></div></div>';
+  backBtn.onclick = navHome;
+
+  const ref = db.ref('events/' + id);
+  const cb  = ref.on('value', snap => {
+    if (!snap.exists()) {
+      body.innerHTML = '<div class="empty" style="padding:60px 20px"><div class="ei">😕</div><p>Event nicht gefunden.</p></div>';
+      return;
+    }
+    const ev = { id: snap.key, ...snap.val() };
+
+    // mark as pending for logged-in users who haven't RSVPd yet
+    if (me) {
+      db.ref('userEvents/' + me.uid + '/' + id).once('value').then(s => {
+        if (!s.exists()) db.ref('userEvents/' + me.uid + '/' + id).set('pending');
+      });
+    }
+
+    renderEv(ev, body);
+  });
+
+  evUnsubscribe = () => ref.off('value', cb);
+}
+
+let _rsvpStatus = null;
+
+function renderEv(ev, body) {
+  window._ev = ev;
+  _rsvpStatus = null;
+
+  const rsvps = ev.rsvps ? Object.values(ev.rsvps) : [];
+  const dabei = rsvps.filter(r => r.status === 'dabei');
+  const vl    = rsvps.filter(r => r.status === 'vielleicht');
+  const nein  = rsvps.filter(r => r.status === 'nein');
+
+  // find my existing RSVP
+  let myStatus = null;
+  if (me && ev.rsvps) {
+    const found = Object.values(ev.rsvps).find(r => r.userId === me.uid);
+    if (found) myStatus = found.status;
+  }
+
+  const mkRow = r => `
+    <div class="att-row">
+      <div class="att-info">
+        <div class="att-av">${(r.name||'?')[0].toUpperCase()}</div>
+        <span class="att-name">${esc(r.name)}</span>
+      </div>
+    </div>`;
+  const attEmpty = '<div class="att-sec-empty">Noch niemand</div>';
+  const dabeiRows    = dabei.length ? dabei.map(mkRow).join('') : attEmpty;
+  const vlRows       = vl.length   ? vl.map(mkRow).join('')    : attEmpty;
+  const neinRows     = nein.length ? nein.map(mkRow).join('')   : attEmpty;
+
+  const isCreator = me && ev.createdBy === me.uid;
+
+  const rsvpSection = me ? `
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Deine Antwort</div>
+      <div class="rsvp-box">
+        <p class="rsvp-as-label">Als <strong>${esc(me.displayName || me.email.split('@')[0])}</strong></p>
+        <div class="rsvp-btns">
+          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>Dabei</button>
+          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>Vielleicht</button>
+          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>Nein</button>
+        </div>
+        ${myStatus ? '<p class="rsvp-hint">Antwort ändern? Einfach oben tippen.</p>' : ''}
+      </div>
+    </div>` : `
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Deine Antwort</div>
+      <div class="rsvp-box">
+        <div class="rsvp-btns">
+          <button class="rbtn dabei ${myStatus==='dabei'?'on':''}"      onclick="pickRsvp('dabei')">      <span class="ri">✓</span>Dabei</button>
+          <button class="rbtn vielleicht ${myStatus==='vielleicht'?'on':''}" onclick="pickRsvp('vielleicht')"><span class="ri">~</span>Vielleicht</button>
+          <button class="rbtn nein ${myStatus==='nein'?'on':''}"         onclick="pickRsvp('nein')">        <span class="ri">✗</span>Nein</button>
+        </div>
+        <div class="rsvp-name" id="rsvp-name">
+          <div class="field">
+            <label>Dein Name</label>
+            <input type="text" id="rsvp-inp" placeholder="Wie heißt du?">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="submitRsvp('${ev.id}')">Antwort senden</button>
+        </div>
+        ${myStatus ? '<p class="rsvp-hint">Antwort ändern? Wähle oben.</p>' : ''}
+      </div>
+    </div>`;
+
+  body.innerHTML = `
+    <div class="ev-hero">
+      <div class="ev-hero-emoji">${ev.emoji||'🎉'}</div>
+      <div class="ev-hero-title">${esc(ev.title)}</div>
+      <div class="ev-details">
+        <div class="ev-row"><div class="ev-icon">📅</div><span>${fmtDate(ev.date, ev.time)}</span></div>
+        ${ev.location ? `<div class="ev-row"><div class="ev-icon">📍</div><span>${esc(ev.location)}</span></div>` : ''}
+        ${ev.details  ? `<div class="ev-row"><div class="ev-icon">📝</div><span style="white-space:pre-wrap">${esc(ev.details)}</span></div>` : ''}
+        <div class="ev-row"><div class="ev-icon">👤</div><span>Von ${esc(ev.creatorName||'Jemand')}</span></div>
+      </div>
+      ${isCreator ? `
+      <button class="btn btn-outline btn-sm" style="margin-top:16px;color:var(--pink);border-color:var(--pink);gap:6px"
+        onclick="deleteEventFromView('${ev.id}')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+        Event löschen
+      </button>` : ''}
+    </div>
+
+    <div class="ev-sec">
+      <div class="ev-sec-title">✅ Dabei <span class="att-count">${dabei.length}</span></div>
+      <div class="att-list">${dabeiRows}</div>
+    </div>
+    <div class="ev-sec" style="margin-top:4px">
+      <div class="ev-sec-title">🤔 Vielleicht <span class="att-count">${vl.length}</span></div>
+      <div class="att-list">${vlRows}</div>
+    </div>
+    <div class="ev-sec" style="margin-top:4px">
+      <div class="ev-sec-title">❌ Abgesagt <span class="att-count">${nein.length}</span></div>
+      <div class="att-list">${neinRows}</div>
+    </div>
+
+    ${rsvpSection}
+
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Zum Kalender hinzufügen</div>
+      <div class="cal-grid">
+        <a href="${gcalLink(ev)}" target="_blank" class="cal-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Google
+        </a>
+        <button class="cal-btn" onclick="dlICS()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Apple (.ics)
+        </button>
+      </div>
+    </div>
+
+    <div class="ev-sec" style="margin-top:8px">
+      <div class="ev-sec-title">Teilen</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline" style="flex:1" onclick="shareEvWA()">WhatsApp</button>
+        <button class="btn btn-outline" style="flex:1" onclick="copyLink('${ev.id}')">Link kopieren</button>
+      </div>
+    </div>
+    <div style="height:40px"></div>`;
+
+  if (myStatus) _rsvpStatus = myStatus;
+}
+
+async function pickRsvp(status) {
+  _rsvpStatus = status;
+  document.querySelectorAll('.rbtn').forEach(b => {
+    b.classList.remove('on');
+    if (b.classList.contains(status)) b.classList.add('on');
+  });
+  if (me) {
+    await submitRsvp(window._ev.id);
+  } else {
+    const ns = document.getElementById('rsvp-name');
+    if (ns) ns.classList.add('open');
+  }
+}
+
+async function submitRsvp(eventId) {
+  const status = _rsvpStatus; // capture before async work — renderEv can reset _rsvpStatus mid-flight
+  if (!status) { toast('Bitte wähle eine Antwort'); return; }
+
+  let name;
+  if (me) {
+    name = me.displayName || me.email.split('@')[0];
+  } else {
+    const inp = document.getElementById('rsvp-inp');
+    name = inp ? inp.value.trim() : '';
+    if (!name) { toast('Bitte gib deinen Namen ein'); if(inp) inp.focus(); return; }
+  }
+
+  const btn = document.querySelector('.rsvp-box .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    const ref = db.ref('events/' + eventId + '/rsvps');
+
+    // remove old RSVP for this user
+    if (me) {
+      const snap = await ref.orderByChild('userId').equalTo(me.uid).once('value');
+      const upd = {};
+      snap.forEach(c => { upd[c.key] = null; });
+      if (Object.keys(upd).length) await ref.update(upd);
+    }
+
+    const rsvp = { name, status, ts: Date.now() };
+    if (me) rsvp.userId = me.uid;
+    const newRef = await db.ref('events/' + eventId + '/rsvps').push(rsvp);
+    const rsvpKey = newRef.key;
+
+    if (me) {
+      await db.ref('userEvents/' + me.uid + '/' + eventId).set(status);
+      db.ref('invites/' + me.uid + '/' + eventId).remove().catch(() => {});
+    }
+
+    const ns = document.getElementById('rsvp-name');
+    if (ns) ns.classList.remove('open');
+
+    if (!me) {
+      _pendingRsvp = { eventId, rsvpKey, status, name };
+      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Eingetragen.' }[status]);
+      setTimeout(showSignupUpsell, 700);
+    } else {
+      toast({ dabei:'🎉 Du bist dabei!', vielleicht:'~ Als Vielleicht eingetragen', nein:'Schade, als Nein eingetragen' }[status]);
+    }
+  } catch(err) {
+    console.error('submitRsvp:', err);
+    toast('Fehler – bitte erneut versuchen.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Antwort senden'; }
+  }
+}
+
+// ─── Post-RSVP account upsell ───────────────────────────────────────────────
+
+function showSignupUpsell() {
+  document.getElementById('signup-sheet').classList.add('open');
+}
+
+function closeSignupSheet(e) {
+  if (!e || e.target.id === 'signup-sheet')
+    document.getElementById('signup-sheet').classList.remove('open');
+}
+
+function goToRegister() {
+  closeSignupSheet();
+  switchTab('register');
+  showScreen('login');
+}
+
+function shareEvWA() {
+  const ev = window._ev; if (!ev) return;
+  const lines = [
+    '👋 Hey!',
+    `${ev.emoji||'🎉'} ${ev.title}`,
+    `📅 ${fmtDate(ev.date, '')}`,
+  ];
+  if (ev.time)     lines.push(`⏰ ${ev.time} Uhr`);
+  if (ev.location) lines.push(`📍 ${ev.location}`);
+  if (ev.details)  lines.push(ev.details);
+  lines.push(`\nKomm dazu 👉 ${evLink(ev.id)}`);
+  window.open('https://wa.me/?text=' + encodeURIComponent(lines.join('\n')), '_blank');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALENDAR
+// ─────────────────────────────────────────────────────────────────────────────
+function gcalLink(ev) {
+  const s = toCalDt(ev.date, ev.time,   0);
+  const e = toCalDt(ev.date, ev.time, 120);
+  return 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
+    action:'TEMPLATE', text: ev.title,
+    dates: s+'/'+e,
+    details: 'Event via vivo\n' + evLink(ev.id),
+    location: ev.location || ''
+  });
+}
+
+function dlICS() {
+  const ev = window._ev; if (!ev) return;
+  const s   = toCalDt(ev.date, ev.time,   0);
+  const e   = toCalDt(ev.date, ev.time, 120);
+  const now = new Date().toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//vivo//EN',
+    'BEGIN:VEVENT',
+    'DTSTART:'+s, 'DTEND:'+e,
+    'SUMMARY:'+ev.title,
+    ev.location ? 'LOCATION:'+ev.location : null,
+    'DESCRIPTION:Event via vivo – '+evLink(ev.id),
+    'DTSTAMP:'+now, 'UID:'+ev.id+'@vivo',
+    'END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean).join('\r\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([ics],{type:'text/calendar'})),
+    download: ev.title.replace(/[^a-z0-9]/gi,'-') + '.ics'
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toCalDt(date, time, addMin) {
+  const d = new Date(date + 'T' + (time || '00:00') + ':00');
+  d.setMinutes(d.getMinutes() + addMin);
+  return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+function fmtDate(date, time) {
+  if (!date) return '';
+  const d = new Date(date + 'T' + (time || '12:00') + ':00');
+  const s = d.toLocaleDateString('de-DE', { weekday:'short', day:'numeric', month:'long' });
+  return time ? s + ', ' + time + ' Uhr' : s;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+initEmojiGrid();
+
+// Wire up create button via addEventListener (more reliable than inline onclick)
+document.getElementById('create-btn').addEventListener('click', createEvent);
+</script>
+</body>
+</html>
