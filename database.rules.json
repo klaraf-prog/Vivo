@@ -73,6 +73,18 @@
     "studioAdminUsers": {
       ".read": "auth != null && auth.token.studioRole === 'superadmin'",
       ".write": false
+    },
+    "spaceEvents": {
+      "$spaceId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "invites": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "auth != null"
+      }
     }
   }
 }

@@ -8,3 +8,16 @@
 [functions."motivate"]
   schedule = "0 15,16,17,18 * * *"
 
+# /admin → admin.html (200 rewrite so the URL stays /admin in the browser)
+[[redirects]]
+  from = "/admin"
+  to   = "/admin.html"
+  status = 200
+
+# SPA fallback — serve index.html for all unmatched paths (except /admin and functions)
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200
+  conditions = {Path = {not = ["/.netlify/*", "/admin", "/admin.html", "/studio.html", "/sw.js", "/manifest.webmanifest", "/icon-*.png"]}}
+
