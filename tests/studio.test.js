@@ -24,6 +24,7 @@ const rejectHandler  = require('../netlify/functions/studio-reject').handler;
 const submitHandler  = require('../netlify/functions/studio-submit').handler;
 const setRoleHandler = require('../netlify/functions/studio-set-role').handler;
 const authHandler    = require('../netlify/functions/studio-auth').handler;
+const updateHandler  = require('../netlify/functions/studio-update').handler;
 
 // ─── DB mock factory ─────────────────────────────────────────────────────────
 function makeDbMock(snapData) {
@@ -576,5 +577,109 @@ describe('activities', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.activities).toEqual({});
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STUDIO-UPDATE
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('studio-update', () => {
+  const editor = { uid: 'uid_editor', email: 'ed@test.com', studioRole: 'editor' };
+
+  test('33. returns 405 for non-POST', async () => {
+    const res = await updateHandler({ httpMethod: 'GET', headers: {}, body: '' });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('34. returns 403 when unauthenticated', async () => {
+    mockVerifyStudioToken.mockResolvedValue(null);
+    const res = await updateHandler({ httpMethod: 'POST', headers: {}, body: '{}' });
+    expect(res.statusCode).toBe(403);
+  });
+
+  test('35. returns 400 when target is invalid', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const res = await updateHandler(post({ target: 'invalid', id: 'sug1', title: 'New' }));
+    expect(res.statusCode).toBe(400);
+    expect(parseBody(res).error).toMatch(/target/i);
+  });
+
+  test('36. returns 400 when id is missing', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const res = await updateHandler(post({ target: 'suggestion', title: 'New' }));
+    expect(res.statusCode).toBe(400);
+    expect(parseBody(res).error).toMatch(/id/i);
+  });
+
+  test('37. returns 400 when no editable fields provided', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ title: 'Old', status: 'submitted' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await updateHandler(post({ target: 'suggestion', id: 'sug1', nonexistentField: 'x' }));
+    expect(res.statusCode).toBe(400);
+    expect(parseBody(res).error).toMatch(/no editable/i);
+  });
+
+  test('38. returns 404 when suggestion not found', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock(null);
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await updateHandler(post({ target: 'suggestion', id: 'missing', title: 'New' }));
+    expect(res.statusCode).toBe(404);
+    expect(parseBody(res).error).toMatch(/not found/i);
+  });
+
+  test('39. updates suggestion and returns updated fields', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ title: 'Old Title', status: 'submitted' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await updateHandler(post({
+      target: 'suggestion', id: 'sug1',
+      title: 'New Title', tagline: 'New Tagline',
+    }));
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.ok).toBe(true);
+    expect(body.updatedFields).toContain('title');
+    expect(body.updatedFields).toContain('tagline');
+    expect(body.updatedFields).toContain('updatedAt');
+    expect(db._mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  test('40. coerces lat/lng to Number', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ title: 'T', status: 'submitted' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    await updateHandler(post({ target: 'suggestion', id: 'sug1', lat: '51.5', lng: '7.1' }));
+    const updateArg = db._mockUpdate.mock.calls[0][0];
+    expect(typeof updateArg['suggestions/sug1/lat']).toBe('number');
+    expect(updateArg['suggestions/sug1/lat']).toBeCloseTo(51.5);
+  });
+
+  test('41. updates published activity', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ title: 'Old Act', status: 'active' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    const res = await updateHandler(post({
+      target: 'activity', id: 'act1',
+      title: 'Updated Act', city: 'Köln',
+    }));
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.ok).toBe(true);
+    expect(body.updatedFields).toContain('title');
+    expect(body.updatedFields).toContain('city');
+  });
+
+  test('42. writes an audit log entry', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const db = makeDbMock({ title: 'T', status: 'submitted' });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+    await updateHandler(post({ target: 'suggestion', id: 'sug1', title: 'New' }));
+    const updateArg = db._mockUpdate.mock.calls[0][0];
+    const auditKey = Object.keys(updateArg).find(k => k.startsWith('studioAuditLog/'));
+    expect(auditKey).toBeDefined();
+    expect(updateArg[auditKey].action).toBe('edit');
+    expect(updateArg[auditKey].actorEmail).toBe('ed@test.com');
   });
 });

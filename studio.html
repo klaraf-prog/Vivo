@@ -270,6 +270,45 @@
     }
     #toast.show { opacity: 1; }
 
+    /* ── EDIT FORM ── */
+    .edit-section {
+      background: var(--card); border-radius: var(--radius);
+      padding: 18px 20px; margin-bottom: 14px;
+      border: 2px solid var(--amber);
+    }
+    .edit-section h4 {
+      font-size: .8125rem; font-weight: 700; color: #9a6000;
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 14px;
+    }
+    .edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .edit-field { display: flex; flex-direction: column; gap: 4px; }
+    .edit-field.full { grid-column: 1 / -1; }
+    .edit-label { font-size: .8125rem; font-weight: 500; color: var(--muted); }
+    .edit-input, .edit-textarea, .edit-select {
+      padding: 8px 12px; border-radius: 9px;
+      border: 1.5px solid var(--border); font-size: .875rem;
+      font-family: inherit; background: var(--bg); outline: none;
+      transition: border-color .15s;
+    }
+    .edit-input:focus, .edit-textarea:focus, .edit-select:focus { border-color: var(--amber); }
+    .edit-textarea { resize: vertical; min-height: 72px; }
+    .edit-actions { display: flex; gap: 10px; margin-top: 14px; }
+    .btn-save {
+      padding: 10px 20px; border-radius: 10px;
+      background: var(--amber); border: none; color: #fff;
+      font-size: .9375rem; font-weight: 600; cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-save:hover:not(:disabled) { opacity: .85; }
+    .btn-save:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-cancel {
+      padding: 10px 20px; border-radius: 10px;
+      background: none; border: 1.5px solid var(--border); color: var(--muted);
+      font-size: .9375rem; font-weight: 500; cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-cancel:hover { border-color: var(--pink); color: var(--pink); }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .app-body { grid-template-columns: 1fr; }
@@ -363,18 +402,20 @@ const auth = firebase.auth();
 const db   = firebase.database();
 
 // ── Environment detection ────────────────────────────────────────
-// isLocalEmulator: true only on localhost/127.0.0.1 — Firebase Client SDK
-//   can connect to the emulator on HTTP from an HTTP page.
-// !isLocalEmulator: everything else (Codespaces, any other host) — auth via
-//   studio-auth function; RTDB data via studio-data function (polling).
-//   No hostname pattern matching — works regardless of URL format.
-const _h            = location.hostname;
+// isLocalEmulator: true only on localhost/127.0.0.1.
+// Firebase Auth uses the local Auth emulator when true, production Auth
+// otherwise. RTDB Client SDK only connects to the emulator on localhost
+// (Mixed Content restriction from HTTPS pages); data is always loaded via
+// the studio-data function on non-localhost hosts.
+const _h              = location.hostname;
 const isLocalEmulator = (_h === '127.0.0.1' || _h === 'localhost');
 
 if (isLocalEmulator) {
   auth.useEmulator('http://127.0.0.1:9099');
   db.useEmulator('127.0.0.1', 9000);
 }
+// Firebase Auth uses LOCAL persistence by default (IndexedDB), so the
+// session survives page reloads automatically on all hosts.
 
 // ── State ────────────────────────────────────────────────────────
 let _me          = null;
@@ -390,24 +431,30 @@ let _unsubActs   = null;
 let _pollTimer   = null;   // used on non-localhost instead of realtime listeners
 
 // ── Auth ─────────────────────────────────────────────────────────
+// Firebase Auth (LOCAL persistence, IndexedDB) keeps the user signed in
+// across page reloads. onAuthStateChanged fires on every page load with
+// the restored user, so no manual sessionStorage handling is needed.
 auth.onAuthStateChanged(async user => {
-  // Non-localhost: sign-in is handled by signInViaFunction(); SDK state ignored.
-  if (!isLocalEmulator) return;
   if (!user) {
     showLogin();
     return;
   }
-  const result = await user.getIdTokenResult(true);
-  const role = result.claims.studioRole;
-  if (!role) {
+  try {
+    const result = await user.getIdTokenResult(true);
+    const role   = result.claims.studioRole;
+    if (!role) {
+      await auth.signOut();
+      loginErr('Kein Zugang: Dein Account hat keine Studio-Berechtigung.');
+      return;
+    }
+    _me      = user;
+    _idToken = result.token;
+    _role    = role;
+    showDashboard();
+  } catch (e) {
     await auth.signOut();
-    loginErr('Kein Zugang: Dein Account hat keine Studio-Berechtigung.');
-    return;
+    loginErr(fmtAuthErr(e.code || e.message));
   }
-  _me      = user;
-  _idToken = result.token;
-  _role    = role;
-  showDashboard();
 });
 
 async function signIn() {
@@ -417,38 +464,18 @@ async function signIn() {
   loginErr('');
   btn.disabled = true; btn.textContent = '…';
   try {
-    if (isLocalEmulator) {
-      await auth.signInWithEmailAndPassword(email, pw);
-    } else {
-      await signInViaFunction(email, pw);
-    }
+    // Firebase Auth handles both emulator (localhost) and production.
+    // onAuthStateChanged fires after sign-in and calls showDashboard().
+    await auth.signInWithEmailAndPassword(email, pw);
   } catch (err) {
     loginErr(fmtAuthErr(err.code || err.message));
     btn.disabled = false; btn.textContent = 'Anmelden';
   }
 }
 
-async function signInViaFunction(email, pw) {
-  const res = await fetch('/.netlify/functions/studio-auth', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: pw }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    const err = new Error(data.error || 'Anmeldung fehlgeschlagen');
-    err.code = data.error;
-    throw err;
-  }
-  _idToken = data.idToken;
-  _role    = data.role;
-  _me      = { email: data.email, uid: data.uid, getIdToken: async () => _idToken };
-  showDashboard();
-}
-
 async function signOut() {
   detachListeners();
-  if (isLocalEmulator) await auth.signOut();
+  await auth.signOut();
   _me      = null;
   _idToken = null;
   _role    = null;
@@ -612,6 +639,7 @@ async function selectSuggestion(id) {
       <div class="detail-header">
         <div class="detail-title">${esc(sug.title || '—')}</div>
         <span class="status-badge ${esc(sug.status)}">${statusLabel(sug.status)}</span>
+        ${['editor','superadmin'].includes(_role) ? `<button class="btn-sm" onclick="openEditForm('suggestion','${esc(id)}')">✏ Bearbeiten</button>` : ''}
       </div>
 
       <div class="detail-chips">
@@ -671,6 +699,39 @@ async function selectSuggestion(id) {
         <h4>Änderungsprotokoll</h4>
         <div id="audit-log-entries"><p style="color:var(--muted);font-size:.875rem">Lade…</p></div>
       </div>
+
+      ${['editor','superadmin'].includes(_role) ? `
+      <div class="edit-section" id="edit-form" style="display:none">
+        <h4>✏ Bearbeiten</h4>
+        <div class="edit-grid">
+          <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
+          <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
+          <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
+          <div class="edit-field"><label class="edit-label">Kategorie</label><input class="edit-input" id="ef-category"></div>
+          <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
+          <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
+          <div class="edit-field"><label class="edit-label">Anbieter (ID)</label><input class="edit-input" id="ef-providerId"></div>
+          <div class="edit-field"><label class="edit-label">Website</label><input class="edit-input" id="ef-website"></div>
+          <div class="edit-field"><label class="edit-label">Instagram</label><input class="edit-input" id="ef-instagram"></div>
+          <div class="edit-field full"><label class="edit-label">Buchungslink</label><input class="edit-input" id="ef-bookingUrl"></div>
+          <div class="edit-field"><label class="edit-label">Stadt</label><input class="edit-input" id="ef-city"></div>
+          <div class="edit-field"><label class="edit-label">Stadtteil</label><input class="edit-input" id="ef-district"></div>
+          <div class="edit-field full"><label class="edit-label">Adresse</label><input class="edit-input" id="ef-location"></div>
+          <div class="edit-field"><label class="edit-label">Breitengrad</label><input class="edit-input" id="ef-lat" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Längengrad</label><input class="edit-input" id="ef-lng" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Preis (Typ)</label><select class="edit-select" id="ef-price-type"><option value="">— wählen —</option><option value="free">Kostenlos</option><option value="donation">Spende</option><option value="fixed">Festpreis</option><option value="variable">Variabel</option></select></div>
+          <div class="edit-field"><label class="edit-label">Preis (Betrag EUR)</label><input class="edit-input" id="ef-price-amount" type="number" step="0.01"></div>
+          <div class="edit-field full"><label class="edit-label">Preis (Notiz)</label><input class="edit-input" id="ef-price-note"></div>
+          <div class="edit-field full"><label class="edit-label">Terminnotiz</label><input class="edit-input" id="ef-schedule-note"></div>
+          <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
+          <div class="edit-field full"><label class="edit-label">Quellen (eine URL pro Zeile)</label><textarea class="edit-textarea" id="ef-sources"></textarea></div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-save" id="btn-save-edit" onclick="saveEdit('suggestion','${esc(id)}')">Speichern</button>
+          <button class="btn-cancel" onclick="closeEditForm()">Abbrechen</button>
+        </div>
+        <div class="action-result" id="edit-result"></div>
+      </div>` : ''}
     </div>
   `;
 
@@ -686,6 +747,8 @@ async function selectSuggestion(id) {
       const el = document.getElementById('audit-log-entries');
       if (el) el.innerHTML = '<p style="color:var(--muted);font-size:.875rem">Nicht verfügbar.</p>';
     });
+
+  if (['editor','superadmin'].includes(_role)) _fillEditForm('suggestion', sug);
 }
 
 // ── Detail: activity ─────────────────────────────────────────────
@@ -701,6 +764,7 @@ function selectActivity(id) {
       <div class="detail-header">
         <div class="detail-title">${esc(act.title || '—')}</div>
         <span class="status-badge approved">Veröffentlicht</span>
+        ${['editor','superadmin'].includes(_role) ? `<button class="btn-sm" onclick="openEditForm('activity','${esc(id)}')">✏ Bearbeiten</button>` : ''}
       </div>
       <div class="detail-chips">
         ${act.category ? `<span class="chip">🏷 ${esc(act.category)}</span>` : ''}
@@ -733,8 +797,41 @@ function selectActivity(id) {
           ${act.lat && act.lng ? `<div style="font-size:.75rem;color:#888;margin-top:.5rem">🗺 ${act.lat}, ${act.lng}</div>` : ''}
         </div>
       </div>
+
+      ${['editor','superadmin'].includes(_role) ? `
+      <div class="edit-section" id="edit-form" style="display:none">
+        <h4>✏ Bearbeiten</h4>
+        <div class="edit-grid">
+          <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
+          <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
+          <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
+          <div class="edit-field"><label class="edit-label">Kategorie</label><input class="edit-input" id="ef-category"></div>
+          <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
+          <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
+          <div class="edit-field"><label class="edit-label">Website</label><input class="edit-input" id="ef-website"></div>
+          <div class="edit-field"><label class="edit-label">Instagram</label><input class="edit-input" id="ef-instagram"></div>
+          <div class="edit-field full"><label class="edit-label">Buchungslink</label><input class="edit-input" id="ef-bookingUrl"></div>
+          <div class="edit-field"><label class="edit-label">Stadt</label><input class="edit-input" id="ef-city"></div>
+          <div class="edit-field"><label class="edit-label">Stadtteil</label><input class="edit-input" id="ef-district"></div>
+          <div class="edit-field full"><label class="edit-label">Adresse</label><input class="edit-input" id="ef-location"></div>
+          <div class="edit-field"><label class="edit-label">Breitengrad</label><input class="edit-input" id="ef-lat" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Längengrad</label><input class="edit-input" id="ef-lng" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Preis (Typ)</label><select class="edit-select" id="ef-price-type"><option value="">— wählen —</option><option value="free">Kostenlos</option><option value="donation">Spende</option><option value="fixed">Festpreis</option><option value="variable">Variabel</option></select></div>
+          <div class="edit-field"><label class="edit-label">Preis (Betrag EUR)</label><input class="edit-input" id="ef-price-amount" type="number" step="0.01"></div>
+          <div class="edit-field full"><label class="edit-label">Preis (Notiz)</label><input class="edit-input" id="ef-price-note"></div>
+          <div class="edit-field full"><label class="edit-label">Terminnotiz</label><input class="edit-input" id="ef-schedule-note"></div>
+          <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-save" id="btn-save-edit" onclick="saveEdit('activity','${esc(id)}')">Speichern</button>
+          <button class="btn-cancel" onclick="closeEditForm()">Abbrechen</button>
+        </div>
+        <div class="action-result" id="edit-result"></div>
+      </div>` : ''}
     </div>
   `;
+
+  if (['editor','superadmin'].includes(_role)) _fillEditForm('activity', act);
 }
 
 function showPlaceholder() {
@@ -749,7 +846,7 @@ function showPlaceholder() {
 
 // ── Approve / Reject ─────────────────────────────────────────────
 async function refreshIdToken() {
-  if (!isLocalEmulator) return; // emulator tokens don't expire; reuse _idToken
+  if (!_me) return;
   _idToken = await _me.getIdToken(true);
 }
 
@@ -897,6 +994,128 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Edit form ────────────────────────────────────────────────────
+function openEditForm(target, id) {
+  const el = document.getElementById('edit-form');
+  if (el) { el.style.display = ''; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
+function closeEditForm() {
+  const el = document.getElementById('edit-form');
+  if (el) el.style.display = 'none';
+}
+
+function _fillEditForm(target, data) {
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = (val != null) ? val : '';
+  };
+  set('ef-title', data.title);
+  set('ef-tagline', data.tagline);
+  set('ef-eyebrow', data.eyebrow);
+  set('ef-category', data.category);
+  set('ef-description', data.description);
+  set('ef-providerName', data.providerName);
+  if (target === 'suggestion') set('ef-providerId', data.providerId);
+  set('ef-website', data.website);
+  set('ef-instagram', data.instagram);
+  set('ef-bookingUrl', data.bookingUrl);
+  set('ef-city', data.city);
+  set('ef-district', data.district);
+  set('ef-location', data.location?.address);
+  set('ef-lat', data.lat != null ? data.lat : '');
+  set('ef-lng', data.lng != null ? data.lng : '');
+  const pt = document.getElementById('ef-price-type');
+  if (pt) pt.value = data.price?.type || '';
+  set('ef-price-amount', data.price?.amount != null ? data.price.amount : '');
+  set('ef-price-note', data.price?.note);
+  set('ef-schedule-note', data.schedule?.note);
+  set('ef-imageUrls', (data.imageUrls || []).join('\n'));
+  if (target === 'suggestion') set('ef-sources', (data.sources || []).join('\n'));
+}
+
+function showEditResult(type, msg) {
+  const el = document.getElementById('edit-result');
+  if (!el) return;
+  el.className = 'action-result ' + type;
+  el.textContent = msg;
+}
+
+async function saveEdit(target, id) {
+  const btn = document.getElementById('btn-save-edit');
+  if (btn) btn.disabled = true;
+
+  const getVal = k => {
+    const el = document.getElementById('ef-' + k);
+    return el ? el.value : null;
+  };
+  const str = k => getVal(k)?.trim() || null;
+
+  const fields = {
+    title:        str('title'),
+    tagline:      str('tagline'),
+    eyebrow:      str('eyebrow'),
+    category:     str('category'),
+    description:  str('description'),
+    providerName: str('providerName'),
+    website:      str('website'),
+    instagram:    str('instagram'),
+    bookingUrl:   str('bookingUrl'),
+    city:         str('city'),
+    district:     str('district'),
+  };
+
+  if (target === 'suggestion') fields.providerId = str('providerId');
+
+  const addr = str('location');
+  fields.location = addr ? { address: addr } : null;
+
+  const latVal = getVal('lat');
+  const lngVal = getVal('lng');
+  fields.lat = (latVal != null && latVal.trim() !== '') ? Number(latVal) : null;
+  fields.lng = (lngVal != null && lngVal.trim() !== '') ? Number(lngVal) : null;
+
+  const priceType = getVal('price-type');
+  const priceAmt  = getVal('price-amount');
+  const priceNote = str('price-note');
+  if (priceType) {
+    fields.price = { type: priceType, currency: 'EUR' };
+    if (priceAmt && priceAmt.trim() !== '') fields.price.amount = Number(priceAmt);
+    if (priceNote) fields.price.note = priceNote;
+  } else {
+    fields.price = null;
+  }
+
+  const schedNote = str('schedule-note');
+  fields.schedule = schedNote ? { note: schedNote } : null;
+
+  const imgRaw = getVal('imageUrls');
+  fields.imageUrls = imgRaw ? imgRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
+
+  if (target === 'suggestion') {
+    const srcRaw = getVal('sources');
+    fields.sources = srcRaw ? srcRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
+  }
+
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-update', { target, id, ...fields }, _idToken);
+    if (res.error) throw new Error(res.error);
+    const count = (res.updatedFields || []).filter(f => f !== 'updatedAt').length;
+    showEditResult('ok', `Gespeichert ✓ (${count} Felder aktualisiert)`);
+    toast('Gespeichert!');
+    const store = target === 'suggestion' ? _allSugs : _allActs;
+    if (store[id]) Object.assign(store[id], fields);
+    setTimeout(() => {
+      if (target === 'suggestion') selectSuggestion(id);
+      else selectActivity(id);
+    }, 800);
+  } catch (err) {
+    showEditResult('err', 'Fehler: ' + err.message);
+    if (btn) btn.disabled = false;
+  }
 }
 </script>
 </body>
