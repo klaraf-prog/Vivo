@@ -156,17 +156,51 @@ function _avatarLetter() {
   return n ? n[0].toUpperCase() : 'K';
 }
 
-// Sign-in form for the Profile tab (shown when not authenticated).
+// Sign-in / sign-up form for the Profile tab (shown when not authenticated).
+if (!('_authMode' in window)) window._authMode = 'signin';
+
 function _signInForm() {
+  const mode = window._authMode || 'signin';
   return `<div class="mutedbox" style="margin-bottom:20px">
-    <div class="eyebrow">SIGN IN ✳</div>
+    <div class="eyebrow">SOMEDAY ✳</div>
     <h2 style="margin:8px 0 4px">Your corner of someday.</h2>
-    <p class="sub" style="margin-bottom:16px">Sign in to sync your calendar, spaces and saved activities across devices.</p>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="chip${mode==='signin'?' on':''}" onclick="window._authMode='signin';render()">Sign in</button>
+      <button class="chip${mode==='signup'?' on':''}" onclick="window._authMode='signup';render()">Create account</button>
+    </div>
+    ${mode === 'signup' ? `
+    <input id="auth-name" class="field" type="text" placeholder="Your name" style="margin-bottom:10px">` : ''}
     <input id="auth-email" class="field" type="email" placeholder="your@email.com" style="margin-bottom:10px">
-    <input id="auth-pw" class="field" type="password" placeholder="Password" style="margin-bottom:10px">
+    <input id="auth-pw" class="field" type="password" placeholder="Password${mode==='signup'?' (min 6 chars)':''}" style="margin-bottom:10px">
     <div id="auth-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
-    ${button('Sign in →', '_signIn()', 'full')}
+    ${mode === 'signup'
+      ? button('Create account →', '_signUp()', 'full')
+      : button('Sign in →', '_signIn()', 'full')}
   </div>`;
+}
+
+async function _signUp() {
+  const name  = ($('auth-name')  || {}).value || '';
+  const email = ($('auth-email') || {}).value || '';
+  const pw    = ($('auth-pw')    || {}).value || '';
+  const errEl = $('auth-err');
+  if (!name.trim()) { if (errEl) errEl.textContent = 'Please enter your name.'; return; }
+  if (!email || !pw) { if (errEl) errEl.textContent = 'Please enter email and password.'; return; }
+  if (pw.length < 6) { if (errEl) errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (errEl) errEl.textContent = '';
+  try {
+    const auth = _initFirebaseAuth();
+    const cred = await auth.createUserWithEmailAndPassword(email, pw);
+    const token = await cred.user.getIdToken();
+    await fetch('/.netlify/functions/user-profile', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: name.trim() }),
+    });
+  } catch (e) {
+    const errEl2 = $('auth-err');
+    if (errEl2) errEl2.textContent = e.message || 'Sign-up failed.';
+  }
 }
 
 // Auth-aware header: show user avatar or default when signed in.
@@ -220,13 +254,33 @@ function _profileTab() {
               : ['Weekend Crew','Run Club'].map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${t}',page:'space'})"><strong>${t}</strong><span>→</span></button>`).join(''))
           : S.profileTab==='Friends'
           ? (() => {
-              const fps = _userData && _userData.friendProfiles ? Object.values(_userData.friendProfiles) : [];
-              return fps.length
-                ? fps.map(fp => `<div class="rowcard" style="margin-bottom:10px">
-                    <strong>${esc(fp.displayName || fp.username || 'Unknown')}</strong>
-                    ${fp.username ? `<div class="small">@${esc(fp.username)}</div>` : ''}
-                  </div>`).join('')
-                : '<div class="empty">No friends connected yet.</div>';
+              const fps     = _userData && _userData.friendProfiles ? Object.entries(_userData.friendProfiles) : [];
+              const reqs    = _userData && _userData.friendRequests ? Object.entries(_userData.friendRequests) : [];
+              const pending = reqs.filter(([,r]) => r && r.status === 'pending');
+              return `
+                ${pending.length ? `<h2 class="section" style="color:#c0392b">Friend requests (${pending.length})</h2>
+                <div class="stack" style="margin-bottom:16px">
+                  ${pending.map(([fromUid]) => `<div class="rowcard between">
+                    <strong>${esc(fromUid.slice(0,8)+'…')}</strong>
+                    <div style="display:flex;gap:6px">
+                      <button class="chip" onclick="_friendAction('accept','${fromUid}')">Accept</button>
+                      <button class="chip" onclick="_friendAction('decline','${fromUid}')">Decline</button>
+                    </div></div>`).join('')}
+                </div>` : ''}
+                <h2 class="section">Your friends</h2>
+                ${fps.length
+                  ? fps.map(([uid, fp]) => `<div class="rowcard between" style="margin-bottom:10px">
+                      <div><strong>${esc(fp.displayName || fp.username || 'Unknown')}</strong>
+                      ${fp.username ? `<div class="small">@${esc(fp.username)}</div>` : ''}</div>
+                      <button class="chip" onclick="_friendAction('remove','${uid}')">Remove</button>
+                    </div>`).join('')
+                  : '<div class="empty" style="margin-bottom:12px">No friends connected yet.</div>'}
+                <h2 class="section">Find people</h2>
+                <div style="display:flex;gap:8px;margin-bottom:8px">
+                  <input id="friend-search" class="field" placeholder="Search by name or @username" style="flex:1;margin:0">
+                  <button class="chip" onclick="_searchFriends()">Search</button>
+                </div>
+                <div id="friend-results"></div>`;
             })()
           : `<div class="mutedbox">${S.plans.length + events.length} events in your account.</div>`
       }
@@ -257,9 +311,10 @@ window.render = function render() {
   }
   $('app').innerHTML = (_currentUser ? _header() : header()) + p + bottom()
     + (S.page === 'home' && (S.tab === 'Calendar' || S.tab === 'Spaces')
-      ? '<button class="createfloat" aria-label="Create event" onclick="openCreate(S.tab===\'Calendar\'?\'personal\':\'group\')">+</button>' : '')
-    + (S.sheet ? (S.sheet === 'save' ? saveSheet() : createSheet()) : '');
+      ? `<button class="createfloat" aria-label="${S.tab==='Spaces'?'Create group':'Create event'}" onclick="${S.tab==='Spaces'?'_openSpaceCreate()':\"openCreate('personal')\"}">+</button>` : '')
+    + (S.sheet ? (S.sheet === 'save' ? saveSheet() : S.sheet === 'space-create' ? _spaceCreateSheet() : createSheet()) : '');
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
+  setTimeout(_applyImageFallbacks, 50);
 };
 
 // ── Social data helpers ────────────────────────────────────────────────────
@@ -359,7 +414,10 @@ function _authCalendar() {
   const layers    = S.layers.filter(l => l in owners);
   const visLayers = layers.length ? layers : Object.keys(owners);
   const es        = allEntries.filter(e => visLayers.includes(e.owner));
-  const start     = new Date(Date.UTC(2026, 9, 19 + 7 * S.week));
+  const _today = new Date();
+  const _dow   = (_today.getUTCDay() + 6) % 7;
+  const _mon   = new Date(Date.UTC(_today.getUTCFullYear(), _today.getUTCMonth(), _today.getUTCDate() - _dow));
+  const start  = new Date(Date.UTC(_mon.getUTCFullYear(), _mon.getUTCMonth(), _mon.getUTCDate() + 7 * S.week));
   const days      = Array.from({length:7}, (_, i) => {
     const d = new Date(start); d.setUTCDate(start.getUTCDate() + i);
     return d.toISOString().slice(0, 10);
@@ -429,6 +487,7 @@ function _authCalendar() {
     <div class="toggle">${Object.keys(owners).map(toggleChip).join('')}</div>
     <div class="between" style="margin:20px 0">
       <button class="chip" onclick="set({week:S.week-1})">←</button>
+      <button class="chip" onclick="set({week:0})" style="font-size:11px">Today</button>
       <strong>${label}</strong>
       <button class="chip" onclick="set({week:S.week+1})">→</button>
     </div>
@@ -491,7 +550,7 @@ function _authSpaces() {
       <div class="hero"><div class="eyebrow">YOUR PEOPLE ✳</div><h1>Your groups.</h1></div>
       <div class="empty">You are not in any groups yet.<br>Create one to plan together.</div>
       <div style="height:12px"></div>
-      ${button('+ Create group', "openCreate('group')", 'full')}
+      ${button('+ Create group', '_openSpaceCreate()', 'full')}
     </div>`;
   }
   return `<div class="content">
@@ -507,7 +566,7 @@ function _authSpaces() {
       }).join('')}
     </div>
     <div style="height:12px"></div>
-    ${button('+ Create group', "openCreate('group')", 'secondary full')}
+    ${button('+ Create group', '_openSpaceCreate()', 'secondary full')}
   </div>`;
 }
 
@@ -566,6 +625,138 @@ function startGroupEvent(spaceId) {
 }
 
 if (!('spaceId' in S)) S.spaceId = null;
+
+// ── Friend management helpers ─────────────────────────────────────────────
+
+async function _friendAction(action, targetUid) {
+  if (!_currentUser) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/friends', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, targetUid }),
+    });
+    if (!res.ok) { console.warn('[someday] friend action failed:', await res.text()); return; }
+    // Refresh user data
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) { console.warn('[someday] _friendAction error:', e.message); }
+}
+
+async function _searchFriends() {
+  const input = $('friend-search');
+  const q = (input ? input.value : '').trim();
+  if (!q || q.length < 2) {
+    const el = $('friend-results'); if (el) el.innerHTML = '<div class="small" style="color:#c0392b">Enter at least 2 characters.</div>'; return;
+  }
+  if (!_currentUser) return;
+  const el = $('friend-results'); if (el) el.innerHTML = '<div class="small">Searching…</div>';
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch(`/.netlify/functions/user-search?q=${encodeURIComponent(q)}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { users } = await res.json();
+    if (!el) return;
+    const myFriends = _userData && _userData.friends ? _userData.friends : {};
+    if (!users.length) { el.innerHTML = '<div class="empty">No users found.</div>'; return; }
+    el.innerHTML = users.map(u => {
+      const isFriend = !!myFriends[u.uid];
+      return `<div class="rowcard between" style="margin-bottom:8px">
+        <div><strong>${esc(u.displayName || u.username || u.uid)}</strong>
+        ${u.username ? `<div class="small">@${esc(u.username)}</div>` : ''}</div>
+        ${isFriend
+          ? '<span class="chip">Friends ✓</span>'
+          : `<button class="chip" onclick="_sendFriendRequest('${u.uid}')">Add friend</button>`}
+      </div>`;
+    }).join('');
+  } catch (e) { if (el) el.innerHTML = `<div class="small" style="color:#c0392b">Search failed: ${esc(e.message)}</div>`; }
+}
+
+async function _sendFriendRequest(targetUid) {
+  if (!_currentUser) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/friends', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'request', targetUid }),
+    });
+    const btn = document.querySelector(`button[onclick="_sendFriendRequest('${targetUid}')"]`);
+    if (res.ok) { if (btn) btn.textContent = 'Sent ✓'; }
+    else { if (btn) btn.textContent = 'Failed'; }
+  } catch (e) { console.warn('[someday] _sendFriendRequest error:', e.message); }
+}
+
+// ── Space creation ────────────────────────────────────────────────────────
+
+function _openSpaceCreate() {
+  if (_currentUser && _userData && !_userData._error) {
+    set({ sheet: 'space-create' });
+  } else {
+    openCreate('group');
+  }
+}
+
+function _spaceCreateSheet() {
+  return `<div class="sheet-overlay" onclick="set({sheet:null})"></div>
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="headline" style="margin-bottom:16px">Create group</h2>
+    <input id="sc-name" class="field" placeholder="Group name" style="margin-bottom:10px">
+    <input id="sc-members" class="field" placeholder="Invite friends (UIDs, comma-separated, optional)" style="margin-bottom:10px">
+    <div id="sc-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
+    <button class="btn full" onclick="_submitSpaceCreate()">Create group →</button>
+    <button class="btn secondary full" onclick="set({sheet:null})" style="margin-top:8px">Cancel</button>
+  </div>`;
+}
+
+async function _submitSpaceCreate() {
+  const name    = ($('sc-name')    || {}).value || '';
+  const members = ($('sc-members') || {}).value || '';
+  const errEl   = $('sc-err');
+  if (!name.trim()) { if (errEl) errEl.textContent = 'Please enter a group name.'; return; }
+  if (errEl) errEl.textContent = '';
+  const memberUids = members.split(',').map(s => s.trim()).filter(Boolean);
+  if (!_currentUser) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res   = await fetch('/.netlify/functions/space-create', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), memberUids }),
+    });
+    if (!res.ok) { const d = await res.json(); if (errEl) errEl.textContent = d.error || 'Failed'; return; }
+    set({ sheet: null });
+    // Refresh
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) { if (errEl) errEl.textContent = e.message || 'Failed'; }
+}
+
+// ── Category image fallbacks ──────────────────────────────────────────────
+// CSS-only gradient placeholders keyed by Someday category.
+
+const _catGradients = {
+  kreativ:   'linear-gradient(135deg,#f5e8d8 0%,#e8d0b5 100%)',
+  aktiv:     'linear-gradient(135deg,#d8f5d5 0%,#b5e8b5 100%)',
+  kulinarik: 'linear-gradient(135deg,#f5d8e8 0%,#e8b5d0 100%)',
+  entspannt: 'linear-gradient(135deg,#dce8f5 0%,#b5cce8 100%)',
+  sozial:    'linear-gradient(135deg,#e8d8f5 0%,#d0b5e8 100%)',
+  natur:     'linear-gradient(135deg,#d8f5f2 0%,#b5e8e0 100%)',
+};
+
+function _applyImageFallbacks() {
+  document.querySelectorAll('.photo').forEach(el => {
+    const img = el.querySelector('img');
+    if (!img || !img.complete || img.naturalWidth === 0) {
+      const cat = el.dataset.cat || '';
+      el.style.background = _catGradients[cat] || 'linear-gradient(135deg,#f0f0f0 0%,#d0d0d0 100%)';
+    }
+  });
+}
 
 // ── Demo data separation ───────────────────────────────────────────────────
 // Wraps _loadActivities to log a console warning when a signed-in user
