@@ -5,6 +5,24 @@
 // and in production (via FIREBASE_RTDB_URL + service account).
 const { initAdmin, json } = require('./_studio-shared');
 
+// Only these fields are exposed publicly. Internal fields (suggestionId,
+// publishedBy, updatedAt, etc.) are stripped before the response is sent.
+const PUBLIC_FIELDS = [
+  'title', 'tagline', 'description', 'category', 'eyebrow',
+  'city', 'district', 'location', 'lat', 'lng',
+  'providerName', 'website', 'instagram',
+  'price', 'schedule', 'bookingUrl', 'imageUrls',
+  'publishedAt',
+];
+
+function toPublic(record) {
+  const out = {};
+  for (const field of PUBLIC_FIELDS) {
+    if (record[field] != null) out[field] = record[field];
+  }
+  return out;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
 
@@ -14,7 +32,7 @@ exports.handler = async (event) => {
     .once('value');
 
   const activities = {};
-  snap.forEach(child => { activities[child.key] = child.val(); });
+  snap.forEach(child => { activities[child.key] = toPublic(child.val()); });
 
   return json(200, { activities });
 };

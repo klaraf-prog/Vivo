@@ -6,3 +6,5 @@ database-debug.log
 .env
 .env.local
 .env.studio-test
+# Local Firebase Emulator data export (git-ignored, machine-local)
+.emulator-data/

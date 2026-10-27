@@ -513,7 +513,6 @@ describe('activities', () => {
 
   test('31. returns active activities without auth', async () => {
     const db = makeDbMock(null);
-    // orderByChild/equalTo chaining
     const mockOnceActive = jest.fn().mockResolvedValue({
       forEach: (cb) => {
         cb({ key: 'act_1', val: () => ({ title: 'Pottery Workshop', status: 'active' }) });
@@ -529,6 +528,40 @@ describe('activities', () => {
     const body = JSON.parse(res.body);
     expect(body.activities).toHaveProperty('act_1');
     expect(body.activities.act_1.title).toBe('Pottery Workshop');
+  });
+
+  test('33. strips internal fields from public response', async () => {
+    const db = makeDbMock(null);
+    const mockOnceActive = jest.fn().mockResolvedValue({
+      forEach: (cb) => {
+        cb({
+          key: 'act_1',
+          val: () => ({
+            title: 'Pottery Workshop',
+            status: 'active',
+            publishedAt: 1700000000000,
+            // internal fields that must not appear in response
+            publishedBy: 'uid_editor',
+            suggestionId: 'sug_123',
+            updatedAt: 1700000001000,
+          }),
+        });
+      },
+    });
+    db.ref.mockReturnValue({
+      orderByChild: () => ({ equalTo: () => ({ once: mockOnceActive }) }),
+    });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+
+    const res = await activitiesHandler(makeGet());
+    const body = JSON.parse(res.body);
+    const act  = body.activities.act_1;
+    expect(act.title).toBe('Pottery Workshop');
+    expect(act.publishedAt).toBe(1700000000000);  // allowed
+    expect(act.publishedBy).toBeUndefined();       // stripped
+    expect(act.suggestionId).toBeUndefined();      // stripped
+    expect(act.updatedAt).toBeUndefined();         // stripped
+    expect(act.status).toBeUndefined();            // stripped (always 'active', redundant)
   });
 
   test('32. returns empty activities object when none exist', async () => {

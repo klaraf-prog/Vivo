@@ -29,8 +29,15 @@ const crypto = require('crypto');
 const path   = require('path');
 const fs     = require('fs');
 
-const ROOT   = path.join(__dirname, '..');
-const isWin  = process.platform === 'win32';
+const ROOT              = path.join(__dirname, '..');
+const isWin             = process.platform === 'win32';
+const EMULATOR_DATA_DIR = path.join(ROOT, '.emulator-data');
+
+// Returns true when a previous emulator export exists and can be imported.
+function hasEmulatorData() {
+  return fs.existsSync(path.join(EMULATOR_DATA_DIR, 'database_export')) ||
+         fs.existsSync(path.join(EMULATOR_DATA_DIR, 'auth_export'));
+}
 
 // node_modules/.bin auf PATH setzen, damit resolveBin und Kindprozesse
 // die lokal installierten CLIs ohne expliziten Pfad finden.
@@ -207,15 +214,25 @@ function waitForPort(port, timeoutMs = 90_000) {
 // ─────────────────────────────────────────────────────────────────
 
 const children = [];
+let _exiting   = false;
 
-function cleanup() {
+// Graceful shutdown: send SIGTERM to all children, then wait up to 15 s for
+// them to exit on their own (the emulator needs time to export data with
+// --export-on-exit). A safety timer forces exit if a child hangs.
+function gracefulShutdown(exitCode = 0) {
+  if (_exiting) return;
+  _exiting = true;
+  console.log('\n  Beende … Emulator-Daten werden gespeichert.');
   for (const child of children) {
     try { child.kill('SIGTERM'); } catch {}
   }
+  // unref() so the timer doesn't prevent natural exit if children quit early
+  const safety = setTimeout(() => process.exit(exitCode), 15_000);
+  safety.unref();
 }
 
-process.on('SIGINT',  () => { cleanup(); process.exit(0); });
-process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+process.on('SIGINT',  () => gracefulShutdown(0));
+process.on('SIGTERM', () => gracefulShutdown(0));
 
 // ─────────────────────────────────────────────────────────────────
 // 5. Hauptablauf
@@ -234,9 +251,22 @@ async function main() {
   const firebaseBin = resolveBin('firebase');
   if (!firebaseBin) abort('Firebase CLI nicht gefunden. npm install ausführen.');
 
+  // Build emulator args with persistent data export/import
+  const emuArgs = [
+    'emulators:start', '--only', 'auth,database',
+    '--project', 'demo-vivo-test',
+    '--export-on-exit', EMULATOR_DATA_DIR,
+  ];
+  if (hasEmulatorData()) {
+    emuArgs.push('--import', EMULATOR_DATA_DIR);
+    ok(`Vorheriger Emulator-Stand gefunden — Daten werden geladen (${EMULATOR_DATA_DIR})`);
+  } else {
+    ok('Kein gespeicherter Emulator-Stand — starte frisch.');
+  }
+
   const emulator = spawn(
     firebaseBin,
-    ['emulators:start', '--only', 'auth,database', '--project', 'demo-vivo-test'],
+    emuArgs,
     { cwd: ROOT, stdio: 'pipe', shell: isWin }
   );
   children.push(emulator);
@@ -269,7 +299,7 @@ async function main() {
     console.log(' ✓');
   } catch (e) {
     clearInterval(dots);
-    cleanup();
+    gracefulShutdown(1);
     abort(e.message);
   }
 
@@ -281,7 +311,7 @@ async function main() {
     { cwd: ROOT, stdio: 'inherit', shell: false }
   );
   if (boot.status !== 0) {
-    cleanup();
+    gracefulShutdown(1);
     abort('Fehler beim Einrichten des Testaccounts.');
   }
 
@@ -301,23 +331,24 @@ async function main() {
 
   netlify.on('error', e => {
     if (e.code === 'ENOENT') {
-      cleanup();
+      gracefulShutdown(1);
       abort(
         'Netlify CLI nicht gefunden.\n' +
         '  Installieren: npm install -g netlify-cli  (oder: npm install)'
       );
     }
-    cleanup();
+    gracefulShutdown(1);
     abort('Netlify-Fehler: ' + e.message);
   });
 
+  // When Netlify Dev exits (e.g. Ctrl+C), gracefully shut down the emulator
+  // so it can export data before the process ends.
   netlify.on('exit', code => {
-    cleanup();
-    process.exit(code ?? 0);
+    gracefulShutdown(code ?? 0);
   });
 }
 
 main().catch(e => {
-  cleanup();
+  gracefulShutdown(1);
   abort(e.message);
 });
