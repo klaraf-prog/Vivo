@@ -766,6 +766,7 @@ describe('studio-users', () => {
 });
 
 // ─── user-data ────────────────────────────────────────────────────────────────
+// ─── user-data ────────────────────────────────────────────────────────────────
 describe('user-data', () => {
   const userDataHandler = require('../netlify/functions/user-data').handler;
 
@@ -773,10 +774,28 @@ describe('user-data', () => {
     return { httpMethod: 'GET', headers: { authorization: `Bearer ${token}` } };
   }
 
-  const sampleDbData = {
-    profile:    { displayName: 'Klara', city: 'Cologne' },
-    userEvents: { ev1: { title: 'Run', date: '2026-10-24' } },
-    userSpaces: { 'Weekend Crew': true },
+  // Flexible per-path mock for multi-stage fan-out queries
+  function makePathDbMock(pathData) {
+    const snap = (data) => ({ val: () => data });
+    const mockRef = jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(snap(pathData[path] !== undefined ? pathData[path] : null)),
+    }));
+    return { ref: mockRef };
+  }
+
+  const uid = 'user123';
+  const samplePaths = {
+    [`users/${uid}`]:          { displayName: 'Klara', username: 'klara' },
+    [`userEvents/${uid}`]:     { ev1: 'dabei', ev2: 'vielleicht' },
+    [`userSpaces/${uid}`]:     { sp1: true },
+    [`friends/${uid}`]:        { friend1: true },
+    [`invites/${uid}`]:        { ev3: true },
+    'events/ev1':              { title: 'Run', date: '2026-10-24', time: '09:00', createdBy: uid },
+    'events/ev2':              { title: 'Dinner', date: '2026-10-25', time: '19:00', createdBy: uid },
+    'events/ev3':              { title: 'Party invite', date: '2026-10-26', time: '20:00', createdBy: 'friend1' },
+    'spaces/sp1':              { name: 'Run Club', createdBy: uid, createdAt: 1000 },
+    'spaceEvents/sp1':         { ev1: true },
+    [`users/friend1`]:         { displayName: 'Bob', username: 'bob' },
   };
 
   test('49. returns 405 for non-GET', async () => {
@@ -796,70 +815,81 @@ describe('user-data', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  test('52. returns profile, userEvents, userSpaces for valid token', async () => {
-    const uid = 'user123';
+  test('52. returns 200 with uid for valid token', async () => {
     const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
-
-    const makeSnap = (data) => ({ val: () => data });
-    const mockOnce = jest.fn()
-      .mockResolvedValueOnce(makeSnap(sampleDbData.profile))
-      .mockResolvedValueOnce(makeSnap(sampleDbData.userEvents))
-      .mockResolvedValueOnce(makeSnap(sampleDbData.userSpaces));
-    const refObj = { once: mockOnce };
-    const mockRef = jest.fn().mockReturnValue(refObj);
-
-    mockInitAdmin.mockReturnValue({
-      auth: () => ({ verifyIdToken: mockVerifyIdToken }),
-      database: () => ({ ref: mockRef }),
-    });
-
+    const db = makePathDbMock(samplePaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
     const res = await userDataHandler(get());
     expect(res.statusCode).toBe(200);
     const body = parseBody(res);
     expect(body.uid).toBe(uid);
-    expect(body.profile).toEqual(sampleDbData.profile);
-    expect(body.userEvents).toEqual(sampleDbData.userEvents);
-    expect(body.userSpaces).toEqual(sampleDbData.userSpaces);
   });
 
-  test('53. reads correct RTDB paths', async () => {
-    const uid = 'user456';
+  test('53. returns profile and userEvents', async () => {
     const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
-
-    const makeSnap = (data) => ({ val: () => data });
-    const mockOnce = jest.fn().mockResolvedValue(makeSnap(null));
-    const refObj = { once: mockOnce };
-    const mockRef = jest.fn().mockReturnValue(refObj);
-
-    mockInitAdmin.mockReturnValue({
-      auth: () => ({ verifyIdToken: mockVerifyIdToken }),
-      database: () => ({ ref: mockRef }),
-    });
-
-    await userDataHandler(get());
-    const calledPaths = mockRef.mock.calls.map(c => c[0]);
-    expect(calledPaths).toContain(`users/${uid}`);
-    expect(calledPaths).toContain(`userEvents/${uid}`);
-    expect(calledPaths).toContain(`userSpaces/${uid}`);
-  });
-
-  test('54. returns empty objects when RTDB paths are null', async () => {
-    const uid = 'user789';
-    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
-    const makeSnap = () => ({ val: () => null });
-    const mockOnce = jest.fn().mockResolvedValue(makeSnap());
-    const refObj = { once: mockOnce };
-    const mockRef = jest.fn().mockReturnValue(refObj);
-
-    mockInitAdmin.mockReturnValue({
-      auth: () => ({ verifyIdToken: mockVerifyIdToken }),
-      database: () => ({ ref: mockRef }),
-    });
-
+    const db = makePathDbMock(samplePaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
     const res = await userDataHandler(get());
     const body = parseBody(res);
-    expect(body.profile).toBeNull();
-    expect(body.userEvents).toEqual({});
-    expect(body.userSpaces).toEqual({});
+    expect(body.profile.displayName).toBe('Klara');
+    expect(body.userEvents.ev1).toBe('dabei');
+    expect(body.userEvents.ev2).toBe('vielleicht');
+  });
+
+  test('54. resolves full event objects', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+    const db = makePathDbMock(samplePaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await userDataHandler(get());
+    const body = parseBody(res);
+    expect(body.events.ev1).toBeDefined();
+    expect(body.events.ev1.title).toBe('Run');
+    expect(body.events.ev2.title).toBe('Dinner');
+  });
+
+  test('55. resolves spaces and spaceEvents', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+    const db = makePathDbMock(samplePaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await userDataHandler(get());
+    const body = parseBody(res);
+    expect(body.spaces.sp1).toBeDefined();
+    expect(body.spaces.sp1.name).toBe('Run Club');
+    expect(body.spaceEvents.sp1).toEqual({ ev1: true });
+  });
+
+  test('56. resolves friends and friendProfiles', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+    const db = makePathDbMock(samplePaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await userDataHandler(get());
+    const body = parseBody(res);
+    expect(body.friends).toEqual({ friend1: true });
+    expect(body.friendProfiles.friend1.displayName).toBe('Bob');
+  });
+
+  test('57. includes invited events in events object', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+    const db = makePathDbMock(samplePaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await userDataHandler(get());
+    const body = parseBody(res);
+    expect(body.invites).toEqual({ ev3: true });
+    expect(body.events.ev3).toBeDefined();
+    expect(body.events.ev3.title).toBe('Party invite');
+  });
+
+  test('58. returns empty objects when user has no social data', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid: 'empty_user' });
+    const emptyPaths = { [`users/empty_user`]: { displayName: 'New' } };
+    const db = makePathDbMock(emptyPaths);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await userDataHandler(get());
+    const body = parseBody(res);
+    expect(body.events).toEqual({});
+    expect(body.spaces).toEqual({});
+    expect(body.friends).toEqual({});
+    expect(body.invites).toEqual({});
+    expect(body.friendProfiles).toEqual({});
   });
 });
