@@ -1,0 +1,59 @@
+'use strict';
+// GET /?q=<query> — search users by displayName prefix or exact username.
+// Returns up to 10 matches, excluding the caller's own uid.
+const { initAdmin, json } = require('./_studio-shared');
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
+
+  const authHeader = event.headers['authorization'] || '';
+  const idToken = authHeader.replace(/^Bearer\s+/i, '');
+  if (!idToken) return json(401, { error: 'Unauthorized' });
+
+  let decoded;
+  try {
+    decoded = await initAdmin().auth().verifyIdToken(idToken);
+  } catch {
+    return json(401, { error: 'Invalid token' });
+  }
+
+  const q = ((event.queryStringParameters || {}).q || '').trim().toLowerCase();
+  if (!q || q.length < 2) return json(400, { error: 'Query must be at least 2 characters' });
+  if (q.length > 50)      return json(400, { error: 'Query too long' });
+
+  const uid = decoded.uid;
+  const db  = initAdmin().database();
+
+  // Search by username (exact match on lowercased index)
+  const [byUsername, byDisplayName] = await Promise.all([
+    db.ref('usernames').orderByKey().equalTo(q).once('value'),
+    db.ref('users').orderByChild('displayNameLower').startAt(q).endAt(q + '').limitToFirst(10).once('value'),
+  ]);
+
+  const results = {};
+
+  const usernameVal = byUsername.val() || {};
+  for (const [username, matchUid] of Object.entries(usernameVal)) {
+    if (matchUid === uid) continue;
+    if (!results[matchUid]) {
+      const snap = await db.ref(`users/${matchUid}`).once('value');
+      const profile = snap.val();
+      if (profile) results[matchUid] = { uid: matchUid, displayName: profile.displayName || null, username };
+    }
+  }
+
+  const displayNameVal = byDisplayName.val() || {};
+  for (const [matchUid, profile] of Object.entries(displayNameVal)) {
+    if (matchUid === uid) continue;
+    if (!results[matchUid]) {
+      results[matchUid] = {
+        uid: matchUid,
+        displayName: profile.displayName || null,
+        username: profile.username || null,
+      };
+    }
+  }
+
+  const users = Object.values(results).slice(0, 10);
+  return json(200, { users });
+};
