@@ -227,6 +227,8 @@ window.render = function render() {
   let p;
   if (S.tab === 'Profile' && S.page === 'home') {
     p = _profileTab();
+  } else if (S.tab === 'Calendar' && S.page === 'home') {
+    p = _authCalendar();
   } else {
     const pages = { activity: detail, provider, session, space, planning, event: eventPage,
       booking: () => `<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>` };
@@ -239,6 +241,222 @@ window.render = function render() {
       ? '<button class="createfloat" aria-label="Create event" onclick="openCreate(S.tab===\'Calendar\'?\'personal\':\'group\')">+</button>' : '')
     + (S.sheet ? (S.sheet === 'save' ? saveSheet() : createSheet()) : '');
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
+};
+
+// ── Social data helpers ────────────────────────────────────────────────────
+
+function _parseTime(t) {
+  if (!t) return 18;
+  const [h, m] = t.split(':').map(Number);
+  return h + (m || 0) / 60;
+}
+
+const _rsvpToLabel = { dabei: 'Going', vielleicht: 'Maybe', nein: "Can't", created: 'Going' };
+const _labelToRsvp = { Going: 'dabei', Maybe: 'vielleicht', "Can't": 'nein' };
+
+const _spaceColors = [
+  ['#d8f5d5','#268547'], ['#dce8f5','#265985'], ['#f5e8d8','#855226'],
+  ['#e8d8f5','#622685'], ['#f5d8e8','#854265'], ['#d8f5f2','#267a85'],
+];
+
+function _realCalOwners() {
+  const owners = { Personal: ['#f9dce6','#b34d76'] };
+  if (_userData && _userData.spaces) {
+    let i = 0;
+    Object.values(_userData.spaces).forEach(sp => {
+      if (sp && sp.name && sp.name !== 'Personal') {
+        owners[sp.name] = _spaceColors[i % _spaceColors.length];
+        i++;
+      }
+    });
+  }
+  return owners;
+}
+
+function _fbCalEntries() {
+  if (!_userData) return [];
+  const { events, userEvents, spaces, spaceEvents } = _userData;
+  if (!events || !userEvents) return [];
+  const eventSpaceName = {};
+  if (spaceEvents && spaces) {
+    Object.entries(spaceEvents).forEach(([spaceId, evts]) => {
+      const name = (spaces[spaceId] || {}).name;
+      if (!name) return;
+      Object.keys(evts || {}).forEach(evId => {
+        if (!eventSpaceName[evId]) eventSpaceName[evId] = name;
+      });
+    });
+  }
+  return Object.entries(userEvents).map(([id, status]) => {
+    const ev = events[id];
+    if (!ev || !ev.date) return null;
+    return {
+      id,
+      date:      ev.date,
+      start:     _parseTime(ev.time),
+      end:       _parseTime(ev.time) + 1,
+      title:     `${ev.emoji || ''} ${ev.title || ''}`.trim(),
+      owner:     eventSpaceName[id] || 'Personal',
+      _fbStatus: status,
+      _firebase: true,
+    };
+  }).filter(Boolean);
+}
+
+function _pendingInvites() {
+  if (!_userData) return [];
+  const { invites, events, userEvents } = _userData;
+  if (!invites || !events) return [];
+  return Object.keys(invites)
+    .filter(id => !userEvents[id])
+    .map(id => ({ id, event: events[id] }))
+    .filter(x => x.event);
+}
+
+function _authCalendar() {
+  const isReal = !!(_currentUser && _userData && !_userData._error);
+  const fbEntries  = isReal ? _fbCalEntries() : [];
+  const owners     = isReal ? _realCalOwners() : calOwners;
+  const localPlans = S.plans.flatMap(p =>
+    (p.spaces || [p.space]).map(sp => ({
+      id: p.id, date: p.date,
+      start: _parseTime(p.start || '18:00'),
+      end:   _parseTime(p.end   || '20:00'),
+      title: p.title, owner: sp || 'Personal', _local: true,
+    }))
+  );
+  const allEntries = isReal
+    ? [...fbEntries, ...localPlans]
+    : [
+        {id:'dentist',date:'2026-10-21',start:10,end:11,title:'Dentist',owner:'Personal'},
+        {id:'dinner', date:'2026-10-23',start:19,end:20,title:'Dinner with Leo',owner:'Personal'},
+        {id:'run',    date:'2026-10-24',start:9, end:10.5,title:'Social run',owner:'Run Club'},
+        ...localPlans,
+      ];
+  allEntries.forEach(e => {
+    if (e.owner && !owners[e.owner])
+      owners[e.owner] = _spaceColors[Object.keys(owners).length % _spaceColors.length];
+  });
+  const layers    = S.layers.filter(l => l in owners);
+  const visLayers = layers.length ? layers : Object.keys(owners);
+  const es        = allEntries.filter(e => visLayers.includes(e.owner));
+  const start     = new Date(Date.UTC(2026, 9, 19 + 7 * S.week));
+  const days      = Array.from({length:7}, (_, i) => {
+    const d = new Date(start); d.setUTCDate(start.getUTCDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+  const label = `${days[0].slice(5)} – ${days[6].slice(5)} · 2026`;
+  const toggleChip = t =>
+    `<button class="${S.layers.includes(t)?'on':''}" onclick="S.layers=S.layers.includes('${t}')?S.layers.filter(x=>x!=='${t}'):[...S.layers,'${t}'];save();render()">` +
+    `<span style="color:${(owners[t]||[])[1]||'#333'}">●</span> ${esc(t)}</button>`;
+  const pendInvites = _pendingInvites();
+  const inviteSection = pendInvites.length ? `
+    <h2 class="section" style="color:#c0392b">Pending invitations (${pendInvites.length})</h2>
+    <div class="stack" style="margin-bottom:20px">
+      ${pendInvites.map(({id, event:ev}) => `
+        <div class="rowcard"><div class="between"><div>
+          <strong>${esc((ev.emoji||'')+' '+(ev.title||''))}</strong>
+          <div class="small">${esc(ev.date||'')} ${esc(ev.time||'')}${ev.location?' · '+esc(ev.location):''}</div>
+        </div><div style="display:flex;gap:6px">
+          ${['dabei','vielleicht','nein'].map(s =>
+            `<button class="chip" onclick="_rsvp('${id}','${s}')">${{dabei:'✓ Going',vielleicht:'Maybe',nein:'✗'}[s]}</button>`
+          ).join('')}
+        </div></div></div>`).join('')}
+    </div>` : '';
+  const SLOT_H = 50;
+  const weekView = () => `<div class="calendar-scroll"><div class="calendar">
+    <div class="cal-head">${days.map((d,i) =>
+      `<button class="cal-day" onclick="openCreate('personal','','${d}')">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}<br>${Number(d.slice(-2))}</button>`
+    ).join('')}</div>
+    ${Array.from({length:14},(_,i) => `<div class="cal-time" style="top:${i*SLOT_H}px">${i+8}:00</div>`).join('')}
+    ${Array.from({length:7}, (_,i) => `<div class="cal-line" style="left:${i*100/7}%"></div>`).join('')}
+    ${es.filter(e => days.includes(e.date) && e.start >= 8 && e.start < 22).map(e => {
+      const overlap = es.filter(f => f !== e && f.date === e.date && f.start < e.end && f.end > e.start);
+      const side    = overlap.length && e.start >= overlap[0].start ? 1 : 0;
+      const w       = overlap.length ? 6.8 : 13.6;
+      const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+      return `<button class="cal-event" onclick="openEvent('${e.id}')"
+        style="left:calc(${days.indexOf(e.date)*100/7 + side*6.8}% + 2px);
+               width:calc(${w}% - 3px);top:${(e.start-8)*SLOT_H}px;
+               height:${Math.max(25,(e.end-e.start)*SLOT_H-2)}px;
+               background:${bg};border-color:${fg};color:${fg}">
+        ${esc(e.title)}<br>${formatHour(e.start)}</button>`;
+    }).join('')}
+  </div></div>`;
+  const monthView = () => {
+    const firstDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    const offset   = (firstDay.getUTCDay() + 6) % 7;
+    const lastDay  = new Date(Date.UTC(firstDay.getUTCFullYear(), firstDay.getUTCMonth()+1, 0)).getUTCDate();
+    const cells    = Array.from({length: offset + lastDay}, (_, i) =>
+      i < offset ? '' : new Date(Date.UTC(firstDay.getUTCFullYear(), firstDay.getUTCMonth(), i-offset+1)).toISOString().slice(0,10)
+    );
+    return `<div class="monthgrid">
+      ${['M','T','W','T','F','S','S'].map(d => `<div class="small" style="text-align:center">${d}</div>`).join('')}
+      ${cells.map(d => `<div class="monthcell" onclick="${d ? `openCreate('personal','','${d}')` : ''}">
+        ${d ? Number(d.slice(-2)) : ''}
+        ${es.filter(e => e.date === d).slice(0,3).map(e => {
+          const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+          return `<div class="monthlabel" onclick="event.stopPropagation();openEvent('${e.id}')"
+            style="background:${bg};color:${fg}">${esc(e.title)}</div>`;
+        }).join('')}
+      </div>`).join('')}
+    </div>`;
+  };
+  const signedInNote = isReal
+    ? `<p class="footnote">Showing your Firebase events. Local plans also shown. Demo events hidden.</p>`
+    : `<p class="footnote">Calendar showing demo events. <button class="chip" onclick="nav('Profile')">Sign in</button> to see your real events.</p>`;
+  return `<div class="content">
+    <div class="between"><h1 class="headline">Calendar</h1>${segment('calView',['Week','Month'])}</div>
+    <div class="toggle">${Object.keys(owners).map(toggleChip).join('')}</div>
+    <div class="between" style="margin:20px 0">
+      <button class="chip" onclick="set({week:S.week-1})">←</button>
+      <strong>${label}</strong>
+      <button class="chip" onclick="set({week:S.week+1})">→</button>
+    </div>
+    ${button('+ New event', "openCreate('personal')", 'secondary full')}
+    <div style="height:15px"></div>
+    ${S.calView === 'Week' ? weekView() : monthView()}
+    ${inviteSection}
+    ${signedInNote}
+  </div>`;
+}
+
+async function _rsvp(eventId, fbStatus) {
+  if (_userData && _userData.userEvents) _userData.userEvents[eventId] = fbStatus;
+  render();
+  if (!_currentUser) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res   = await fetch('/.netlify/functions/event-rsvp', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body:   JSON.stringify({ eventId, status: fbStatus }),
+    });
+    if (!res.ok) console.warn('[someday] RSVP failed:', await res.text());
+  } catch (e) { console.warn('[someday] RSVP error:', e.message); }
+}
+
+const _origCommitCustom = commitCustom;
+window.commitCustom = async function commitCustom_auth() {
+  _origCommitCustom();
+  if (!_currentUser || !D || !D.title) return;
+  const spaceIds = [];
+  if (D.kind === 'group' && D.spaces && D.spaces.length && _userData && _userData.spaces) {
+    D.spaces.forEach(spaceName => {
+      const entry = Object.entries(_userData.spaces).find(([,sp]) => sp.name === spaceName);
+      if (entry) spaceIds.push(entry[0]);
+    });
+  }
+  try {
+    const token = await _currentUser.getIdToken();
+    await fetch('/.netlify/functions/event-create', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: D.title, date: D.date, time: D.start, location: D.location, details: D.description, spaceIds }),
+    });
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) { console.warn('[someday] event-create error:', e.message); }
 };
 
 _initFirebaseAuth();
