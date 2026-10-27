@@ -495,3 +495,53 @@ describe('studio-auth', () => {
     expect(body.uid).toBe('uid_super');
   });
 });
+
+// ── activities endpoint ───────────────────────────────────────────────────────
+describe('activities', () => {
+  const activitiesHandler = require('../netlify/functions/activities').handler;
+
+  function makeGet() {
+    return { httpMethod: 'GET', headers: {}, body: null };
+  }
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test('30. returns 405 for non-GET', async () => {
+    const res = await activitiesHandler({ httpMethod: 'POST', headers: {}, body: null });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('31. returns active activities without auth', async () => {
+    const db = makeDbMock(null);
+    // orderByChild/equalTo chaining
+    const mockOnceActive = jest.fn().mockResolvedValue({
+      forEach: (cb) => {
+        cb({ key: 'act_1', val: () => ({ title: 'Pottery Workshop', status: 'active' }) });
+      },
+    });
+    db.ref.mockReturnValue({
+      orderByChild: () => ({ equalTo: () => ({ once: mockOnceActive }) }),
+    });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+
+    const res = await activitiesHandler(makeGet());
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.activities).toHaveProperty('act_1');
+    expect(body.activities.act_1.title).toBe('Pottery Workshop');
+  });
+
+  test('32. returns empty activities object when none exist', async () => {
+    const db = makeDbMock(null);
+    const mockOnceEmpty = jest.fn().mockResolvedValue({ forEach: () => {} });
+    db.ref.mockReturnValue({
+      orderByChild: () => ({ equalTo: () => ({ once: mockOnceEmpty }) }),
+    });
+    mockInitAdmin.mockReturnValue({ database: () => db });
+
+    const res = await activitiesHandler(makeGet());
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.activities).toEqual({});
+  });
+});
