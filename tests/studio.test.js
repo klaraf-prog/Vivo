@@ -893,3 +893,140 @@ describe('user-data', () => {
     expect(body.friendProfiles).toEqual({});
   });
 });
+
+// ─── event-rsvp ──────────────────────────────────────────────────────────────
+describe('event-rsvp', () => {
+  const rsvpHandler = require('../netlify/functions/event-rsvp').handler;
+  const user = { uid: 'u1', email: 'u1@test.com' };
+
+  function post(body, token = 'tok') {
+    return { httpMethod: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) };
+  }
+
+  test('59. returns 405 for non-POST', async () => {
+    const res = await rsvpHandler({ httpMethod: 'GET', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('60. returns 401 with no token', async () => {
+    const res = await rsvpHandler({ httpMethod: 'POST', headers: {} });
+    expect(res.statusCode).toBe(401);
+  });
+
+  test('61. returns 400 when eventId missing', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await rsvpHandler(post({ status: 'dabei' }));
+    expect(res.statusCode).toBe(400);
+  });
+
+  test('62. returns 400 for invalid status', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await rsvpHandler(post({ eventId: 'ev1', status: 'Going' }));
+    expect(res.statusCode).toBe(400);
+  });
+
+  test('63. returns 404 when event not found', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockOnce = jest.fn().mockResolvedValue({ exists: () => false, val: () => null });
+    const db = { ref: jest.fn(() => ({ once: mockOnce, update: jest.fn(), push: jest.fn(() => ({ key: 'rsvp_new' })) })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await rsvpHandler(post({ eventId: 'ev1', status: 'dabei' }));
+    expect(res.statusCode).toBe(404);
+  });
+
+  test('64. updates RSVP and userEvents', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    let callCount = 0;
+    const mockOnce = jest.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve({ exists: () => true, val: () => ({ title: 'Run' }) });
+      if (callCount === 2) return Promise.resolve({ exists: () => true, val: () => ({ displayName: 'Alice' }) });
+      return Promise.resolve({ exists: () => false, val: () => ({}) }); // empty rsvps
+    });
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const mockPushKey = 'rsvp_new';
+    const db = { ref: jest.fn(() => ({ once: mockOnce, update: mockUpdate, push: jest.fn(() => ({ key: mockPushKey })) })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await rsvpHandler(post({ eventId: 'ev1', status: 'dabei' }));
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe('dabei');
+    expect(mockUpdate).toHaveBeenCalled();
+    const updateArg = mockUpdate.mock.calls[0][0];
+    expect(updateArg[`userEvents/${user.uid}/ev1`]).toBe('dabei');
+  });
+});
+
+// ─── event-create ─────────────────────────────────────────────────────────────
+describe('event-create', () => {
+  const createHandler = require('../netlify/functions/event-create').handler;
+  const user = { uid: 'u1', email: 'u1@test.com' };
+
+  function post(body, token = 'tok') {
+    return { httpMethod: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) };
+  }
+
+  test('65. returns 405 for non-POST', async () => {
+    const res = await createHandler({ httpMethod: 'GET', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('66. returns 400 when title missing', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await createHandler(post({ date: '2026-10-24' }));
+    expect(res.statusCode).toBe(400);
+  });
+
+  test('67. creates event and returns 201 with eventId', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockOnce = jest.fn().mockResolvedValue({ exists: () => true, val: () => ({ displayName: 'Alice' }) });
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const db = { ref: jest.fn(() => ({ once: mockOnce, update: mockUpdate })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await createHandler(post({ title: 'Movie night', date: '2026-10-24', time: '20:00' }));
+    expect(res.statusCode).toBe(201);
+    const body = parseBody(res);
+    expect(body.ok).toBe(true);
+    expect(body.eventId).toBeDefined();
+    expect(body.eventId).toMatch(/^ev_/);
+  });
+
+  test('68. writes event, userEvents, and rsvp in one update', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockOnce = jest.fn().mockResolvedValue({ exists: () => true, val: () => ({ displayName: 'Alice' }) });
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const db = { ref: jest.fn(() => ({ once: mockOnce, update: mockUpdate })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    await createHandler(post({ title: 'Dinner', date: '2026-10-25' }));
+    const updateArg = mockUpdate.mock.calls[0][0];
+    const eventKey  = Object.keys(updateArg).find(k => k.startsWith('events/') && !k.includes('/rsvps'));
+    const userEvKey = Object.keys(updateArg).find(k => k.startsWith(`userEvents/${user.uid}/`));
+    const rsvpKey   = Object.keys(updateArg).find(k => k.includes('/rsvps/'));
+    expect(eventKey).toBeDefined();
+    expect(userEvKey).toBeDefined();
+    expect(updateArg[userEvKey]).toBe('created');
+    expect(rsvpKey).toBeDefined();
+    expect(updateArg[rsvpKey].status).toBe('dabei');
+  });
+
+  test('69. skips non-existent spaces', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    let callCount = 0;
+    const mockOnce = jest.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve({ exists: () => true, val: () => ({ displayName: 'Alice' }) }); // profile
+      return Promise.resolve({ exists: () => false, val: () => null }); // space not found
+    });
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const db = { ref: jest.fn(() => ({ once: mockOnce, update: mockUpdate })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    await createHandler(post({ title: 'Event', spaceIds: ['nonexistent_space'] }));
+    const updateArg = mockUpdate.mock.calls[0][0];
+    const spaceKey  = Object.keys(updateArg).find(k => k.startsWith('spaceEvents/'));
+    expect(spaceKey).toBeUndefined();
+  });
+});
