@@ -17,17 +17,20 @@ exports.handler = async (event) => {
     return json(401, { error: 'Invalid token' });
   }
 
-  const q = ((event.queryStringParameters || {}).q || '').trim().toLowerCase();
+  const qRaw = ((event.queryStringParameters || {}).q || '').trim();
+  const q    = qRaw.toLowerCase();
   if (!q || q.length < 2) return json(400, { error: 'Query must be at least 2 characters' });
   if (q.length > 50)      return json(400, { error: 'Query too long' });
 
   const uid = decoded.uid;
   const db  = initAdmin().database();
 
-  // Search by username (exact match on lowercased index)
-  const [byUsername, byDisplayName] = await Promise.all([
+  // Search by username (exact), displayNameLower index, and displayName directly
+  const HIGH = '';
+  const [byUsername, byDisplayNameLower, byDisplayName] = await Promise.all([
     db.ref('usernames').orderByKey().equalTo(q).once('value'),
-    db.ref('users').orderByChild('displayNameLower').startAt(q).endAt(q + '').limitToFirst(10).once('value'),
+    db.ref('users').orderByChild('displayNameLower').startAt(q).endAt(q + HIGH).limitToFirst(10).once('value'),
+    db.ref('users').orderByChild('displayName').startAt(qRaw).endAt(qRaw + HIGH).limitToFirst(10).once('value'),
   ]);
 
   const results = {};
@@ -42,8 +45,18 @@ exports.handler = async (event) => {
     }
   }
 
-  const displayNameVal = byDisplayName.val() || {};
-  for (const [matchUid, profile] of Object.entries(displayNameVal)) {
+  for (const [matchUid, profile] of Object.entries(byDisplayNameLower.val() || {})) {
+    if (matchUid === uid) continue;
+    if (!results[matchUid]) {
+      results[matchUid] = {
+        uid: matchUid,
+        displayName: profile.displayName || null,
+        username: profile.username || null,
+      };
+    }
+  }
+
+  for (const [matchUid, profile] of Object.entries(byDisplayName.val() || {})) {
     if (matchUid === uid) continue;
     if (!results[matchUid]) {
       results[matchUid] = {

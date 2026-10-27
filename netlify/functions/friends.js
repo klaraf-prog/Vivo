@@ -1,7 +1,7 @@
 'use strict';
-// POST { action, targetUid } — manage friend relationships.
+// POST { action, targetUid|requesterUid } — manage friend relationships.
 // Actions: request | accept | decline | remove
-// friendRequests/$uid/$senderUid = { status: 'pending', sentAt }
+// friendRequests/$uid/$senderUid = { displayName, timestamp }
 // friends/$uid/$friendUid = true (bidirectional on accept)
 const { initAdmin, json } = require('./_studio-shared');
 
@@ -24,47 +24,52 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON' }); }
 
-  const { action, targetUid } = body;
+  const { action } = body;
   if (!action || !VALID_ACTIONS.has(action)) return json(400, { error: 'action must be one of: request, accept, decline, remove' });
-  if (!targetUid || typeof targetUid !== 'string') return json(400, { error: 'targetUid is required' });
+
+  // accept/decline use requesterUid (who sent the request); request/remove use targetUid
+  const otherUid = body.requesterUid || body.targetUid;
+  if (!otherUid || typeof otherUid !== 'string') return json(400, { error: 'targetUid (or requesterUid for accept/decline) is required' });
 
   const uid = decoded.uid;
-  if (uid === targetUid) return json(400, { error: 'Cannot perform friend action on yourself' });
+  if (uid === otherUid) return json(400, { error: 'Cannot perform friend action on yourself' });
 
   const db = initAdmin().database();
 
-  // Verify target user exists
-  const targetSnap = await db.ref(`users/${targetUid}`).once('value');
-  if (!targetSnap.exists()) return json(404, { error: 'Target user not found' });
+  // Verify other user exists
+  const otherSnap = await db.ref(`users/${otherUid}`).once('value');
+  if (!otherSnap.exists()) return json(404, { error: 'User not found' });
 
   const update = {};
 
   if (action === 'request') {
     // Check if already friends
-    const alreadyFriendSnap = await db.ref(`friends/${uid}/${targetUid}`).once('value');
+    const alreadyFriendSnap = await db.ref(`friends/${uid}/${otherUid}`).once('value');
     if (alreadyFriendSnap.exists()) return json(409, { error: 'Already friends' });
-    // Write pending request (from uid to targetUid)
-    update[`friendRequests/${targetUid}/${uid}`] = { status: 'pending', sentAt: Date.now() };
+    // Include sender's displayName in the request entry
+    const myProfile = (await db.ref(`users/${uid}`).once('value')).val() || {};
+    const displayName = myProfile.displayName || null;
+    update[`friendRequests/${otherUid}/${uid}`] = { displayName, timestamp: Date.now() };
 
   } else if (action === 'accept') {
-    // Verify the request exists
-    const reqSnap = await db.ref(`friendRequests/${uid}/${targetUid}`).once('value');
+    // Verify the request exists (request FROM otherUid TO me)
+    const reqSnap = await db.ref(`friendRequests/${uid}/${otherUid}`).once('value');
     if (!reqSnap.exists()) return json(404, { error: 'Friend request not found' });
     // Accept: create bidirectional friendship, remove request
-    update[`friends/${uid}/${targetUid}`]         = true;
-    update[`friends/${targetUid}/${uid}`]          = true;
-    update[`friendRequests/${uid}/${targetUid}`]   = null;
+    update[`friends/${uid}/${otherUid}`]       = true;
+    update[`friends/${otherUid}/${uid}`]        = true;
+    update[`friendRequests/${uid}/${otherUid}`] = null;
 
   } else if (action === 'decline') {
-    // Remove incoming request from targetUid
-    const reqSnap = await db.ref(`friendRequests/${uid}/${targetUid}`).once('value');
+    // Remove incoming request from otherUid
+    const reqSnap = await db.ref(`friendRequests/${uid}/${otherUid}`).once('value');
     if (!reqSnap.exists()) return json(404, { error: 'Friend request not found' });
-    update[`friendRequests/${uid}/${targetUid}`]   = null;
+    update[`friendRequests/${uid}/${otherUid}`] = null;
 
   } else if (action === 'remove') {
     // Remove bidirectional friendship
-    update[`friends/${uid}/${targetUid}`]           = null;
-    update[`friends/${targetUid}/${uid}`]           = null;
+    update[`friends/${uid}/${otherUid}`] = null;
+    update[`friends/${otherUid}/${uid}`] = null;
   }
 
   await db.ref('/').update(update);

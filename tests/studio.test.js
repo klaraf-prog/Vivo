@@ -1003,14 +1003,16 @@ describe('event-create', () => {
     mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
     await createHandler(post({ title: 'Dinner', date: '2026-10-25' }));
     const updateArg = mockUpdate.mock.calls[0][0];
-    const eventKey  = Object.keys(updateArg).find(k => k.startsWith('events/') && !k.includes('/rsvps'));
+    const eventKey  = Object.keys(updateArg).find(k => k.startsWith('events/'));
     const userEvKey = Object.keys(updateArg).find(k => k.startsWith(`userEvents/${user.uid}/`));
-    const rsvpKey   = Object.keys(updateArg).find(k => k.includes('/rsvps/'));
     expect(eventKey).toBeDefined();
     expect(userEvKey).toBeDefined();
     expect(updateArg[userEvKey]).toBe('created');
-    expect(rsvpKey).toBeDefined();
-    expect(updateArg[rsvpKey].status).toBe('dabei');
+    // RSVP is now embedded inside the event object
+    const rsvps = updateArg[eventKey].rsvps;
+    expect(rsvps).toBeDefined();
+    const rsvpEntry = Object.values(rsvps)[0];
+    expect(rsvpEntry.status).toBe('dabei');
   });
 
   test('69. skips non-existent spaces', async () => {
@@ -1128,6 +1130,7 @@ describe('friends', () => {
     const db = { ref: jest.fn(path => ({
       once: jest.fn().mockResolvedValue(
         path === 'users/u2' ? snap({ displayName: 'Bob' }) :
+        path === 'users/u1' ? snap({ displayName: 'Alice' }) :
         path === 'friends/u1/u2' ? snap(null) : snap(null)
       ),
       update: mockUpdate,
@@ -1138,7 +1141,7 @@ describe('friends', () => {
     expect(mockUpdate).toHaveBeenCalled();
     const arg = mockUpdate.mock.calls[0][0];
     expect(arg['friendRequests/u2/u1']).toBeDefined();
-    expect(arg['friendRequests/u2/u1'].status).toBe('pending');
+    expect(arg['friendRequests/u2/u1'].displayName).toBe('Alice');
   });
 
   test('78. accept creates bidirectional friendship and removes request', async () => {

@@ -54,7 +54,7 @@ exports.handler = async (event) => {
   if (bio !== undefined)          profileUpdate.bio         = bio;
   if (!profileUpdate.createdAt)   profileUpdate.createdAt   = Date.now();
   profileUpdate.updatedAt = Date.now();
-  if (username !== undefined)     profileUpdate.displayNameLower = (profileUpdate.displayName || '').toLowerCase();
+  if (profileUpdate.displayName)  profileUpdate.displayNameLower = profileUpdate.displayName.toLowerCase();
 
   const update = { [`users/${uid}`]: profileUpdate };
   if (username !== undefined) {

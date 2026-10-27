@@ -40,11 +40,12 @@ exports.handler = async (event) => {
 
   const newEvent = { createdBy: uid, creatorName: name, createdAt: now };
   ALLOWED_FIELDS.forEach(f => { if (body[f] != null) newEvent[f] = body[f]; });
+  // Embed creator RSVP inside the event object to avoid ancestor/descendant path conflict
+  newEvent.rsvps = { [rsvpKey]: { name, status: 'dabei', userId: uid, ts: now } };
 
   const updates = {
-    [`events/${eventId}`]:                       newEvent,
-    [`userEvents/${uid}/${eventId}`]:             'created',
-    [`events/${eventId}/rsvps/${rsvpKey}`]:       { name, status: 'dabei', userId: uid, ts: now },
+    [`events/${eventId}`]:            newEvent,
+    [`userEvents/${uid}/${eventId}`]: 'created',
   };
 
   // Verify all spaceIds exist (prevent phantom writes)
