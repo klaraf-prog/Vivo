@@ -14,6 +14,12 @@
   to   = "/admin.html"
   status = 200
 
+# /studio → /admin (redirect legacy studio URL to the unified admin panel)
+[[redirects]]
+  from = "/studio"
+  to   = "/admin"
+  status = 301
+
 # SPA fallback — serve index.html for all unmatched paths (except /admin and functions)
 [[redirects]]
   from = "/*"

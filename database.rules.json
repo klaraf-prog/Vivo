@@ -85,6 +85,12 @@
         ".read": "$uid === auth.uid",
         ".write": "auth != null"
       }
+    },
+    "friendRequests": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "auth != null"
+      }
     }
   }
 }
