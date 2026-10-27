@@ -1,6 +1,9 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fafbf7"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="someday"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""><title>someday. — make it happen</title><style>
 :root{--green:#65db70;--dark:#183b28;--muted:#68786d;--bg:#fafbf7;--line:#e6eae3;--pink:#ef6b82}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--dark);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.45}#app{max-width:600px;margin:auto;min-height:100dvh;padding-bottom:calc(83px + env(safe-area-inset-bottom))}.header{position:sticky;top:0;z-index:20;background:#fafbf7f5;backdrop-filter:blur(16px);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f2ec}.logo{font-weight:900;font-size:27px;letter-spacing:-1.8px;color:#1388ff}.loc{font-size:11px;font-weight:800;color:#287e43;background:#e6f8e5;padding:9px 12px;border-radius:100px}.avatar{background:var(--dark);color:white;width:36px;height:36px;border-radius:50%;border:0;font-weight:700}.hrow{display:flex;align-items:center;gap:10px}.content{padding:22px 18px}.eyebrow{color:#289c4e;font-size:11px;letter-spacing:1.2px;font-weight:850;text-transform:uppercase}.headline{font-size:32px;line-height:1.08;letter-spacing:-1.4px;margin:9px 0 10px;font-weight:850}.sub{color:var(--muted);font-size:14px;line-height:1.5}.hero{background:var(--green);border-radius:21px;padding:23px;margin-bottom:20px}.hero h1{font-size:30px;letter-spacing:-1.2px;line-height:1.08;margin:9px 0}.search,.field{border:1px solid var(--line);background:white;border-radius:14px;padding:13px 15px;width:100%;outline:none;color:var(--dark)}.search:focus,.field:focus{border-color:#51c965}.filters{display:flex;gap:8px;overflow:auto;margin:14px 0 20px;scrollbar-width:none}.chip{white-space:nowrap;border:1px solid #dfe5dd;background:white;border-radius:40px;padding:9px 15px;color:var(--dark);font-size:13px;font-weight:650}.chip.on{background:#d9f7d9;border-color:#59d66a}.section{font-size:20px;letter-spacing:-.6px;font-weight:800;margin:24px 0 14px}.card{border:1px solid var(--line);border-radius:19px;background:white;overflow:hidden;margin-bottom:17px}.photo{width:100%;height:210px;object-fit:cover;display:block;background:#dcebd9}.card-body{padding:15px 17px}.card-title{font-size:21px;line-height:1.2;letter-spacing:-.55px;font-weight:800;margin:5px 0}.meta{font-size:13px;color:var(--muted);line-height:1.6}.between{display:flex;justify-content:space-between;align-items:center;gap:12px}.iconbtn{border:0;background:#e4f8e1;border-radius:50%;height:40px;width:40px;color:var(--dark);font-size:22px;flex-shrink:0}.btn{background:var(--green);color:var(--dark);border:0;border-radius:13px;padding:14px 18px;font-size:14px;font-weight:800;min-height:47px}.btn.secondary{background:white;border:1px solid #d9e3d8}.btn.dark{background:var(--dark);color:white}.btn.full{width:100%}.stack{display:grid;gap:11px}.rowcard{background:white;border:1px solid var(--line);border-radius:15px;padding:16px;text-align:left;width:100%;color:var(--dark)}.rowcard.selected{background:#e4f9df;border-color:#5bdb6c}.tag{display:inline-block;background:#e4f8e1;color:#27663d;padding:6px 10px;border-radius:30px;font-size:11px;font-weight:800}.tag.pink{background:#fce0e8;color:#8b3d59}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);max-width:600px;width:100%;height:calc(73px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);z-index:30}.nav{border:0;background:none;color:#919b94;font-size:10px;font-weight:650;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}.nav .sym{font-size:22px}.nav.active{color:#226d3b}.nav.active .sym{color:#238e46}.seg{display:flex;background:#f0f1ec;padding:4px;border-radius:13px;gap:3px}.seg button{flex:1;border:0;background:none;padding:10px 12px;border-radius:10px;font-weight:700;color:#69746c}.seg button.active{background:white;color:var(--dark);box-shadow:0 1px 4px #0000000d}.back{border:0;background:none;color:#277c42;font-weight:750;padding:0;margin:0 0 17px}.sheetbg{position:fixed;inset:0;background:#102f1c70;z-index:40;display:flex;align-items:flex-end;justify-content:center}.sheet{background:var(--bg);width:min(600px,100%);border-radius:25px 25px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));max-height:90dvh;overflow:auto}.calendar-scroll{overflow-x:auto;background:white;border:1px solid var(--line);border-radius:12px}.calendar{position:relative;min-width:520px;height:720px;background:repeating-linear-gradient(to bottom,#fff 0px,#fff 49px,#e9ece6 50px);margin-left:37px;margin-top:38px}.cal-head{display:grid;grid-template-columns:repeat(7,1fr);position:absolute;top:-38px;width:100%;height:38px}.cal-day{border:0;border-left:1px solid #e9ece6;background:white;font-size:12px;font-weight:700}.cal-line{position:absolute;top:0;bottom:0;width:1px;background:#edf0ea}.cal-time{position:absolute;left:-37px;font-size:10px;color:#839087;transform:translateY(-6px)}.cal-event{position:absolute;border:0;border-left:3px solid;border-radius:5px;text-align:left;padding:4px;font-size:10px;font-weight:700;overflow:hidden;line-height:1.25}.monthgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.monthcell{min-height:65px;background:white;border:1px solid #eef0ea;border-radius:4px;padding:4px;font-size:12px;overflow:hidden}.monthlabel{font-size:9px;line-height:1.2;padding:3px;margin-top:3px;border-radius:3px;cursor:pointer}.toggle{display:flex;gap:7px;flex-wrap:wrap}.toggle button{border:1px solid #e0e5dc;background:white;border-radius:40px;padding:8px 10px;font-size:11px;font-weight:750}.toggle button.on{background:#e3f7e0;border-color:#66d776}.mutedbox{background:#e7f7e4;border-radius:14px;padding:16px}.warn{background:#fff2d8;color:#795b2b;border-radius:12px;padding:13px;font-size:13px}.small{font-size:12px;color:var(--muted)}.empty{background:white;border:1px dashed #cddbcc;border-radius:16px;padding:25px;text-align:center}.profiletop{background:var(--dark);color:white;border-radius:20px;padding:23px;margin-bottom:20px}.profiletop .sub{color:#b7cbbd}h2{letter-spacing:-.6px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid2 .photo{height:120px}.grid2 .card-title{font-size:15px}.footnote{font-size:11px;color:#88958b;margin-top:20px;line-height:1.5}.switch{display:grid;grid-template-columns:1fr 1fr;background:#e9eee7;border-radius:14px;padding:4px;margin:16px 0}.switch button{border:0;background:transparent;padding:12px;border-radius:11px;color:#617168;font-weight:800}.switch button.on{background:white;color:var(--dark);box-shadow:0 1px 5px #00000013}.realmap{height:min(60vh,490px);min-height:340px;border-radius:18px;overflow:hidden;border:1px solid #dfe8dc}.mapinfo{margin-top:12px;background:white;border:1px solid var(--line);border-radius:15px;overflow:hidden}.mapinfo img{width:92px;height:92px;object-fit:cover}.mapbadge{background:var(--green);border:2px solid var(--dark);border-radius:50%;width:35px;height:35px;display:grid;place-items:center;font-size:16px;box-shadow:0 2px 8px #0002}.createfloat{position:fixed;bottom:calc(85px + env(safe-area-inset-bottom));right:max(calc((100vw - 580px)/2),18px);z-index:29;border:0;background:var(--dark);color:white;border-radius:50%;height:53px;width:53px;font-size:32px;box-shadow:0 5px 20px #153b283d}.formlabel{font-size:12px;font-weight:800;margin:10px 0 6px;display:block}.checks{display:grid;gap:8px}.checkrow{display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14px}.checkrow input{accent-color:#36ad52;width:19px;height:19px}.pill{font-size:11px;font-weight:800;padding:5px 9px;border-radius:20px;background:#e3f8e2}.leaflet-container{font-family:inherit}.leaflet-popup-content-wrapper{border-radius:13px}.leaflet-popup-content{font-size:13px}
-</style></head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 let A=[{id:'pottery',name:'Pottery & painting',title:'Make something with your hands.',provider:'Studio Clay',category:'Creative',location:'Ehrenfeld',price:'€35',lat:50.9496,lng:6.9197,img:'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=1100&q=85',tag:'GET CREATIVE'},{id:'supper',name:'The supper club',title:'Good food. Better company.',provider:'The Supper Table',category:'Food',location:'Belgisches Viertel',price:'€45',lat:50.9416,lng:6.9324,img:'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1100&q=85',tag:'AROUND THE TABLE'},{id:'yoga',name:'Sunday yoga',title:'Slow mornings, good energy.',provider:'Flow Studio',category:'Wellness',location:'Südstadt',price:'€18',lat:50.9195,lng:6.9573,img:'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1100&q=85',tag:'SLOW DOWN'},{id:'run',name:'Social run & coffee',title:'Find your people, one run at a time.',provider:'Cologne Run Club',category:'Sport',location:'Rheinauhafen',price:'Free',lat:50.927,lng:6.965,img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1100&q=85',tag:'MOVE TOGETHER'}];
 const store='someday-pwa-v1',initial={tab:'Discover',page:'home',category:'All',search:'',map:false,selected:'pottery',space:'Weekend Crew',spaceTab:'Ideas',profileTab:'Saved',saved:{pottery:['Weekend Crew','Just for me'],yoga:['Just for me']},plans:[],week:0,calView:'Week',layers:['Personal','Weekend Crew','Run Club'],date:'2026-10-23',choices:['2026-10-23','2026-10-24'],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[]};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>set({tab:t,page:'home',sheet:false,settings:false});const openActivity=id=>set({selected:id,page:'activity'});const goBack=()=>set({page:S.page==='session'?'provider':S.page==='provider'?'activity':S.page==='planning'?'space':'home',sheet:false});const button=(label,fn,cls='')=>`<button class="btn ${cls}" onclick="${fn}">${label}</button>`;const header=()=>`<header class="header"><button onclick="nav('Discover')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow"><span class="loc">COLOGNE ⌖</span><button class="avatar" onclick="nav('Profile')">K</button></div></header>`;const bottom=()=>`<nav class="bottom">${[['Discover','⌕'],['Calendar','▦'],['Spaces','♧'],['Profile','◉']].map(([t,ic])=>`<button class="nav ${S.tab===t?'active':''}" onclick="nav('${t}')"><span class="sym">${ic}</span>${t}</button>`).join('')}</nav>`;const filters=()=>`<div class="filters">${['All','Creative','Food','Wellness','Sport'].map(c=>`<button class="chip ${S.category===c?'on':''}" onclick="set({category:'${c}'},false)">${c}</button>`).join('')}</div>`;const filtered=()=>A.filter(a=>(S.category==='All'||a.category===S.category)&&(`${a.name} ${a.title} ${a.provider} ${a.location}`.toLowerCase().includes(S.search.toLowerCase())));
 const card=(a,compact=false)=>`<article class="card"><div onclick="openActivity('${a.id}')" style="cursor:pointer"><img class="photo" ${compact?'style="height:130px"':''} src="${a.img}" alt="${esc(a.name)}" loading="lazy"><div class="card-body"><div class="eyebrow">${a.tag}</div><div class="card-title">${esc(compact?a.name:a.title)}</div><div class="meta">${esc(a.name)} · ${esc(a.provider)}</div><div class="between" style="margin-top:10px"><span class="meta">⌖ ${esc(a.location)}</span><strong>${a.price}</strong></div></div></div><div class="between" style="padding:0 17px 15px"><span class="small">${(S.saved[a.id]||[]).length?`Saved to ${(S.saved[a.id]||[]).length} list(s)`:'Something for someday?'}</span><button class="iconbtn" onclick="openSave('${a.id}')">${(S.saved[a.id]||[]).length?'♥':'+'}</button></div></article>`;
@@ -66,5 +69,178 @@ async function _loadActivities() {
     console.warn('[someday] Activities endpoint unavailable, showing demo data:', e.message);
   }
 }
+// ── Firebase Auth integration ─────────────────────────────────────────────
+// Signs users in/out; loads personal RTDB data via /.netlify/functions/user-data.
+// Falls back gracefully when unauthenticated or when the endpoint is unavailable.
+
+const _fbConfig = {
+  apiKey:            'AIzaSyAuapMaw8Tpw0HC_TlMUvCbw0PPfWOaL-Y',
+  authDomain:        'vivo-mvp.firebaseapp.com',
+  projectId:         'vivo-mvp',
+  appId:             '1:662578995457:web:ee580f001d212cd73d7b00',
+};
+
+let _fbApp  = null;
+let _fbAuth = null;
+let _currentUser = null; // Firebase User or null
+let _userData    = null; // { uid, profile, userEvents, userSpaces } or null
+let _authReady   = false;
+
+function _initFirebaseAuth() {
+  if (_fbAuth) return _fbAuth;
+  try {
+    _fbApp  = firebase.initializeApp(_fbConfig, 'pwa-auth');
+    _fbAuth = firebase.auth(_fbApp);
+
+    const isLocal = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+    if (isLocal) _fbAuth.useEmulator('http://127.0.0.1:9099');
+
+    _fbAuth.onAuthStateChanged(async user => {
+      _currentUser = user || null;
+      _userData    = null;
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          const res   = await fetch('/.netlify/functions/user-data', {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (res.ok) _userData = await res.json();
+        } catch (e) {
+          console.warn('[someday] user-data unavailable:', e.message);
+        }
+      }
+      _authReady = true;
+      render();
+    });
+  } catch (e) {
+    console.warn('[someday] Firebase Auth init failed:', e.message);
+    _authReady = true;
+  }
+  return _fbAuth;
+}
+
+async function _signIn() {
+  const email = ($('auth-email') || {}).value || '';
+  const pw    = ($('auth-pw')    || {}).value || '';
+  const errEl = $('auth-err');
+  if (!email || !pw) { if (errEl) errEl.textContent = 'Please enter email and password.'; return; }
+  if (errEl) errEl.textContent = '';
+  try {
+    const auth = _initFirebaseAuth();
+    await auth.signInWithEmailAndPassword(email, pw);
+  } catch (e) {
+    const errEl2 = $('auth-err');
+    if (errEl2) errEl2.textContent = e.message || 'Sign-in failed.';
+  }
+}
+
+async function _signOut() {
+  try { if (_fbAuth) await _fbAuth.signOut(); }
+  catch (e) { console.warn('[someday] sign-out error:', e.message); }
+}
+
+// Returns user display name from userData profile or Firebase displayName.
+function _displayName() {
+  if (_userData && _userData.profile && _userData.profile.displayName) return _userData.profile.displayName;
+  if (_currentUser && _currentUser.displayName) return _currentUser.displayName;
+  if (_currentUser && _currentUser.email) return _currentUser.email.split('@')[0];
+  return null;
+}
+
+function _avatarLetter() {
+  const n = _displayName();
+  return n ? n[0].toUpperCase() : 'K';
+}
+
+// Sign-in form for the Profile tab (shown when not authenticated).
+function _signInForm() {
+  return `<div class="mutedbox" style="margin-bottom:20px">
+    <div class="eyebrow">SIGN IN ✳</div>
+    <h2 style="margin:8px 0 4px">Your corner of someday.</h2>
+    <p class="sub" style="margin-bottom:16px">Sign in to sync your calendar, spaces and saved activities across devices.</p>
+    <input id="auth-email" class="field" type="email" placeholder="your@email.com" style="margin-bottom:10px">
+    <input id="auth-pw" class="field" type="password" placeholder="Password" style="margin-bottom:10px">
+    <div id="auth-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
+    ${button('Sign in →', '_signIn()', 'full')}
+  </div>`;
+}
+
+// Auth-aware header: show user avatar or default when signed in.
+const _header = () => {
+  const letter = _currentUser ? _avatarLetter() : 'K';
+  return `<header class="header"><button onclick="nav('Discover')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow"><span class="loc">COLOGNE ⌖</span><button class="avatar" onclick="nav('Profile')">${letter}</button></div></header>`;
+};
+
+// Override the plain header() with the auth-aware version.
+// (Avoids touching minified code above.)
+Object.defineProperty(window, '_authHeader', { get: () => _header(), configurable: true });
+
+// Auth-aware profile tab: shows real user data or sign-in form.
+function _profileTab() {
+  if (!_currentUser) {
+    return `<div class="content">${_signInForm()}
+      <p class="footnote">Your plans and saved activities are stored locally on this device. Sign in to sync and share across devices.</p>
+    </div>`;
+  }
+  const name = _displayName() || 'You';
+  const email = _currentUser.email || '';
+  const events = _userData ? Object.values(_userData.userEvents || {}) : [];
+  const spaces = _userData ? Object.keys(_userData.userSpaces  || {}) : [];
+  const profile = (_userData || {}).profile || {};
+
+  return `<div class="content">
+    ${S.settings ? `<button class="back" onclick="set({settings:false})">← Profile</button><h1 class="headline">Settings</h1>
+    <h2 class="section">Calendar connections</h2>
+    ${['Google','Apple','Outlook'].map(c=>`<button class="rowcard between" style="margin-bottom:10px" onclick="toggleConnection('${c}')"><strong>${c} Calendar</strong><span>${S.connections.includes(c)?'Demo enabled ✓':'Demo off'}</span></button>`).join('')}
+    <p class="footnote">No actual calendar account is connected. These are preview toggles only.</p>
+    <h2 class="section">Account</h2>
+    <div class="mutedbox"><strong>${esc(email)}</strong></div>
+    ${button('Sign out', '_signOut()', 'secondary full')}` :
+    `<div class="profiletop">
+      <div class="hrow">
+        <div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">${_avatarLetter()}</div>
+        <div><h2 style="margin:0">${esc(name)}</h2><div class="sub">${esc(email)}</div></div>
+      </div>
+      <h2 style="margin:24px 0 3px">Good things are on the horizon.</h2>
+      <p class="sub">Your little corner of someday ✳</p>
+    </div>
+    <div class="between"><h2 class="section">Your profile</h2><button class="chip" onclick="set({settings:true})">⚙ Settings</button></div>
+    ${segment('profileTab',['Saved','Spaces','Activity'])}
+    <div style="margin-top:18px">
+      ${S.profileTab==='Saved'
+        ? `<h2 class="section">Your someday list</h2><div class="grid2">${A.filter(a=>(S.saved[a.id]||[]).includes('Just for me')).map(a=>card(a,true)).join('')}</div>`
+        : S.profileTab==='Spaces'
+          ? (spaces.length
+              ? spaces.map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${esc(t)}',page:'space'})"><strong>${esc(t)}</strong><span>→</span></button>`).join('')
+              : ['Weekend Crew','Run Club'].map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${t}',page:'space'})"><strong>${t}</strong><span>→</span></button>`).join(''))
+          : `<div class="mutedbox">${S.plans.length + events.length} events in your account.</div>`
+      }
+    </div>`
+    }
+  </div>`;
+}
+
+// Patch render() to use auth-aware profile and header when user is on Profile tab.
+const _origRender = render;
+window.render = function render() {
+  if (mapInstance) { mapInstance.remove(); mapInstance = null; mapMarkers = []; }
+  let p;
+  if (S.tab === 'Profile' && S.page === 'home') {
+    p = _profileTab();
+  } else {
+    const pages = { activity: detail, provider, session, space, planning, event: eventPage,
+      booking: () => `<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>` };
+    p = S.page === 'home'
+      ? ({ Discover: discovery, Calendar: calendar, Spaces: spaces, Profile: _profileTab }[S.tab] || discovery)()
+      : (pages[S.page] || discovery)();
+  }
+  $('app').innerHTML = (_currentUser ? _header() : header()) + p + bottom()
+    + (S.page === 'home' && (S.tab === 'Calendar' || S.tab === 'Spaces')
+      ? '<button class="createfloat" aria-label="Create event" onclick="openCreate(S.tab===\'Calendar\'?\'personal\':\'group\')">+</button>' : '')
+    + (S.sheet ? (S.sheet === 'save' ? saveSheet() : createSheet()) : '');
+  if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
+};
+
+_initFirebaseAuth();
 render();_loadActivities();if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script></body></html>

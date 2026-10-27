@@ -764,3 +764,102 @@ describe('studio-users', () => {
     expect(u2.studioRole).toBeNull();
   });
 });
+
+// ─── user-data ────────────────────────────────────────────────────────────────
+describe('user-data', () => {
+  const userDataHandler = require('../netlify/functions/user-data').handler;
+
+  function get(token = 'valid_token') {
+    return { httpMethod: 'GET', headers: { authorization: `Bearer ${token}` } };
+  }
+
+  const sampleDbData = {
+    profile:    { displayName: 'Klara', city: 'Cologne' },
+    userEvents: { ev1: { title: 'Run', date: '2026-10-24' } },
+    userSpaces: { 'Weekend Crew': true },
+  };
+
+  test('49. returns 405 for non-GET', async () => {
+    const res = await userDataHandler({ httpMethod: 'POST', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('50. returns 401 when no Authorization header', async () => {
+    const res = await userDataHandler({ httpMethod: 'GET', headers: {} });
+    expect(res.statusCode).toBe(401);
+  });
+
+  test('51. returns 401 when token verification fails', async () => {
+    const mockVerifyIdToken = jest.fn().mockRejectedValue(new Error('invalid token'));
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await userDataHandler(get('bad_token'));
+    expect(res.statusCode).toBe(401);
+  });
+
+  test('52. returns profile, userEvents, userSpaces for valid token', async () => {
+    const uid = 'user123';
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+
+    const makeSnap = (data) => ({ val: () => data });
+    const mockOnce = jest.fn()
+      .mockResolvedValueOnce(makeSnap(sampleDbData.profile))
+      .mockResolvedValueOnce(makeSnap(sampleDbData.userEvents))
+      .mockResolvedValueOnce(makeSnap(sampleDbData.userSpaces));
+    const refObj = { once: mockOnce };
+    const mockRef = jest.fn().mockReturnValue(refObj);
+
+    mockInitAdmin.mockReturnValue({
+      auth: () => ({ verifyIdToken: mockVerifyIdToken }),
+      database: () => ({ ref: mockRef }),
+    });
+
+    const res = await userDataHandler(get());
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.uid).toBe(uid);
+    expect(body.profile).toEqual(sampleDbData.profile);
+    expect(body.userEvents).toEqual(sampleDbData.userEvents);
+    expect(body.userSpaces).toEqual(sampleDbData.userSpaces);
+  });
+
+  test('53. reads correct RTDB paths', async () => {
+    const uid = 'user456';
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+
+    const makeSnap = (data) => ({ val: () => data });
+    const mockOnce = jest.fn().mockResolvedValue(makeSnap(null));
+    const refObj = { once: mockOnce };
+    const mockRef = jest.fn().mockReturnValue(refObj);
+
+    mockInitAdmin.mockReturnValue({
+      auth: () => ({ verifyIdToken: mockVerifyIdToken }),
+      database: () => ({ ref: mockRef }),
+    });
+
+    await userDataHandler(get());
+    const calledPaths = mockRef.mock.calls.map(c => c[0]);
+    expect(calledPaths).toContain(`users/${uid}`);
+    expect(calledPaths).toContain(`userEvents/${uid}`);
+    expect(calledPaths).toContain(`userSpaces/${uid}`);
+  });
+
+  test('54. returns empty objects when RTDB paths are null', async () => {
+    const uid = 'user789';
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid });
+    const makeSnap = () => ({ val: () => null });
+    const mockOnce = jest.fn().mockResolvedValue(makeSnap());
+    const refObj = { once: mockOnce };
+    const mockRef = jest.fn().mockReturnValue(refObj);
+
+    mockInitAdmin.mockReturnValue({
+      auth: () => ({ verifyIdToken: mockVerifyIdToken }),
+      database: () => ({ ref: mockRef }),
+    });
+
+    const res = await userDataHandler(get());
+    const body = parseBody(res);
+    expect(body.profile).toBeNull();
+    expect(body.userEvents).toEqual({});
+    expect(body.userSpaces).toEqual({});
+  });
+});
