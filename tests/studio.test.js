@@ -1030,3 +1030,287 @@ describe('event-create', () => {
     expect(spaceKey).toBeUndefined();
   });
 });
+
+// ─── user-search ──────────────────────────────────────────────────────────────
+describe('user-search', () => {
+  const searchHandler = require('../netlify/functions/user-search').handler;
+  const user = { uid: 'u1' };
+
+  function getReq(q, token = 'tok') {
+    return { httpMethod: 'GET', headers: { authorization: `Bearer ${token}` }, queryStringParameters: { q } };
+  }
+
+  test('70. returns 405 for non-GET', async () => {
+    const res = await searchHandler({ httpMethod: 'POST', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('71. returns 401 with no token', async () => {
+    const res = await searchHandler({ httpMethod: 'GET', headers: {}, queryStringParameters: { q: 'bob' } });
+    expect(res.statusCode).toBe(401);
+  });
+
+  test('72. returns 400 for query shorter than 2 chars', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await searchHandler(getReq('a'));
+    expect(res.statusCode).toBe(400);
+  });
+
+  test('73. returns empty users array when no match', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const snap = (v) => ({ val: () => v, exists: () => !!v });
+    const db = { ref: jest.fn(() => ({
+      orderByKey: jest.fn().mockReturnThis(),
+      orderByChild: jest.fn().mockReturnThis(),
+      equalTo: jest.fn().mockReturnThis(),
+      startAt: jest.fn().mockReturnThis(),
+      endAt: jest.fn().mockReturnThis(),
+      limitToFirst: jest.fn().mockReturnThis(),
+      once: jest.fn().mockResolvedValue(snap(null)),
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await searchHandler(getReq('nobody'));
+    expect(res.statusCode).toBe(200);
+    expect(parseBody(res).users).toEqual([]);
+  });
+
+  test('74. excludes caller from results', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue({ uid: 'me' });
+    const snap = (v) => ({ val: () => v, exists: () => !!v });
+    const db = { ref: jest.fn(path => {
+      if (path === 'usernames') return {
+        orderByKey: jest.fn().mockReturnThis(),
+        equalTo: jest.fn().mockReturnThis(),
+        once: jest.fn().mockResolvedValue(snap({ bob: 'me' })),
+      };
+      return {
+        orderByChild: jest.fn().mockReturnThis(),
+        startAt: jest.fn().mockReturnThis(),
+        endAt: jest.fn().mockReturnThis(),
+        limitToFirst: jest.fn().mockReturnThis(),
+        once: jest.fn().mockResolvedValue(snap(null)),
+      };
+    }) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await searchHandler(getReq('bob'));
+    expect(res.statusCode).toBe(200);
+    expect(parseBody(res).users).toEqual([]);
+  });
+});
+
+// ─── friends ──────────────────────────────────────────────────────────────────
+describe('friends', () => {
+  const friendsHandler = require('../netlify/functions/friends').handler;
+  const user = { uid: 'u1' };
+
+  function postReq(body, token = 'tok') {
+    return { httpMethod: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) };
+  }
+
+  test('75. returns 405 for non-POST', async () => {
+    const res = await friendsHandler({ httpMethod: 'GET', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('76. returns 400 for invalid action', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await friendsHandler(postReq({ action: 'follow', targetUid: 'u2' }));
+    expect(res.statusCode).toBe(400);
+    expect(parseBody(res).error).toMatch(/action/i);
+  });
+
+  test('77. request writes to friendRequests', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(
+        path === 'users/u2' ? snap({ displayName: 'Bob' }) :
+        path === 'friends/u1/u2' ? snap(null) : snap(null)
+      ),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await friendsHandler(postReq({ action: 'request', targetUid: 'u2' }));
+    expect(res.statusCode).toBe(200);
+    expect(mockUpdate).toHaveBeenCalled();
+    const arg = mockUpdate.mock.calls[0][0];
+    expect(arg['friendRequests/u2/u1']).toBeDefined();
+    expect(arg['friendRequests/u2/u1'].status).toBe('pending');
+  });
+
+  test('78. accept creates bidirectional friendship and removes request', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(
+        path === 'users/u2' ? snap({ displayName: 'Bob' }) :
+        path === 'friendRequests/u1/u2' ? snap({ status: 'pending' }) : snap(null)
+      ),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await friendsHandler(postReq({ action: 'accept', targetUid: 'u2' }));
+    expect(res.statusCode).toBe(200);
+    const arg = mockUpdate.mock.calls[0][0];
+    expect(arg['friends/u1/u2']).toBe(true);
+    expect(arg['friends/u2/u1']).toBe(true);
+    expect(arg['friendRequests/u1/u2']).toBeNull();
+  });
+
+  test('79. remove deletes bidirectional friendship', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(path === 'users/u2' ? snap({ displayName: 'Bob' }) : snap(null)),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await friendsHandler(postReq({ action: 'remove', targetUid: 'u2' }));
+    expect(res.statusCode).toBe(200);
+    const arg = mockUpdate.mock.calls[0][0];
+    expect(arg['friends/u1/u2']).toBeNull();
+    expect(arg['friends/u2/u1']).toBeNull();
+  });
+});
+
+// ─── space-create ─────────────────────────────────────────────────────────────
+describe('space-create', () => {
+  const spaceCreateHandler = require('../netlify/functions/space-create').handler;
+  const user = { uid: 'u1' };
+
+  function postReq(body, token = 'tok') {
+    return { httpMethod: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) };
+  }
+
+  test('80. returns 405 for non-POST', async () => {
+    const res = await spaceCreateHandler({ httpMethod: 'GET', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('81. returns 400 when name is missing', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await spaceCreateHandler(postReq({ memberUids: [] }));
+    expect(res.statusCode).toBe(400);
+    expect(parseBody(res).error).toMatch(/name/i);
+  });
+
+  test('82. creates space and returns 201 with spaceId', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(path === `users/${user.uid}` ? snap({ displayName: 'Alice' }) : snap(null)),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await spaceCreateHandler(postReq({ name: 'Run Club' }));
+    expect(res.statusCode).toBe(201);
+    const body = parseBody(res);
+    expect(body.ok).toBe(true);
+    expect(body.spaceId).toMatch(/^sp_/);
+    expect(body.name).toBe('Run Club');
+  });
+
+  test('83. writes space and userSpaces in one update', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(path === `users/${user.uid}` ? snap({ displayName: 'Alice' }) : snap(null)),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    await spaceCreateHandler(postReq({ name: 'Weekend Crew' }));
+    const arg = mockUpdate.mock.calls[0][0];
+    const spaceKey = Object.keys(arg).find(k => k.startsWith('spaces/'));
+    const userSpaceKey = Object.keys(arg).find(k => k.startsWith(`userSpaces/${user.uid}/`));
+    expect(spaceKey).toBeDefined();
+    expect(userSpaceKey).toBeDefined();
+    expect(arg[spaceKey].name).toBe('Weekend Crew');
+    expect(arg[spaceKey].createdBy).toBe(user.uid);
+  });
+
+  test('84. skips non-existent member uids', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(
+        path === `users/${user.uid}` ? snap({ displayName: 'Alice' }) : snap(null)
+      ),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    await spaceCreateHandler(postReq({ name: 'Club', memberUids: ['ghost_uid'] }));
+    const arg = mockUpdate.mock.calls[0][0];
+    const ghostKey = Object.keys(arg).find(k => k.startsWith('userSpaces/ghost_uid/'));
+    expect(ghostKey).toBeUndefined();
+  });
+});
+
+// ─── user-profile ─────────────────────────────────────────────────────────────
+describe('user-profile', () => {
+  const profileHandler = require('../netlify/functions/user-profile').handler;
+  const user = { uid: 'u1' };
+
+  function postReq(body, token = 'tok') {
+    return { httpMethod: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) };
+  }
+
+  test('85. returns 405 for non-POST', async () => {
+    const res = await profileHandler({ httpMethod: 'GET', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('86. returns 400 when no profile fields provided', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => ({}) });
+    const res = await profileHandler(postReq({}));
+    expect(res.statusCode).toBe(400);
+    expect(parseBody(res).error).toMatch(/no profile/i);
+  });
+
+  test('87. returns 409 when username is already taken by another user', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(
+        path === 'usernames/bob' ? snap('other_uid') : snap(null)
+      ),
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await profileHandler(postReq({ username: 'bob' }));
+    expect(res.statusCode).toBe(409);
+    expect(parseBody(res).error).toMatch(/taken/i);
+  });
+
+  test('88. writes profile preserving createdAt and returns 200', async () => {
+    const mockVerifyIdToken = jest.fn().mockResolvedValue(user);
+    const mockUpdate = jest.fn().mockResolvedValue(undefined);
+    const existingProfile = { displayName: 'Old Name', createdAt: 12345 };
+    const snap = (v) => ({ exists: () => !!v, val: () => v });
+    const db = { ref: jest.fn(path => ({
+      once: jest.fn().mockResolvedValue(
+        path === `users/${user.uid}` ? snap(existingProfile) : snap(null)
+      ),
+      update: mockUpdate,
+    })) };
+    mockInitAdmin.mockReturnValue({ auth: () => ({ verifyIdToken: mockVerifyIdToken }), database: () => db });
+    const res = await profileHandler(postReq({ displayName: 'New Name', username: 'newname' }));
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.ok).toBe(true);
+    expect(body.displayName).toBe('New Name');
+    expect(mockUpdate).toHaveBeenCalled();
+    const arg = mockUpdate.mock.calls[0][0];
+    expect(arg[`users/${user.uid}`].createdAt).toBe(12345);
+    expect(arg[`users/${user.uid}`].displayName).toBe('New Name');
+    expect(arg['usernames/newname']).toBe(user.uid);
+  });
+});
