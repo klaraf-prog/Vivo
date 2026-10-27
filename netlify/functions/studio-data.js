@@ -14,13 +14,20 @@ exports.handler = async (event) => {
   if (!actor) return json(403, { error: 'Forbidden' });
 
   const db = initAdmin().database();
-  const [sugsSnap, actsSnap] = await Promise.all([
+  const [sugsSnap, actsSnap, auditSnap] = await Promise.all([
     db.ref('suggestions').once('value'),
     db.ref('activities').once('value'),
+    db.ref('studioAuditLog').orderByChild('timestamp').limitToLast(20).once('value'),
   ]);
+
+  const auditRaw = auditSnap.val() || {};
+  const auditLog = Object.values(auditRaw)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, 20);
 
   return json(200, {
     suggestions: sugsSnap.val() || {},
     activities:  actsSnap.val() || {},
+    auditLog,
   });
 };

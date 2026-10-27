@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Someday Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --amber: #F5A623; --amber-l: #FFF3DC; --bg: #F7F5F2; --card: #FFFFFF;
+      --text: #1A1612; --muted: #8A8078; --border: #EDE8E0;
+      --pink: #E8534A; --green: #2E9E6B; --blue: #3B82F6; --purple: #8B5CF6;
+      --shadow: 0 2px 12px rgba(0,0,0,.08); --radius: 14px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── LOGIN ── */
+    #login-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .login-box { background:var(--card); border-radius:20px; padding:48px 40px;
+                 width:100%; max-width:380px; box-shadow:var(--shadow);
+                 display:flex; flex-direction:column; gap:18px; }
+    .login-logo { font-family:Georgia,serif; font-size:2rem; font-weight:700;
+                  text-align:center; color:var(--amber); letter-spacing:-.5px; }
+    .login-sub  { font-size:.9rem; color:var(--muted); text-align:center; margin-top:-8px; }
+    .login-box input { width:100%; padding:12px 16px; border-radius:12px;
+      border:1.5px solid var(--border); font-size:1rem; background:var(--bg); outline:none; }
+    .login-box input:focus { border-color:var(--amber); }
+    .login-box button { width:100%; padding:13px; border-radius:12px;
+      background:var(--amber); border:none; color:#fff; font-size:1rem;
+      font-weight:600; cursor:pointer; transition:opacity .15s; }
+    .login-box button:hover { opacity:.88; }
+    .login-error { font-size:.875rem; color:var(--pink); text-align:center; min-height:1.2em; }
+
+    /* ── TOP BAR ── */
+    #admin-app { display:none; }
+    .top-bar { background:var(--card); border-bottom:1px solid var(--border); padding:0 24px;
+               height:56px; position:sticky; top:0; z-index:20;
+               display:flex; align-items:center; justify-content:space-between; }
+    .top-logo { font-family:Georgia,serif; font-weight:700; font-size:1.125rem; letter-spacing:-.3px; }
+    .top-logo span { color:var(--amber); }
+    .top-right { display:flex; align-items:center; gap:12px; }
+    .top-user  { font-size:.875rem; color:var(--muted); }
+    .top-badge { font-size:.75rem; font-weight:700; padding:2px 8px;
+                 border-radius:50px; background:var(--amber-l); color:#9a6000; }
+    .btn-sm { padding:6px 14px; border-radius:9px; border:1.5px solid var(--border);
+              background:var(--card); font-size:.875rem; font-weight:500; cursor:pointer;
+              color:var(--muted); transition:border-color .15s,color .15s; }
+    .btn-sm:hover { border-color:var(--pink); color:var(--pink); }
+
+    /* ── LAYOUT ── */
+    .app-body { display:grid; grid-template-columns:200px 1fr;
+                height:calc(100vh - 56px); overflow:hidden; }
+
+    /* ── SIDEBAR ── */
+    .admin-sidebar { border-right:1px solid var(--border); overflow-y:auto;
+                     background:var(--card); padding:12px 10px; display:flex; flex-direction:column; gap:4px; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px;
+                border-radius:10px; cursor:pointer; border:none; background:none;
+                font-size:.9rem; font-weight:500; color:var(--muted); width:100%;
+                text-align:left; transition:background .15s,color .15s; }
+    .nav-item:hover { background:var(--bg); color:var(--text); }
+    .nav-item.active { background:var(--amber-l); color:#9a6000; }
+    .nav-icon { font-size:1.1rem; width:20px; text-align:center; flex-shrink:0; }
+    .nav-divider { border:none; border-top:1px solid var(--border); margin:8px 0; }
+    .nav-role-badge { margin-top:auto; padding:10px 12px; font-size:.75rem; color:var(--muted); }
+
+    /* ── MAIN AREA ── */
+    .admin-main { overflow:hidden; display:flex; flex-direction:column; }
+    .tab-panel { display:none; flex:1; flex-direction:column; overflow:hidden; }
+    .tab-panel.active { display:flex; }
+    .scroll-content { flex:1; overflow-y:auto; padding:24px 28px 60px; }
+
+    /* ── SPLIT VIEW (Suggestions / Activities) ── */
+    .split-view { display:grid; grid-template-columns:300px 1fr; flex:1; overflow:hidden; }
+    .split-list { border-right:1px solid var(--border); overflow-y:auto; display:flex; flex-direction:column; }
+    .split-head { padding:14px 14px 0; background:var(--card);
+                  border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:10px; }
+    .split-search { padding:10px 14px; border-bottom:1px solid var(--border); }
+    .split-search input { width:100%; padding:7px 11px; border-radius:9px;
+      border:1.5px solid var(--border); font-size:.875rem; background:var(--bg); outline:none; }
+    .split-search input:focus { border-color:var(--amber); }
+    .list-scroll { flex:1; overflow-y:auto; }
+    .split-detail { overflow-y:auto; background:var(--bg); }
+
+    /* ── FILTER PILLS ── */
+    .filter-row { display:flex; gap:6px; flex-wrap:wrap; padding-bottom:10px; }
+    .filter-pill { padding:4px 10px; border-radius:50px; font-size:.8125rem;
+      font-weight:500; cursor:pointer; border:1.5px solid var(--border);
+      background:none; color:var(--muted); white-space:nowrap; transition:all .15s; }
+    .filter-pill.active { border-color:var(--amber); background:var(--amber-l); color:#9a6000; }
+
+    /* ── LIST CARDS ── */
+    .sug-card { padding:12px 14px; border-bottom:1px solid var(--border);
+                cursor:pointer; transition:background .1s; }
+    .sug-card:hover  { background:var(--bg); }
+    .sug-card.active { background:var(--amber-l); }
+    .sug-title { font-weight:600; font-size:.9rem; margin-bottom:3px; }
+    .sug-meta  { font-size:.8rem; color:var(--muted); display:flex; gap:6px; align-items:center; }
+    .status-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .status-dot.submitted { background:var(--blue); }
+    .status-dot.draft     { background:var(--muted); }
+    .status-dot.approved  { background:var(--green); }
+    .status-dot.rejected  { background:var(--pink); }
+    .empty-state { padding:32px 14px; text-align:center; color:var(--muted); font-size:.875rem; }
+
+    /* ── DETAIL ── */
+    .detail-wrap { max-width:720px; margin:0 auto; padding:24px 24px 60px; }
+    .placeholder-state { display:flex; flex-direction:column; align-items:center;
+      justify-content:center; height:100%; color:var(--muted); gap:10px; font-size:.9rem; }
+    .detail-header { display:flex; align-items:flex-start; gap:10px; margin-bottom:18px; }
+    .detail-title  { font-size:1.25rem; font-weight:700; flex:1; line-height:1.3; }
+    .status-badge  { padding:3px 10px; border-radius:50px; font-size:.8rem; font-weight:700; white-space:nowrap; }
+    .status-badge.submitted { background:#DBEAFE; color:#1D4ED8; }
+    .status-badge.draft     { background:var(--border); color:var(--muted); }
+    .status-badge.approved  { background:#D1FAE5; color:#065F46; }
+    .status-badge.rejected  { background:#FEE2E2; color:#991B1B; }
+    .detail-chips { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:18px; }
+    .chip { padding:3px 9px; border-radius:50px; font-size:.8rem; font-weight:500;
+            background:var(--card); border:1.5px solid var(--border); }
+    .section { background:var(--card); border-radius:var(--radius); padding:16px 18px; margin-bottom:12px; }
+    .section h4 { font-size:.75rem; font-weight:700; color:var(--muted);
+                  text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px; }
+    .field-row { display:flex; gap:6px; margin-bottom:7px; font-size:.9rem; }
+    .field-label { color:var(--muted); font-size:.85rem; min-width:90px; flex-shrink:0; }
+    .field-value { word-break:break-word; }
+    .field-value a { color:var(--blue); text-decoration:none; }
+    .field-value a:hover { text-decoration:underline; }
+
+    /* ── ACTIONS ── */
+    .action-section { background:var(--card); border-radius:var(--radius); padding:16px 18px; margin-bottom:12px; }
+    .action-section h4 { font-size:.75rem; font-weight:700; color:var(--muted);
+                         text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px; }
+    .note-input { width:100%; padding:9px 12px; border-radius:9px; border:1.5px solid var(--border);
+                  font-size:.9rem; font-family:inherit; resize:vertical; min-height:60px;
+                  background:var(--bg); outline:none; margin-bottom:10px; }
+    .note-input:focus { border-color:var(--amber); }
+    .action-row { display:flex; gap:10px; }
+    .btn-approve { flex:1; padding:10px; border-radius:10px; background:var(--green); border:none;
+                   color:#fff; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+    .btn-approve:hover:not(:disabled) { opacity:.85; }
+    .btn-approve:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-reject  { flex:1; padding:10px; border-radius:10px; background:none;
+                   border:2px solid var(--pink); color:var(--pink); font-size:.9rem;
+                   font-weight:600; cursor:pointer; transition:background .15s; }
+    .btn-reject:hover:not(:disabled) { background:#FEE2E2; }
+    .btn-reject:disabled { opacity:.5; cursor:not-allowed; }
+    .action-result { margin-top:10px; font-size:.875rem; padding:7px 11px;
+                     border-radius:8px; display:none; }
+    .action-result.ok  { background:#D1FAE5; color:#065F46; display:block; }
+    .action-result.err { background:#FEE2E2; color:#991B1B; display:block; }
+
+    /* ── AUDIT LOG ── */
+    .audit-timeline { display:flex; flex-direction:column; }
+    .audit-item { display:flex; gap:10px; padding:8px 0;
+                  border-bottom:1px solid var(--border); font-size:.85rem; }
+    .audit-item:last-child { border-bottom:none; }
+    .audit-action { padding:2px 7px; border-radius:5px; font-size:.73rem; font-weight:700;
+                    white-space:nowrap; flex-shrink:0; align-self:flex-start; margin-top:2px; }
+    .audit-action.approve { background:#D1FAE5; color:#065F46; }
+    .audit-action.reject  { background:#FEE2E2; color:#991B1B; }
+    .audit-action.submit  { background:#DBEAFE; color:#1D4ED8; }
+    .audit-action.edit    { background:var(--amber-l); color:#9a6000; }
+    .audit-body { flex:1; }
+    .audit-who  { font-weight:500; }
+    .audit-note { color:var(--muted); margin-top:2px; }
+    .audit-ts   { font-size:.77rem; color:var(--muted); margin-top:2px; }
+
+    /* ── EDIT FORM ── */
+    .edit-section { background:var(--card); border-radius:var(--radius);
+                    padding:16px 18px; margin-bottom:12px; border:2px solid var(--amber); }
+    .edit-section h4 { font-size:.75rem; font-weight:700; color:#9a6000;
+                       text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px; }
+    .edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .edit-field { display:flex; flex-direction:column; gap:3px; }
+    .edit-field.full { grid-column:1 / -1; }
+    .edit-label { font-size:.78rem; font-weight:500; color:var(--muted); }
+    .edit-input,.edit-textarea,.edit-select {
+      padding:7px 10px; border-radius:8px; border:1.5px solid var(--border);
+      font-size:.875rem; font-family:inherit; background:var(--bg); outline:none; transition:border-color .15s; }
+    .edit-input:focus,.edit-textarea:focus,.edit-select:focus { border-color:var(--amber); }
+    .edit-textarea { resize:vertical; min-height:68px; }
+    .edit-actions { display:flex; gap:9px; margin-top:12px; }
+    .btn-save { padding:9px 18px; border-radius:9px; background:var(--amber); border:none;
+                color:#fff; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+    .btn-save:hover:not(:disabled) { opacity:.85; }
+    .btn-save:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-cancel { padding:9px 18px; border-radius:9px; background:none;
+                  border:1.5px solid var(--border); color:var(--muted); font-size:.9rem;
+                  font-weight:500; cursor:pointer; transition:border-color .15s,color .15s; }
+    .btn-cancel:hover { border-color:var(--pink); color:var(--pink); }
+
+    /* ── DASHBOARD STATS ── */
+    .stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+                 gap:14px; margin-bottom:24px; }
+    .stat-card { background:var(--card); border-radius:var(--radius); padding:18px 20px; }
+    .stat-value { font-size:2rem; font-weight:800; letter-spacing:-.05em; line-height:1; }
+    .stat-label { font-size:.8125rem; color:var(--muted); margin-top:5px; }
+    .stat-card.blue   .stat-value { color:var(--blue); }
+    .stat-card.green  .stat-value { color:var(--green); }
+    .stat-card.pink   .stat-value { color:var(--pink); }
+    .stat-card.amber  .stat-value { color:var(--amber); }
+    .stat-card.purple .stat-value { color:var(--purple); }
+
+    /* ── USERS TABLE ── */
+    .users-table { width:100%; border-collapse:collapse; background:var(--card);
+                   border-radius:var(--radius); overflow:hidden; }
+    .users-table th { padding:10px 14px; text-align:left; font-size:.75rem; font-weight:700;
+                      color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+                      background:var(--bg); border-bottom:1px solid var(--border); }
+    .users-table td { padding:10px 14px; font-size:.9rem; border-bottom:1px solid var(--border); }
+    .users-table tr:last-child td { border-bottom:none; }
+    .users-table tr:hover td { background:var(--bg); }
+    .role-badge { display:inline-block; padding:2px 8px; border-radius:20px;
+                  font-size:.75rem; font-weight:700; }
+    .role-badge.superadmin { background:#EDE9FE; color:#5B21B6; }
+    .role-badge.editor     { background:var(--amber-l); color:#9a6000; }
+    .role-badge.researcher { background:#DBEAFE; color:#1D4ED8; }
+    .role-select { padding:4px 8px; border-radius:7px; border:1.5px solid var(--border);
+                   font-size:.8rem; font-family:inherit; background:var(--bg); cursor:pointer; }
+
+    /* ── SETTINGS ── */
+    .settings-section { background:var(--card); border-radius:var(--radius);
+                        padding:18px 20px; margin-bottom:14px; max-width:560px; }
+    .settings-section h3 { font-size:.9rem; font-weight:700; margin-bottom:14px; }
+    .form-row { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+    .form-label { font-size:.8125rem; font-weight:500; color:var(--muted); }
+    .form-input { padding:8px 12px; border-radius:9px; border:1.5px solid var(--border);
+                  font-size:.9rem; background:var(--bg); outline:none; width:100%; }
+    .form-input:focus { border-color:var(--amber); }
+    .form-select { padding:8px 12px; border-radius:9px; border:1.5px solid var(--border);
+                   font-size:.9rem; background:var(--bg); width:100%; cursor:pointer; }
+    .btn-primary { padding:10px 20px; border-radius:10px; background:var(--amber); border:none;
+                   color:#fff; font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+    .btn-primary:hover:not(:disabled) { opacity:.85; }
+    .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* ── PREVIEW CARD ── */
+    .preview-card { background:linear-gradient(135deg,#1A1612 0%,#2d2520 100%);
+                    border-radius:14px; padding:18px; color:#fff; }
+    .preview-category { font-size:.73rem; font-weight:600; opacity:.6;
+                        text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px; }
+    .preview-title    { font-size:1.0625rem; font-weight:700; margin-bottom:5px; }
+    .preview-location { font-size:.85rem; opacity:.7; margin-bottom:10px; }
+    .preview-price    { display:inline-block; padding:3px 9px; border-radius:50px;
+                        background:rgba(255,255,255,.15); font-size:.8rem; font-weight:600; }
+
+    /* ── TOAST ── */
+    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+             background:var(--text); color:#fff; padding:10px 20px; border-radius:10px;
+             font-size:.9rem; z-index:9999; opacity:0; transition:opacity .25s;
+             pointer-events:none; white-space:nowrap; }
+    #toast.show { opacity:1; }
+
+    @media (max-width:768px) {
+      .app-body { grid-template-columns:1fr; }
+      .admin-sidebar { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">someday</div>
+    <p class="login-sub">Admin — Internes Verwaltungssystem</p>
+    <input type="email"    id="inp-email" placeholder="E-Mail" autocomplete="email">
+    <input type="password" id="inp-pw"    placeholder="Passwort"
+      onkeydown="if(event.key==='Enter') signIn()">
+    <button onclick="signIn()" id="sign-in-btn">Anmelden</button>
+    <p class="login-error" id="login-err"></p>
+  </div>
+</div>
+
+<!-- ══ ADMIN APP ═══════════════════════════════════════════════════ -->
+<div id="admin-app">
+  <div class="top-bar">
+    <div class="top-logo">someday <span>admin</span></div>
+    <div class="top-right">
+      <span class="top-user"  id="top-user-email"></span>
+      <span class="top-badge" id="top-user-role"></span>
+      <button class="btn-sm" onclick="signOut()">Abmelden</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- ── SIDEBAR ── -->
+    <nav class="admin-sidebar" id="admin-sidebar">
+      <button class="nav-item active" id="nav-dashboard"   onclick="showTab('dashboard')">
+        <span class="nav-icon">◈</span> Dashboard
+      </button>
+      <button class="nav-item" id="nav-suggestions" onclick="showTab('suggestions')">
+        <span class="nav-icon">✎</span> Vorschläge
+      </button>
+      <button class="nav-item" id="nav-activities"  onclick="showTab('activities')">
+        <span class="nav-icon">✦</span> Aktivitäten
+      </button>
+      <hr class="nav-divider">
+      <button class="nav-item" id="nav-users"       onclick="showTab('users')">
+        <span class="nav-icon">◉</span> Nutzer
+      </button>
+      <button class="nav-item" id="nav-settings"    onclick="showTab('settings')">
+        <span class="nav-icon">⚙</span> Einstellungen
+      </button>
+    </nav>
+
+    <!-- ── MAIN ── -->
+    <main class="admin-main">
+
+      <!-- DASHBOARD -->
+      <div class="tab-panel active" id="tab-dashboard">
+        <div class="scroll-content" id="dashboard-content">
+          <p style="color:var(--muted)">Lade…</p>
+        </div>
+      </div>
+
+      <!-- VORSCHLÄGE -->
+      <div class="tab-panel" id="tab-suggestions">
+        <div class="split-view">
+          <div class="split-list">
+            <div class="split-head">
+              <div class="filter-row" id="sug-filters">
+                <button class="filter-pill active" onclick="setSugFilter('all',this)">Alle</button>
+                <button class="filter-pill" onclick="setSugFilter('submitted',this)">Eingereicht</button>
+                <button class="filter-pill" onclick="setSugFilter('draft',this)">Entwürfe</button>
+                <button class="filter-pill" onclick="setSugFilter('approved',this)">Genehmigt</button>
+                <button class="filter-pill" onclick="setSugFilter('rejected',this)">Abgelehnt</button>
+              </div>
+            </div>
+            <div class="split-search">
+              <input type="text" id="sug-search" placeholder="Suchen…" oninput="renderSugList()">
+            </div>
+            <div class="list-scroll" id="sug-list">
+              <div class="empty-state">Lade Daten…</div>
+            </div>
+          </div>
+          <div class="split-detail" id="sug-detail">
+            <div class="placeholder-state">
+              <div style="font-size:2.5rem">✎</div>
+              <div>Vorschlag auswählen</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AKTIVITÄTEN -->
+      <div class="tab-panel" id="tab-activities">
+        <div class="split-view">
+          <div class="split-list">
+            <div class="split-search">
+              <input type="text" id="act-search" placeholder="Suchen…" oninput="renderActList()">
+            </div>
+            <div class="list-scroll" id="act-list">
+              <div class="empty-state">Lade Daten…</div>
+            </div>
+          </div>
+          <div class="split-detail" id="act-detail">
+            <div class="placeholder-state">
+              <div style="font-size:2.5rem">✦</div>
+              <div>Aktivität auswählen</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NUTZER -->
+      <div class="tab-panel" id="tab-users">
+        <div class="scroll-content">
+          <div id="users-content"><p style="color:var(--muted)">Lade Nutzer…</p></div>
+        </div>
+      </div>
+
+      <!-- EINSTELLUNGEN -->
+      <div class="tab-panel" id="tab-settings">
+        <div class="scroll-content">
+          <div id="settings-content"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+// ── Firebase init ────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyAuapMaw8Tpw0HC_TlMUvCbw0PPfWOaL-Y",
+  authDomain:        "vivo-mvp.firebaseapp.com",
+  databaseURL:       "https://vivo-mvp-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "vivo-mvp",
+  storageBucket:     "vivo-mvp.firebasestorage.app",
+  messagingSenderId: "662578995457",
+  appId:             "1:662578995457:web:ee580f001d212cd73d7b00"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+const _h              = location.hostname;
+const isLocalEmulator = (_h === '127.0.0.1' || _h === 'localhost');
+if (isLocalEmulator) {
+  auth.useEmulator('http://127.0.0.1:9099');
+  db.useEmulator('127.0.0.1', 9000);
+}
+
+// ── State ─────────────────────────────────────────────────────────
+let _me = null, _idToken = null, _role = null;
+let _allSugs = {}, _allActs = {}, _auditLog = [];
+let _sugFilter = 'all', _activeSugId = null, _activeActId = null;
+let _pollTimer = null, _unsubSugs = null, _unsubActs = null;
+
+// ── Auth ──────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+  if (!user) { showLogin(); return; }
+  try {
+    const result = await user.getIdTokenResult(true);
+    const role   = result.claims.studioRole;
+    if (!role) { await auth.signOut(); loginErr('Kein Zugang: Kein Studio-Rolle zugewiesen.'); return; }
+    _me = user; _idToken = result.token; _role = role;
+    showAdmin();
+  } catch (e) { await auth.signOut(); loginErr(fmtAuthErr(e.code || e.message)); }
+});
+
+async function signIn() {
+  const email = document.getElementById('inp-email').value.trim();
+  const pw    = document.getElementById('inp-pw').value;
+  const btn   = document.getElementById('sign-in-btn');
+  loginErr(''); btn.disabled = true; btn.textContent = '…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+  } catch (err) {
+    loginErr(fmtAuthErr(err.code || err.message));
+    btn.disabled = false; btn.textContent = 'Anmelden';
+  }
+}
+
+async function signOut() {
+  detachListeners();
+  await auth.signOut();
+  _me = null; _idToken = null; _role = null;
+  showLogin();
+}
+
+function loginErr(msg) { document.getElementById('login-err').textContent = msg; }
+function fmtAuthErr(code) {
+  if (['auth/user-not-found','auth/wrong-password','auth/invalid-credential'].includes(code))
+    return 'E-Mail oder Passwort falsch.';
+  return 'Anmeldung fehlgeschlagen (' + code + ')';
+}
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-app').style.display = 'none';
+  document.getElementById('sign-in-btn').disabled = false;
+  document.getElementById('sign-in-btn').textContent = 'Anmelden';
+}
+function showAdmin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-app').style.display   = 'block';
+  document.getElementById('top-user-email').textContent = _me.email || '';
+  document.getElementById('top-user-role').textContent  = _role;
+  // restrict Nutzer/Einstellungen to superadmin
+  if (_role !== 'superadmin') {
+    document.getElementById('nav-users').style.display    = 'none';
+    document.getElementById('nav-settings').style.display = 'none';
+  }
+  // researcher only sees Vorschläge
+  if (_role === 'researcher') {
+    document.getElementById('nav-dashboard').style.display  = 'none';
+    document.getElementById('nav-activities').style.display = 'none';
+    showTab('suggestions');
+  } else {
+    showTab('dashboard');
+  }
+  attachListeners();
+}
+
+// ── Data loading ──────────────────────────────────────────────────
+function attachListeners() {
+  if (!isLocalEmulator) {
+    _loadDataViaFunction();
+    _pollTimer = setInterval(_loadDataViaFunction, 5000);
+  } else {
+    _unsubSugs = db.ref('suggestions').on('value', snap => {
+      _allSugs = snap.val() || {};
+      refreshCurrentTab();
+    });
+    _unsubActs = db.ref('activities').on('value', snap => {
+      _allActs = snap.val() || {};
+      refreshCurrentTab();
+    });
+  }
+}
+
+function detachListeners() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  if (_unsubSugs) { db.ref('suggestions').off('value', _unsubSugs); _unsubSugs = null; }
+  if (_unsubActs) { db.ref('activities').off('value', _unsubActs);  _unsubActs = null; }
+}
+
+async function _loadDataViaFunction() {
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/studio-data', {
+      headers: { 'Authorization': `Bearer ${_idToken}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    _allSugs  = data.suggestions || {};
+    _allActs  = data.activities  || {};
+    _auditLog = data.auditLog    || [];
+    refreshCurrentTab();
+  } catch {}
+}
+
+function refreshCurrentTab() {
+  const active = document.querySelector('.tab-panel.active');
+  if (!active) return;
+  const id = active.id;
+  if (id === 'tab-dashboard')   renderDashboard();
+  if (id === 'tab-suggestions') renderSugList();
+  if (id === 'tab-activities')  renderActList();
+}
+
+// ── Tab management ────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-' + name);
+  const navBtn = document.getElementById('nav-' + name);
+  if (panel)  panel.classList.add('active');
+  if (navBtn) navBtn.classList.add('active');
+
+  if (name === 'dashboard')   renderDashboard();
+  if (name === 'suggestions') renderSugList();
+  if (name === 'activities')  renderActList();
+  if (name === 'users')       loadUsers();
+  if (name === 'settings')    renderSettings();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────
+function renderDashboard() {
+  const sugs = Object.values(_allSugs);
+  const submitted = sugs.filter(s => s.status === 'submitted').length;
+  const approved  = sugs.filter(s => s.status === 'approved').length;
+  const rejected  = sugs.filter(s => s.status === 'rejected').length;
+  const draft     = sugs.filter(s => s.status === 'draft').length;
+  const acts      = Object.keys(_allActs).length;
+
+  const el = document.getElementById('dashboard-content');
+  if (!el) return;
+
+  el.innerHTML = `
+    <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:18px">Übersicht</h2>
+    <div class="stat-grid">
+      <div class="stat-card blue">
+        <div class="stat-value">${submitted}</div>
+        <div class="stat-label">Eingereicht</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-value">${draft}</div>
+        <div class="stat-label">Entwürfe</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-value">${approved}</div>
+        <div class="stat-label">Genehmigt</div>
+      </div>
+      <div class="stat-card pink">
+        <div class="stat-value">${rejected}</div>
+        <div class="stat-label">Abgelehnt</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-value">${acts}</div>
+        <div class="stat-label">Aktivitäten</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${sugs.length}</div>
+        <div class="stat-label">Vorschläge gesamt</div>
+      </div>
+    </div>
+
+    ${submitted > 0 ? `
+    <div style="background:var(--amber-l);border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;font-size:.9rem;color:#7a5000">
+      <strong>${submitted} Vorschlag${submitted !== 1 ? 'e' : ''} warte${submitted === 1 ? 't' : 'n'} auf Prüfung.</strong>
+      <button class="btn-sm" style="margin-left:12px" onclick="showTab('suggestions');setSugFilter('submitted',document.querySelector('[onclick*=submitted]'))">Jetzt prüfen →</button>
+    </div>` : ''}
+
+    <div class="section">
+      <h4>Letzte Aktivitäten im Audit-Log</h4>
+      ${_auditLog.length
+        ? renderAuditLog(_auditLog.slice(0, 10))
+        : '<p style="color:var(--muted);font-size:.875rem">Noch keine Einträge.</p>'}
+    </div>
+  `;
+}
+
+// ── Suggestions tab ───────────────────────────────────────────────
+function setSugFilter(f, el) {
+  _sugFilter = f;
+  document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderSugList();
+}
+
+function renderSugList() {
+  const q = (document.getElementById('sug-search')?.value || '').toLowerCase();
+  const items = Object.entries(_allSugs)
+    .filter(([, s]) => _sugFilter === 'all' || s.status === _sugFilter)
+    .filter(([, s]) => !q || (s.title || '').toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q))
+    .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  const el = document.getElementById('sug-list');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state">Keine Vorschläge</div>'; return;
+  }
+  el.innerHTML = items.map(([id, s]) => `
+    <div class="sug-card${id === _activeSugId ? ' active' : ''}" onclick="selectSuggestion('${esc(id)}')">
+      <div class="sug-title">${esc(s.title || '—')}</div>
+      <div class="sug-meta">
+        <span class="status-dot ${esc(s.status)}"></span>
+        <span>${esc(s.city || '')}</span>
+        <span>·</span>
+        <span>${esc(s.category || '')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function selectSuggestion(id) {
+  _activeSugId = id;
+  renderSugList();
+  const sug = _allSugs[id];
+  if (!sug) return;
+
+  const canAct = ['editor','superadmin'].includes(_role) && sug.status === 'submitted';
+  const canEdit = ['editor','superadmin'].includes(_role);
+  const rp = document.getElementById('sug-detail');
+
+  rp.innerHTML = `
+    <div class="detail-wrap">
+      <div class="detail-header">
+        <div class="detail-title">${esc(sug.title || '—')}</div>
+        <span class="status-badge ${esc(sug.status)}">${statusLabel(sug.status)}</span>
+        ${canEdit ? `<button class="btn-sm" onclick="openEditForm('suggestion','${esc(id)}')">✏ Bearbeiten</button>` : ''}
+      </div>
+      <div class="detail-chips">
+        ${sug.category ? `<span class="chip">🏷 ${esc(sug.category)}</span>` : ''}
+        ${sug.eyebrow  ? `<span class="chip">🔖 ${esc(sug.eyebrow)}</span>`  : ''}
+        ${sug.city     ? `<span class="chip">📍 ${esc(sug.city)}${sug.district ? ', ' + esc(sug.district) : ''}</span>` : ''}
+        ${priceChip(sug.price)}
+      </div>
+      <div class="section">
+        <h4>Beschreibung</h4>
+        ${sug.tagline ? `<p style="font-size:.95rem;font-weight:600;margin-bottom:.5rem">${esc(sug.tagline)}</p>` : ''}
+        <p style="font-size:.9rem;line-height:1.6">${esc(sug.description || '—')}</p>
+      </div>
+      <div class="section">
+        <h4>Details</h4>
+        ${fieldRow('Anbieter',  sug.providerName)}
+        ${fieldRow('Website',   sug.website,  true)}
+        ${fieldRow('Instagram', sug.instagram ? '@' + sug.instagram : null)}
+        ${fieldRow('Buchung',   sug.bookingUrl, true)}
+        ${fieldRow('Adresse',   sug.location?.address)}
+        ${sug.lat && sug.lng ? fieldRow('Koordinaten', `${sug.lat}, ${sug.lng}`) : ''}
+        ${sug.schedule ? fieldRow('Termine', formatSchedule(sug.schedule)) : ''}
+      </div>
+      ${sug.sources?.length ? `<div class="section"><h4>Quellen</h4>${sug.sources.map(s => `<a href="${esc(s)}" target="_blank" rel="noopener" style="display:block;font-size:.85rem;color:var(--blue);margin-bottom:4px;word-break:break-all">${esc(s)}</a>`).join('')}</div>` : ''}
+      <div class="section">
+        <h4>Vorschau</h4>
+        <div class="preview-card">
+          <div class="preview-category">${esc(sug.category || '')}</div>
+          <div class="preview-title">${esc(sug.title || '')}</div>
+          <div class="preview-location">📍 ${esc(sug.city || '')}${sug.location?.address ? ' · ' + esc(sug.location.address) : ''}</div>
+          ${sug.price ? `<span class="preview-price">${formatPrice(sug.price)}</span>` : ''}
+        </div>
+      </div>
+      ${canAct ? `
+      <div class="action-section" id="action-section">
+        <h4>Entscheidung</h4>
+        <textarea class="note-input" id="action-note" placeholder="Notiz (optional bei Freigabe, Pflicht bei Ablehnung)…"></textarea>
+        <div class="action-row">
+          <button class="btn-approve" id="btn-approve" onclick="approve('${esc(id)}')">✓ Freigeben</button>
+          <button class="btn-reject"  id="btn-reject"  onclick="reject('${esc(id)}')">✕ Ablehnen</button>
+        </div>
+        <div class="action-result" id="action-result"></div>
+      </div>` : ''}
+      ${canEdit ? `
+      <div class="edit-section" id="edit-form" style="display:none">
+        <h4>✏ Bearbeiten</h4>
+        <div class="edit-grid">
+          <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
+          <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
+          <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
+          <div class="edit-field"><label class="edit-label">Kategorie</label><input class="edit-input" id="ef-category"></div>
+          <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
+          <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
+          <div class="edit-field"><label class="edit-label">Anbieter (ID)</label><input class="edit-input" id="ef-providerId"></div>
+          <div class="edit-field"><label class="edit-label">Website</label><input class="edit-input" id="ef-website"></div>
+          <div class="edit-field"><label class="edit-label">Instagram</label><input class="edit-input" id="ef-instagram"></div>
+          <div class="edit-field full"><label class="edit-label">Buchungslink</label><input class="edit-input" id="ef-bookingUrl"></div>
+          <div class="edit-field"><label class="edit-label">Stadt</label><input class="edit-input" id="ef-city"></div>
+          <div class="edit-field"><label class="edit-label">Stadtteil</label><input class="edit-input" id="ef-district"></div>
+          <div class="edit-field full"><label class="edit-label">Adresse</label><input class="edit-input" id="ef-location"></div>
+          <div class="edit-field"><label class="edit-label">Breitengrad</label><input class="edit-input" id="ef-lat" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Längengrad</label><input class="edit-input" id="ef-lng" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Preis (Typ)</label><select class="edit-select" id="ef-price-type"><option value="">— wählen —</option><option value="free">Kostenlos</option><option value="donation">Spende</option><option value="fixed">Festpreis</option><option value="variable">Variabel</option></select></div>
+          <div class="edit-field"><label class="edit-label">Preis (Betrag EUR)</label><input class="edit-input" id="ef-price-amount" type="number" step="0.01"></div>
+          <div class="edit-field full"><label class="edit-label">Preis (Notiz)</label><input class="edit-input" id="ef-price-note"></div>
+          <div class="edit-field full"><label class="edit-label">Terminnotiz</label><input class="edit-input" id="ef-schedule-note"></div>
+          <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
+          <div class="edit-field full"><label class="edit-label">Quellen (eine URL pro Zeile)</label><textarea class="edit-textarea" id="ef-sources"></textarea></div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-save" id="btn-save-edit" onclick="saveEdit('suggestion','${esc(id)}')">Speichern</button>
+          <button class="btn-cancel" onclick="closeEditForm()">Abbrechen</button>
+        </div>
+        <div class="action-result" id="edit-result"></div>
+      </div>` : ''}
+      <div class="section">
+        <h4>Änderungsprotokoll</h4>
+        <div id="audit-log-entries"><p style="color:var(--muted);font-size:.875rem">Lade…</p></div>
+      </div>
+    </div>
+  `;
+
+  loadAuditForSuggestion(id)
+    .then(entries => { const el = document.getElementById('audit-log-entries'); if (el) el.innerHTML = renderAuditLog(entries); })
+    .catch(()      => { const el = document.getElementById('audit-log-entries'); if (el) el.innerHTML = '<p style="color:var(--muted);font-size:.875rem">Nicht verfügbar.</p>'; });
+
+  if (canEdit) _fillEditForm('suggestion', sug);
+}
+
+// ── Activities tab ────────────────────────────────────────────────
+function renderActList() {
+  const q = (document.getElementById('act-search')?.value || '').toLowerCase();
+  const items = Object.entries(_allActs)
+    .filter(([, a]) => !q || (a.title || '').toLowerCase().includes(q))
+    .sort(([, a], [, b]) => (b.publishedAt || 0) - (a.publishedAt || 0));
+
+  const el = document.getElementById('act-list');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state">Keine Aktivitäten</div>'; return;
+  }
+  el.innerHTML = items.map(([id, a]) => `
+    <div class="sug-card${id === _activeActId ? ' active' : ''}" onclick="selectActivity('${esc(id)}')">
+      <div class="sug-title">${esc(a.title || '—')}</div>
+      <div class="sug-meta">
+        <span class="status-dot approved"></span>
+        <span>${esc(a.city || '')}</span>
+        <span>·</span>
+        <span>${esc(a.category || '')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectActivity(id) {
+  _activeActId = id;
+  renderActList();
+  const act = _allActs[id];
+  if (!act) return;
+
+  const canEdit = ['editor','superadmin'].includes(_role);
+  const rp = document.getElementById('act-detail');
+
+  rp.innerHTML = `
+    <div class="detail-wrap">
+      <div class="detail-header">
+        <div class="detail-title">${esc(act.title || '—')}</div>
+        <span class="status-badge approved">Veröffentlicht</span>
+        ${canEdit ? `<button class="btn-sm" onclick="openEditForm('activity','${esc(id)}')">✏ Bearbeiten</button>` : ''}
+      </div>
+      <div class="detail-chips">
+        ${act.category ? `<span class="chip">🏷 ${esc(act.category)}</span>` : ''}
+        ${act.eyebrow  ? `<span class="chip">🔖 ${esc(act.eyebrow)}</span>`  : ''}
+        ${act.city     ? `<span class="chip">📍 ${esc(act.city)}</span>` : ''}
+        ${priceChip(act.price)}
+      </div>
+      <div class="section">
+        <h4>Beschreibung</h4>
+        ${act.tagline ? `<p style="font-size:.95rem;font-weight:600;margin-bottom:.5rem">${esc(act.tagline)}</p>` : ''}
+        <p style="font-size:.9rem;line-height:1.6">${esc(act.description || '—')}</p>
+      </div>
+      <div class="section">
+        <h4>Details</h4>
+        ${fieldRow('Anbieter',      act.providerName)}
+        ${fieldRow('Website',       act.website,  true)}
+        ${fieldRow('Buchung',       act.bookingUrl, true)}
+        ${act.lat && act.lng ? fieldRow('Koordinaten', `${act.lat}, ${act.lng}`) : ''}
+        ${fieldRow('Veröffentlicht', act.publishedAt ? fmtDate(act.publishedAt) : null)}
+        ${fieldRow('Vorschlag-ID',  act.suggestionId)}
+      </div>
+      <div class="section">
+        <h4>PWA-Vorschau</h4>
+        <div class="preview-card">
+          <div class="preview-category">${esc(act.eyebrow || act.category || '')}</div>
+          <div class="preview-title">${esc(act.title || '')}</div>
+          ${act.tagline ? `<div style="font-size:.82rem;color:#aaa;margin:.25rem 0">${esc(act.tagline)}</div>` : ''}
+          <div class="preview-location">📍 ${esc(act.city || '')}${act.district ? ' · ' + esc(act.district) : ''}</div>
+          ${act.price ? `<span class="preview-price">${formatPrice(act.price)}</span>` : ''}
+        </div>
+      </div>
+      ${canEdit ? `
+      <div class="edit-section" id="edit-form" style="display:none">
+        <h4>✏ Bearbeiten</h4>
+        <div class="edit-grid">
+          <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
+          <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
+          <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
+          <div class="edit-field"><label class="edit-label">Kategorie</label><input class="edit-input" id="ef-category"></div>
+          <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
+          <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
+          <div class="edit-field"><label class="edit-label">Website</label><input class="edit-input" id="ef-website"></div>
+          <div class="edit-field"><label class="edit-label">Instagram</label><input class="edit-input" id="ef-instagram"></div>
+          <div class="edit-field full"><label class="edit-label">Buchungslink</label><input class="edit-input" id="ef-bookingUrl"></div>
+          <div class="edit-field"><label class="edit-label">Stadt</label><input class="edit-input" id="ef-city"></div>
+          <div class="edit-field"><label class="edit-label">Stadtteil</label><input class="edit-input" id="ef-district"></div>
+          <div class="edit-field full"><label class="edit-label">Adresse</label><input class="edit-input" id="ef-location"></div>
+          <div class="edit-field"><label class="edit-label">Breitengrad</label><input class="edit-input" id="ef-lat" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Längengrad</label><input class="edit-input" id="ef-lng" type="number" step="any"></div>
+          <div class="edit-field"><label class="edit-label">Preis (Typ)</label><select class="edit-select" id="ef-price-type"><option value="">— wählen —</option><option value="free">Kostenlos</option><option value="donation">Spende</option><option value="fixed">Festpreis</option><option value="variable">Variabel</option></select></div>
+          <div class="edit-field"><label class="edit-label">Preis (Betrag EUR)</label><input class="edit-input" id="ef-price-amount" type="number" step="0.01"></div>
+          <div class="edit-field full"><label class="edit-label">Preis (Notiz)</label><input class="edit-input" id="ef-price-note"></div>
+          <div class="edit-field full"><label class="edit-label">Terminnotiz</label><input class="edit-input" id="ef-schedule-note"></div>
+          <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-save" id="btn-save-edit" onclick="saveEdit('activity','${esc(id)}')">Speichern</button>
+          <button class="btn-cancel" onclick="closeEditForm()">Abbrechen</button>
+        </div>
+        <div class="action-result" id="edit-result"></div>
+      </div>` : ''}
+    </div>
+  `;
+  if (canEdit) _fillEditForm('activity', act);
+}
+
+// ── Approve / Reject ──────────────────────────────────────────────
+async function approve(suggestionId) {
+  const note = document.getElementById('action-note')?.value?.trim() || '';
+  setActionBtns(true);
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-approve', { suggestionId, notes: note }, _idToken);
+    if (res.error) throw new Error(res.error);
+    showActionResult('ok', res.idempotent
+      ? `Bereits freigegeben — Aktivitäts-ID: ${res.activityId}`
+      : `Freigegeben ✓ Aktivitäts-ID: ${res.activityId}`);
+    toast('Freigegeben!');
+  } catch (err) { showActionResult('err', 'Fehler: ' + err.message); setActionBtns(false); }
+}
+
+async function reject(suggestionId) {
+  const reason = document.getElementById('action-note')?.value?.trim() || '';
+  if (!reason) { showActionResult('err', 'Bitte eine Begründung eingeben.'); return; }
+  setActionBtns(true);
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-reject', { suggestionId, reason }, _idToken);
+    if (res.error) throw new Error(res.error);
+    showActionResult('ok', 'Abgelehnt.');
+    toast('Abgelehnt.');
+  } catch (err) { showActionResult('err', 'Fehler: ' + err.message); setActionBtns(false); }
+}
+
+function setActionBtns(disabled) {
+  const a = document.getElementById('btn-approve');
+  const r = document.getElementById('btn-reject');
+  if (a) a.disabled = disabled;
+  if (r) r.disabled = disabled;
+}
+function showActionResult(type, msg) {
+  const el = document.getElementById('action-result');
+  if (!el) return;
+  el.className = 'action-result ' + type; el.textContent = msg;
+}
+
+// ── Edit form ─────────────────────────────────────────────────────
+function openEditForm(target, id) {
+  const el = document.getElementById('edit-form');
+  if (el) { el.style.display = ''; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+function closeEditForm() {
+  const el = document.getElementById('edit-form');
+  if (el) el.style.display = 'none';
+}
+function _fillEditForm(target, data) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val != null) ? val : ''; };
+  set('ef-title', data.title);   set('ef-tagline', data.tagline); set('ef-eyebrow', data.eyebrow);
+  set('ef-category', data.category); set('ef-description', data.description);
+  set('ef-providerName', data.providerName);
+  if (target === 'suggestion') set('ef-providerId', data.providerId);
+  set('ef-website', data.website); set('ef-instagram', data.instagram); set('ef-bookingUrl', data.bookingUrl);
+  set('ef-city', data.city); set('ef-district', data.district);
+  set('ef-location', data.location?.address);
+  set('ef-lat', data.lat != null ? data.lat : ''); set('ef-lng', data.lng != null ? data.lng : '');
+  const pt = document.getElementById('ef-price-type');
+  if (pt) pt.value = data.price?.type || '';
+  set('ef-price-amount', data.price?.amount != null ? data.price.amount : '');
+  set('ef-price-note', data.price?.note);
+  set('ef-schedule-note', data.schedule?.note);
+  set('ef-imageUrls', (data.imageUrls || []).join('\n'));
+  if (target === 'suggestion') set('ef-sources', (data.sources || []).join('\n'));
+}
+function showEditResult(type, msg) {
+  const el = document.getElementById('edit-result');
+  if (!el) return;
+  el.className = 'action-result ' + type; el.textContent = msg;
+}
+async function saveEdit(target, id) {
+  const btn = document.getElementById('btn-save-edit');
+  if (btn) btn.disabled = true;
+  const getVal = k => { const el = document.getElementById('ef-' + k); return el ? el.value : null; };
+  const str = k => getVal(k)?.trim() || null;
+  const fields = {
+    title: str('title'), tagline: str('tagline'), eyebrow: str('eyebrow'),
+    category: str('category'), description: str('description'),
+    providerName: str('providerName'), website: str('website'),
+    instagram: str('instagram'), bookingUrl: str('bookingUrl'),
+    city: str('city'), district: str('district'),
+  };
+  if (target === 'suggestion') fields.providerId = str('providerId');
+  const addr = str('location');
+  fields.location = addr ? { address: addr } : null;
+  const latVal = getVal('lat'), lngVal = getVal('lng');
+  fields.lat = (latVal != null && latVal.trim() !== '') ? Number(latVal) : null;
+  fields.lng = (lngVal != null && lngVal.trim() !== '') ? Number(lngVal) : null;
+  const priceType = getVal('price-type'), priceAmt = getVal('price-amount'), priceNote = str('price-note');
+  if (priceType) {
+    fields.price = { type: priceType, currency: 'EUR' };
+    if (priceAmt && priceAmt.trim() !== '') fields.price.amount = Number(priceAmt);
+    if (priceNote) fields.price.note = priceNote;
+  } else { fields.price = null; }
+  const schedNote = str('schedule-note');
+  fields.schedule = schedNote ? { note: schedNote } : null;
+  const imgRaw = getVal('imageUrls');
+  fields.imageUrls = imgRaw ? imgRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
+  if (target === 'suggestion') {
+    const srcRaw = getVal('sources');
+    fields.sources = srcRaw ? srcRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
+  }
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-update', { target, id, ...fields }, _idToken);
+    if (res.error) throw new Error(res.error);
+    const count = (res.updatedFields || []).filter(f => f !== 'updatedAt').length;
+    showEditResult('ok', `Gespeichert ✓ (${count} Felder)`);
+    toast('Gespeichert!');
+    const store = target === 'suggestion' ? _allSugs : _allActs;
+    if (store[id]) Object.assign(store[id], fields);
+    setTimeout(() => {
+      if (target === 'suggestion') selectSuggestion(id);
+      else selectActivity(id);
+    }, 800);
+  } catch (err) {
+    showEditResult('err', 'Fehler: ' + err.message);
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Users tab ─────────────────────────────────────────────────────
+async function loadUsers() {
+  const el = document.getElementById('users-content');
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--muted)">Lade Nutzer…</p>';
+  try {
+    await refreshIdToken();
+    const res  = await fetch('/.netlify/functions/studio-users', {
+      headers: { 'Authorization': `Bearer ${_idToken}` },
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderUsers(data.users || []);
+  } catch (err) {
+    el.innerHTML = `<p style="color:var(--pink)">Fehler: ${esc(err.message)}</p>`;
+  }
+}
+
+function renderUsers(users) {
+  const el = document.getElementById('users-content');
+  if (!el) return;
+  const sorted = [...users].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="font-size:1.125rem;font-weight:700">${sorted.length} Nutzer</h2>
+      ${_role === 'superadmin' ? `<button class="btn-sm" onclick="loadUsers()">↻ Aktualisieren</button>` : ''}
+    </div>
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>E-Mail</th>
+          <th>Name</th>
+          <th>Studio-Rolle</th>
+          <th>Erstellt</th>
+          ${_role === 'superadmin' ? '<th>Rolle ändern</th>' : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${sorted.map(u => `
+          <tr>
+            <td>${esc(u.email || u.uid)}</td>
+            <td style="color:var(--muted)">${esc(u.displayName || '—')}</td>
+            <td>${u.studioRole ? `<span class="role-badge ${esc(u.studioRole)}">${esc(u.studioRole)}</span>` : '<span style="color:var(--muted);font-size:.85rem">—</span>'}</td>
+            <td style="color:var(--muted);font-size:.85rem">${u.createdAt ? fmtDate(u.createdAt) : '—'}</td>
+            ${_role === 'superadmin' ? `<td>
+              <select class="role-select" onchange="setRole('${esc(u.uid)}',this.value,this)">
+                <option value="">— keine —</option>
+                <option value="researcher" ${u.studioRole === 'researcher' ? 'selected' : ''}>researcher</option>
+                <option value="editor"     ${u.studioRole === 'editor'     ? 'selected' : ''}>editor</option>
+                <option value="superadmin" ${u.studioRole === 'superadmin' ? 'selected' : ''}>superadmin</option>
+              </select>
+            </td>` : ''}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function setRole(uid, role, selectEl) {
+  if (selectEl) selectEl.disabled = true;
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-set-role', { targetUid: uid, role: role || null }, _idToken);
+    if (res.error) throw new Error(res.error);
+    toast(role ? `Rolle "${role}" gesetzt.` : 'Rolle entfernt.');
+    setTimeout(loadUsers, 500);
+  } catch (err) {
+    toast('Fehler: ' + err.message);
+    if (selectEl) selectEl.disabled = false;
+  }
+}
+
+// ── Settings tab ──────────────────────────────────────────────────
+function renderSettings() {
+  const el = document.getElementById('settings-content');
+  if (!el) return;
+  el.innerHTML = `
+    <h2 style="font-size:1.125rem;font-weight:700;margin-bottom:16px">Einstellungen</h2>
+
+    <div class="settings-section">
+      <h3>Studio-Rolle zuweisen</h3>
+      <div class="form-row">
+        <label class="form-label">E-Mail-Adresse des Nutzers</label>
+        <input class="form-input" id="set-role-email" placeholder="name@example.com" type="email">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Rolle</label>
+        <select class="form-select" id="set-role-value">
+          <option value="">— keine (Rolle entfernen) —</option>
+          <option value="researcher">researcher — Vorschläge einreichen</option>
+          <option value="editor">editor — Freigeben, Bearbeiten, Ablehnen</option>
+          <option value="superadmin">superadmin — Voller Zugriff</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="submitSetRole()">Rolle zuweisen</button>
+      <div class="action-result" id="settings-result" style="margin-top:12px"></div>
+    </div>
+
+    <div class="settings-section" style="margin-top:0">
+      <h3>Links</h3>
+      <p style="font-size:.875rem;color:var(--muted);margin-bottom:10px">
+        Das klassische Studio ist weiterhin unter
+        <a href="/studio.html" style="color:var(--blue)">/studio.html</a> erreichbar.
+      </p>
+      <p style="font-size:.875rem;color:var(--muted)">
+        Someday PWA: <a href="/" style="color:var(--blue)">/</a>
+      </p>
+    </div>
+  `;
+}
+
+async function submitSetRole() {
+  const email = document.getElementById('set-role-email')?.value?.trim();
+  const role  = document.getElementById('set-role-value')?.value || null;
+  const btn   = document.querySelector('#settings-content .btn-primary');
+  const res_el = document.getElementById('settings-result');
+  if (!email) { if (res_el) { res_el.className = 'action-result err'; res_el.textContent = 'E-Mail erforderlich.'; } return; }
+  if (btn) btn.disabled = true;
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-set-role', { email, role }, _idToken);
+    if (res.error) throw new Error(res.error);
+    if (res_el) { res_el.className = 'action-result ok'; res_el.textContent = role ? `Rolle "${role}" für ${email} gesetzt.` : `Rolle für ${email} entfernt.`; }
+    toast('Rolle gesetzt!');
+  } catch (err) {
+    if (res_el) { res_el.className = 'action-result err'; res_el.textContent = 'Fehler: ' + err.message; }
+  } finally { if (btn) btn.disabled = false; }
+}
+
+// ── Audit log ─────────────────────────────────────────────────────
+async function loadAuditForSuggestion(suggestionId) {
+  const snap = await db.ref('studioAuditLog')
+    .orderByChild('suggestionId').equalTo(suggestionId).once('value');
+  const val = snap.val() || {};
+  return Object.values(val).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+}
+function renderAuditLog(entries) {
+  if (!entries.length) return '<p style="color:var(--muted);font-size:.875rem">Keine Einträge.</p>';
+  return `<div class="audit-timeline">${entries.map(e => `
+    <div class="audit-item">
+      <span class="audit-action ${esc(e.action)}">${actionLabel(e.action)}</span>
+      <div class="audit-body">
+        <div class="audit-who">${esc(e.actorEmail || e.actorUid || '—')}</div>
+        ${e.details ? `<div class="audit-note">${esc(e.details)}</div>` : ''}
+        <div class="audit-ts">${e.timestamp ? fmtDate(e.timestamp) : ''}</div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+async function refreshIdToken() {
+  if (!_me) return;
+  _idToken = await _me.getIdToken(true);
+}
+async function callFunction(name, body, idToken) {
+  const res = await fetch(`/.netlify/functions/${name}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(ts) {
+  return new Date(ts).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function statusLabel(s) {
+  return { submitted:'Eingereicht', draft:'Entwurf', approved:'Genehmigt', rejected:'Abgelehnt' }[s] || s;
+}
+function actionLabel(a) {
+  return { approve:'Freigabe', reject:'Ablehnung', submit:'Einreichung', edit:'Bearbeitung',
+           set_role:'Rolle', bootstrap_superadmin:'Bootstrap' }[a] || a;
+}
+function fieldRow(label, value, isLink = false) {
+  if (!value) return '';
+  const content = isLink ? `<a href="${esc(value)}" target="_blank" rel="noopener">${esc(value)}</a>` : esc(value);
+  return `<div class="field-row"><span class="field-label">${esc(label)}</span><span class="field-value">${content}</span></div>`;
+}
+function priceChip(price) {
+  if (!price) return '';
+  return `<span class="chip">💶 ${formatPrice(price)}</span>`;
+}
+function formatPrice(price) {
+  if (!price) return '';
+  if (price.type === 'free')     return 'Kostenlos';
+  if (price.type === 'donation') return 'Spende';
+  const amt = price.amount ? `${price.amount} ${price.currency || 'EUR'}` : '';
+  return amt + (price.note ? ` · ${price.note}` : '');
+}
+function formatSchedule(schedule) {
+  if (!schedule) return '';
+  if (schedule.note) return schedule.note;
+  const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  const dayStr = schedule.daysOfWeek ? schedule.daysOfWeek.map(d => days[d]).join(', ') : '';
+  return [dayStr, schedule.time, schedule.type === 'recurring' ? '(wiederkehrend)' : ''].filter(Boolean).join(' ');
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

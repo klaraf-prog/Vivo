@@ -25,6 +25,7 @@ const submitHandler  = require('../netlify/functions/studio-submit').handler;
 const setRoleHandler = require('../netlify/functions/studio-set-role').handler;
 const authHandler    = require('../netlify/functions/studio-auth').handler;
 const updateHandler  = require('../netlify/functions/studio-update').handler;
+const usersHandler   = require('../netlify/functions/studio-users').handler;
 
 // ─── DB mock factory ─────────────────────────────────────────────────────────
 function makeDbMock(snapData) {
@@ -681,5 +682,85 @@ describe('studio-update', () => {
     expect(auditKey).toBeDefined();
     expect(updateArg[auditKey].action).toBe('edit');
     expect(updateArg[auditKey].actorEmail).toBe('ed@test.com');
+  });
+});
+
+// ─── studio-users ─────────────────────────────────────────────────────────────
+describe('studio-users', () => {
+  const superadmin = { uid: 'sa1', email: 'sa@test.com', role: 'superadmin' };
+  const editor     = { uid: 'ed1', email: 'ed@test.com', role: 'editor' };
+
+  function get(headers = {}) {
+    return { httpMethod: 'GET', headers: { 'authorization': 'Bearer valid_token', ...headers } };
+  }
+
+  const sampleUsers = [
+    {
+      uid: 'u1',
+      email: 'a@test.com',
+      displayName: 'Alice',
+      customClaims: { studioRole: 'editor' },
+      metadata: { creationTime: 'Mon, 01 Jan 2024 00:00:00 GMT', lastSignInTime: 'Mon, 01 Jan 2024 10:00:00 GMT' },
+    },
+    {
+      uid: 'u2',
+      email: 'b@test.com',
+      displayName: null,
+      customClaims: null,
+      metadata: { creationTime: 'Tue, 02 Jan 2024 00:00:00 GMT', lastSignInTime: null },
+    },
+  ];
+
+  test('43. returns 405 for non-GET', async () => {
+    const res = await usersHandler({ httpMethod: 'POST', headers: {} });
+    expect(res.statusCode).toBe(405);
+  });
+
+  test('44. returns 403 when unauthenticated', async () => {
+    mockVerifyStudioToken.mockResolvedValue(null);
+    const res = await usersHandler(get());
+    expect(res.statusCode).toBe(403);
+  });
+
+  test('45. returns 403 for researcher role', async () => {
+    mockVerifyStudioToken.mockResolvedValue({ uid: 'r1', email: 'r@test.com', role: 'researcher' });
+    mockInitAdmin.mockReturnValue({ auth: () => ({ listUsers: jest.fn() }) });
+    mockVerifyStudioToken.mockResolvedValue(null);
+    const res = await usersHandler(get());
+    expect(res.statusCode).toBe(403);
+  });
+
+  test('46. editor can list users', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    const mockListUsers = jest.fn().mockResolvedValue({ users: sampleUsers });
+    mockInitAdmin.mockReturnValue({ auth: () => ({ listUsers: mockListUsers }) });
+    const res = await usersHandler(get());
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(Array.isArray(body.users)).toBe(true);
+    expect(body.users).toHaveLength(2);
+    expect(mockListUsers).toHaveBeenCalledWith(1000);
+  });
+
+  test('47. returns correct user fields', async () => {
+    mockVerifyStudioToken.mockResolvedValue(superadmin);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ listUsers: jest.fn().mockResolvedValue({ users: sampleUsers }) }) });
+    const res = await usersHandler(get());
+    const body = parseBody(res);
+    const u1 = body.users.find(u => u.uid === 'u1');
+    expect(u1.email).toBe('a@test.com');
+    expect(u1.displayName).toBe('Alice');
+    expect(u1.studioRole).toBe('editor');
+    expect(typeof u1.createdAt).toBe('number');
+    expect(typeof u1.lastSignIn).toBe('number');
+  });
+
+  test('48. user without claims has null studioRole', async () => {
+    mockVerifyStudioToken.mockResolvedValue(editor);
+    mockInitAdmin.mockReturnValue({ auth: () => ({ listUsers: jest.fn().mockResolvedValue({ users: sampleUsers }) }) });
+    const res = await usersHandler(get());
+    const body = parseBody(res);
+    const u2 = body.users.find(u => u.uid === 'u2');
+    expect(u2.studioRole).toBeNull();
   });
 });
