@@ -104,7 +104,11 @@ function _initFirebaseAuth() {
           const res   = await fetch('/.netlify/functions/user-data', {
             headers: { 'Authorization': `Bearer ${token}` },
           });
-          if (res.ok) _userData = await res.json();
+          if (res.ok) {
+            _userData = await res.json();
+          } else {
+            _userData = { _error: true, _status: res.status };
+          }
         } catch (e) {
           console.warn('[someday] user-data unavailable:', e.message);
         }
@@ -204,6 +208,7 @@ function _profileTab() {
       <h2 style="margin:24px 0 3px">Good things are on the horizon.</h2>
       <p class="sub">Your little corner of someday ✳</p>
     </div>
+    ${_userData && _userData._error ? `<div class="warn" style="margin-bottom:12px">⚠ Could not load your social data (HTTP ${_userData._status||'?'}). Some features may be unavailable.</div>` : ''}
     <div class="between"><h2 class="section">Your profile</h2><button class="chip" onclick="set({settings:true})">⚙ Settings</button></div>
     ${segment('profileTab',['Saved','Spaces','Friends','Activity'])}
     <div style="margin-top:18px">
@@ -561,6 +566,18 @@ function startGroupEvent(spaceId) {
 }
 
 if (!('spaceId' in S)) S.spaceId = null;
+
+// ── Demo data separation ───────────────────────────────────────────────────
+// Wraps _loadActivities to log a console warning when a signed-in user
+// still sees only the demo activity IDs (may indicate a configuration issue).
+const _origLoadActivities = _loadActivities;
+window._loadActivities = async function _loadActivities_auth() {
+  await _origLoadActivities();
+  const demoIds = new Set(['pottery','supper','yoga','run']);
+  if (_currentUser && A.length > 0 && A.every(a => demoIds.has(a.id))) {
+    console.warn('[someday] Showing demo activities — no approved activities found in Firebase.');
+  }
+};
 
 _initFirebaseAuth();
 render();_loadActivities();if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
