@@ -152,15 +152,28 @@ async function _signOut() {
   catch (e) { console.warn('[someday] sign-out error:', e.message); }
 }
 
-// Google Sign-In — uses redirect (works in Safari and PWA installed mode).
+// Google Sign-In.
+// Uses popup first — popup stays on the same page and avoids Safari ITP cookie
+// issues that break the redirect flow in PWA standalone mode and iOS Safari.
+// Falls back to redirect if the popup is blocked (some corporate/strict browsers).
 async function _signInWithGoogle() {
   const errEl = $('auth-err');
-  if (errEl) errEl.textContent = 'Redirecting to Google…';
+  if (errEl) errEl.textContent = '';
   try {
     const auth = _initFirebaseAuth();
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithRedirect(provider);
-    // Browser navigates away; result is handled by getRedirectResult() on return.
+    try {
+      await auth.signInWithPopup(provider);
+    } catch (popupErr) {
+      if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+        if (errEl) errEl.textContent = 'Popup blocked — redirecting to Google…';
+        await auth.signInWithRedirect(provider);
+      } else if (popupErr.code === 'auth/popup-closed-by-user') {
+        // User dismissed the popup — no error message needed.
+      } else {
+        throw popupErr;
+      }
+    }
   } catch (e) {
     if (errEl) errEl.textContent = e.message || 'Google sign-in failed.';
   }
@@ -174,9 +187,10 @@ function _displayName() {
   return null;
 }
 
+const _personSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="white" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/></svg>';
 function _avatarLetter() {
   const n = _displayName();
-  return n ? n[0].toUpperCase() : 'K';
+  return n ? n[0].toUpperCase() : _personSvg;
 }
 
 // Sign-in / sign-up form for the Profile tab (shown when not authenticated).
@@ -197,9 +211,9 @@ function _signInForm() {
       <button class="chip${mode==='signup'?' on':''}" onclick="window._authMode='signup';render()">Create account</button>
     </div>
     ${mode === 'signup' ? `
-    <input id="auth-name" class="field" type="text" placeholder="Your name" style="margin-bottom:10px">` : ''}
-    <input id="auth-email" class="field" type="email" placeholder="your@email.com" style="margin-bottom:10px">
-    <input id="auth-pw" class="field" type="password" placeholder="Password${mode==='signup'?' (min 6 chars)':''}" style="margin-bottom:10px">
+    <input id="auth-name" class="field" type="text" placeholder="Your name" autocomplete="name" style="margin-bottom:10px">` : ''}
+    <input id="auth-email" class="field" type="email" placeholder="your@email.com" autocomplete="email" style="margin-bottom:10px">
+    <input id="auth-pw" class="field" type="password" placeholder="Password${mode==='signup'?' (min 6 chars)':''}" autocomplete="${mode==='signup'?'new-password':'current-password'}" style="margin-bottom:10px">
     <div id="auth-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
     ${mode === 'signup'
       ? button('Create account →', '_signUp()', 'full')
@@ -232,10 +246,8 @@ async function _signUp() {
 }
 
 // Auth-aware header: show user avatar or default when signed in.
-const _header = () => {
-  const letter = _currentUser ? _avatarLetter() : 'K';
-  return `<header class="header"><button onclick="nav('Discover')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow"><span class="loc">COLOGNE ⌖</span><button class="avatar" onclick="nav('Profile')">${letter}</button></div></header>`;
-};
+const _header = () =>
+  `<header class="header"><button onclick="nav('Discover')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow"><span class="loc">COLOGNE ⌖</span><button class="avatar" onclick="nav('Profile')" aria-label="Profile">${_avatarLetter()}</button></div></header>`;
 
 // Override the plain header() with the auth-aware version.
 // (Avoids touching minified code above.)
@@ -264,7 +276,7 @@ function _profileTab() {
     ${button('Sign out', '_signOut()', 'secondary full')}` :
     `<div class="profiletop">
       <div class="hrow">
-        <div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">${_avatarLetter()}</div>
+        <div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">${_currentUser && _currentUser.photoURL ? `<img src="${esc(_currentUser.photoURL)}" style="width:58px;height:58px;border-radius:50%;object-fit:cover" alt="">` : _avatarLetter()}</div>
         <div><h2 style="margin:0">${esc(name)}</h2><div class="sub">${esc(email)}</div></div>
       </div>
       <h2 style="margin:24px 0 3px">Good things are on the horizon.</h2>
@@ -729,16 +741,16 @@ function _openSpaceCreate() {
 }
 
 function _spaceCreateSheet() {
-  return `<div class="sheet-overlay" onclick="set({sheet:null})"></div>
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <h2 class="headline" style="margin-bottom:16px">Create group</h2>
-    <input id="sc-name" class="field" placeholder="Group name" style="margin-bottom:10px">
-    <input id="sc-members" class="field" placeholder="Invite friends (UIDs, comma-separated, optional)" style="margin-bottom:10px">
+  return `<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()">
+    <div class="between"><div class="eyebrow">YOUR PEOPLE ✳</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div>
+    <h1 class="headline">Start something together.</h1>
+    <label class="formlabel">Group name *</label>
+    <input id="sc-name" class="field" placeholder="Weekend Crew, Book Club…" style="margin-bottom:10px">
+    <label class="formlabel">Invite friends (optional)</label>
+    <input id="sc-members" class="field" placeholder="Friend UIDs, comma-separated" style="margin-bottom:10px">
     <div id="sc-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
-    <button class="btn full" onclick="_submitSpaceCreate()">Create group →</button>
-    <button class="btn secondary full" onclick="set({sheet:null})" style="margin-top:8px">Cancel</button>
-  </div>`;
+    ${button('Create group →', '_submitSpaceCreate()', 'full')}
+  </div></div>`;
 }
 
 async function _submitSpaceCreate() {
