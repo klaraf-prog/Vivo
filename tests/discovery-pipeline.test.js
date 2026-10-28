@@ -247,6 +247,13 @@ describe('handler auth guards', () => {
     expect(body.ok).toBe(true);
     expect(body.report.mode).toBe('dry-run');
   });
+
+  test('POST returns 400 for unsupported city', async () => {
+    shared.verifyStudioToken.mockResolvedValue({ uid: 'ed', studioRole: 'editor' });
+    const res = await handler(makeEvent('POST', { city: 'Berlin' }));
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toMatch(/City not supported/);
+  });
 });
 
 // ── Dry-run: writes only to discoveryPipelineRuns ────────────────────────────

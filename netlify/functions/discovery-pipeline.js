@@ -20,6 +20,9 @@ const PRICE_INPUT_PER_MTOK = 0.10;    // USD per million input tokens
 const PRICE_OUTPUT_PER_MTOK = 0.50;   // USD per million output tokens
 const LLM_TIMEOUT_MS       = 30_000;
 
+// Only these cities may be processed; expand deliberately when ready.
+const ALLOWED_CITIES = ['Köln'];
+
 const VALID_CATEGORIES = [
   'market', 'festival', 'concert', 'exhibition', 'sport',
   'outdoor', 'food', 'culture', 'family', 'nightlife', 'other',
@@ -360,6 +363,9 @@ exports.handler = async (event) => {
     try { payload = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON' }); }
 
     const city = (payload.city || 'Köln').trim();
+    if (!ALLOWED_CITIES.includes(city)) {
+      return json(400, { error: `City not supported: ${city}. Allowed: ${ALLOWED_CITIES.join(', ')}` });
+    }
     const mode = payload.mode === 'live' ? 'live' : 'dry-run';
 
     // live mode requires API key
