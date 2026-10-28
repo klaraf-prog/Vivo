@@ -1,16 +1,29 @@
 'use strict';
-// Discovery pipeline — dry-run mode only.
+// Discovery pipeline — dry-run and live (LLM extraction) modes.
 // POST: fetches up to MAX_SOURCES active sources for a city, detects structured
-//       data signals via regex, writes a run report to discoveryPipelineRuns/,
-//       returns the report. No LLM calls, no suggestions written.
+//       data signals via regex, and in live mode calls Claude Haiku to extract
+//       activity suggestions (written as status:'draft', never auto-published).
+//       Writes a run report to discoveryPipelineRuns/.
 // GET:  returns the last 10 pipeline run reports.
-const { initAdmin, verifyStudioToken, json, makeId } = require('./_studio-shared');
+const { initAdmin, verifyStudioToken, json, makeId, duplicateHash } = require('./_studio-shared');
 
 const MAX_SOURCES     = 5;
-const MAX_SUGGESTIONS = 20; // enforced limit for future use
-const MAX_LLM_CALLS   = 10; // enforced limit for future use
+const MAX_SUGGESTIONS = 20;
+const MAX_LLM_CALLS   = 10;
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_BODY_BYTES   = 150_000;
+
+// LLM constants
+const LLM_MODEL            = 'claude-haiku-5-5';
+const LLM_TEXT_LIMIT       = 8_000;   // chars sent to LLM per source
+const PRICE_INPUT_PER_MTOK = 0.10;    // USD per million input tokens
+const PRICE_OUTPUT_PER_MTOK = 0.50;   // USD per million output tokens
+const LLM_TIMEOUT_MS       = 30_000;
+
+const VALID_CATEGORIES = [
+  'market', 'festival', 'concert', 'exhibition', 'sport',
+  'outdoor', 'food', 'culture', 'family', 'nightlife', 'other',
+];
 
 // ── Signal detection patterns (German + common formats) ──────────────────────
 const SIGNAL_PATTERNS = {
@@ -134,6 +147,7 @@ async function fetchSource(source) {
       bytesFetched: totalBytes,
       truncated,
       textLength: text.length,
+      text,                    // included for LLM extraction; stripped before report storage
       signals,
       locationSignal,
       detectedSignalCount: detectedCount,
@@ -144,6 +158,181 @@ async function fetchSource(source) {
     const errMsg = err.name === 'AbortError' ? `Timeout after ${FETCH_TIMEOUT_MS}ms` : String(err.message || err);
     return { sourceId: source.id, url: source.url, error: errMsg, durationMs: Date.now() - start };
   }
+}
+
+// ── LLM extraction prompt ─────────────────────────────────────────────────────
+function buildExtractionPrompt(text, city) {
+  const truncated = text.slice(0, LLM_TEXT_LIMIT);
+  const system = `You are a structured data extraction assistant. Extract activity/event listings from website text for the city of ${city}.
+
+Output ONLY a valid JSON object with this exact shape:
+{
+  "activities": [
+    {
+      "title": "string (required, max 120 chars)",
+      "description": "string (required, max 500 chars)",
+      "category": "one of: market|festival|concert|exhibition|sport|outdoor|food|culture|family|nightlife|other",
+      "tagline": "string or null (max 80 chars)",
+      "eyebrow": "string or null (max 60 chars, e.g. season label)",
+      "location": { "address": "string" } or null,
+      "providerName": "string or null",
+      "website": "string (URL) or null",
+      "price": "string or null (human-readable, e.g. 'kostenlos' or '5–10 €')",
+      "operatingPeriod": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" } or null,
+      "openingHours": "string or null (human-readable summary)",
+      "exceptionalHours": "string or null",
+      "sourceAttribution": "string or null (display name of source)"
+    }
+  ]
+}
+
+Rules:
+- Only include activities clearly located in or explicitly associated with ${city}.
+- Never invent data. Use null for any field you cannot determine from the text.
+- Do not include lat/lng coordinates.
+- Dates must be ISO-8601 (YYYY-MM-DD). If only month+year known, use first/last day of that month.
+- Maximum ${MAX_SUGGESTIONS} activities per response.
+- If no clear activities are found, return { "activities": [] }.
+- Output only the JSON object, no explanation, no markdown code fences.`;
+
+  const user = `Extract activities from the following website text:\n\n${truncated}`;
+  return { system, user };
+}
+
+// ── Call Anthropic API ────────────────────────────────────────────────────────
+async function callAnthropicAPI(text, city, apiKey) {
+  const { system, user } = buildExtractionPrompt(text, city);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        max_tokens: 4096,
+        system,
+        messages: [{ role: 'user', content: user }],
+      }),
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      return { activities: [], inputTokens: 0, outputTokens: 0, error: `Anthropic HTTP ${res.status}: ${errBody.slice(0, 200)}` };
+    }
+
+    const data = await res.json();
+    const inputTokens  = data.usage?.input_tokens  || 0;
+    const outputTokens = data.usage?.output_tokens || 0;
+
+    const rawText = data.content?.[0]?.text || '';
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      return { activities: [], inputTokens, outputTokens, error: 'LLM response is not valid JSON' };
+    }
+
+    if (!Array.isArray(parsed?.activities)) {
+      return { activities: [], inputTokens, outputTokens, error: 'LLM response missing activities array' };
+    }
+
+    return { activities: parsed.activities, inputTokens, outputTokens, error: null };
+  } catch (err) {
+    clearTimeout(timer);
+    const msg = err.name === 'AbortError' ? `LLM timeout after ${LLM_TIMEOUT_MS}ms` : String(err.message || err);
+    return { activities: [], inputTokens: 0, outputTokens: 0, error: msg };
+  }
+}
+
+// ── Activity validation ───────────────────────────────────────────────────────
+function validateActivity(raw, sourceUrl, sourceName) {
+  const errors = [];
+
+  if (!raw || typeof raw !== 'object') return { valid: false, errors: ['not an object'] };
+
+  // Required fields
+  if (!raw.title || typeof raw.title !== 'string' || raw.title.trim().length === 0) errors.push('title missing');
+  if (!raw.description || typeof raw.description !== 'string' || raw.description.trim().length === 0) errors.push('description missing');
+  if (!raw.category || !VALID_CATEGORIES.includes(raw.category)) errors.push(`invalid category: ${raw.category}`);
+
+  if (errors.length > 0) return { valid: false, errors };
+
+  // Sanitise strings
+  const title       = String(raw.title).trim().slice(0, 120);
+  const description = String(raw.description).trim().slice(0, 500);
+  const category    = raw.category;
+  const tagline     = raw.tagline ? String(raw.tagline).trim().slice(0, 80)  : null;
+  const eyebrow     = raw.eyebrow  ? String(raw.eyebrow).trim().slice(0,  60) : null;
+  const providerName = raw.providerName ? String(raw.providerName).trim().slice(0, 120) : null;
+  const price        = raw.price ? String(raw.price).trim().slice(0, 80) : null;
+  const openingHours = raw.openingHours ? String(raw.openingHours).trim().slice(0, 300) : null;
+  const exceptionalHours = raw.exceptionalHours ? String(raw.exceptionalHours).trim().slice(0, 300) : null;
+  const sourceAttribution = raw.sourceAttribution ? String(raw.sourceAttribution).trim().slice(0, 200) : (sourceName || null);
+
+  // Website URL — only accept http/https
+  let website = null;
+  if (raw.website) {
+    const w = String(raw.website).trim();
+    if (/^https?:\/\//i.test(w)) website = w.slice(0, 500);
+  }
+
+  // location: must be object with address string, or null
+  let location = null;
+  if (raw.location && typeof raw.location === 'object' && typeof raw.location.address === 'string' && raw.location.address.trim()) {
+    location = { address: raw.location.address.trim().slice(0, 300) };
+  }
+
+  // operatingPeriod: { from: YYYY-MM-DD, to: YYYY-MM-DD } or null
+  let operatingPeriod = null;
+  if (raw.operatingPeriod && typeof raw.operatingPeriod === 'object') {
+    const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+    if (ISO_DATE.test(raw.operatingPeriod.from) && ISO_DATE.test(raw.operatingPeriod.to)) {
+      operatingPeriod = { from: raw.operatingPeriod.from, to: raw.operatingPeriod.to };
+    }
+  }
+
+  // Track what the LLM could not determine
+  const missingFields = [];
+  if (!location) missingFields.push('location');
+  if (!operatingPeriod) missingFields.push('operatingPeriod');
+  if (!price) missingFields.push('price');
+  if (!website) missingFields.push('website');
+  if (!providerName) missingFields.push('providerName');
+
+  const activity = {
+    title,
+    tagline,
+    description,
+    category,
+    eyebrow,
+    location,
+    lat: null,
+    lng: null,
+    geoQuality: 'missing',
+    providerName,
+    website,
+    instagram: null,
+    price,
+    schedule: null,
+    bookingUrl: null,
+    imageUrls: null,
+    operatingPeriod,
+    openingHours,
+    exceptionalHours,
+    sourceAttribution,
+    sources: [sourceUrl],
+    missingFields: missingFields.length > 0 ? missingFields : null,
+  };
+
+  return { valid: true, activity, errors: [] };
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -162,7 +351,7 @@ exports.handler = async (event) => {
     return json(200, { runs });
   }
 
-  // POST: trigger dry-run
+  // POST: trigger run
   if (method === 'POST') {
     const actor = await verifyStudioToken(event.headers['authorization'], ['editor', 'superadmin']);
     if (!actor) return json(403, { error: 'Forbidden' });
@@ -171,6 +360,14 @@ exports.handler = async (event) => {
     try { payload = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON' }); }
 
     const city = (payload.city || 'Köln').trim();
+    const mode = payload.mode === 'live' ? 'live' : 'dry-run';
+
+    // live mode requires API key
+    const apiKey = mode === 'live' ? (process.env.ANTHROPIC_API_KEY || '') : '';
+    if (mode === 'live' && !apiKey) {
+      return json(500, { error: 'ANTHROPIC_API_KEY not configured' });
+    }
+
     const db = initAdmin().database();
 
     // Fetch active sources for city (up to MAX_SOURCES)
@@ -186,22 +383,120 @@ exports.handler = async (event) => {
     const runId = makeId('run');
 
     // Parallel fetch with individual error isolation
-    const results = await Promise.all(sources.map(s => fetchSource(s)));
+    const fetchResults = await Promise.all(sources.map(s => fetchSource(s)));
+
+    // LLM extraction (live mode only)
+    let llmCallsUsed = 0;
+    let totalInputTokens  = 0;
+    let totalOutputTokens = 0;
+    let suggestionsProposed      = 0;
+    let suggestionsSaved         = 0;
+    let suggestionsDeduplicated  = 0;
+    const llmErrors = [];
+    const savedSuggestionIds = [];
+
+    if (mode === 'live') {
+      for (const result of fetchResults) {
+        if (!result.ok || !result.text) continue;
+        if (llmCallsUsed >= MAX_LLM_CALLS) break;
+        if (suggestionsSaved >= MAX_SUGGESTIONS) break;
+
+        llmCallsUsed++;
+        const { activities, inputTokens, outputTokens, error } = await callAnthropicAPI(result.text, city, apiKey);
+        totalInputTokens  += inputTokens;
+        totalOutputTokens += outputTokens;
+
+        if (error) {
+          llmErrors.push({ sourceId: result.sourceId, error });
+          continue;
+        }
+
+        for (const raw of activities) {
+          if (suggestionsSaved >= MAX_SUGGESTIONS) break;
+
+          suggestionsProposed++;
+          const { valid, activity, errors: valErrors } = validateActivity(raw, result.url, result.name);
+          if (!valid) {
+            llmErrors.push({ sourceId: result.sourceId, validationErrors: valErrors });
+            continue;
+          }
+
+          // Dedup check
+          const hash = duplicateHash(city, activity.category, activity.title);
+          const safeHash = hash.replace(/[.#$[\]]/g, '_');
+          const hashSnap = await db.ref(`suggestionHashes/${safeHash}`).once('value');
+          if (hashSnap.exists()) {
+            suggestionsDeduplicated++;
+            continue;
+          }
+
+          // Write draft suggestion
+          const now          = Date.now();
+          const suggestionId = makeId('sug');
+          const logId        = makeId('log');
+
+          const suggestion = {
+            ...activity,
+            city,
+            district: null,
+            status: 'draft',
+            duplicateHash: safeHash,
+            discoveredBy: 'discovery-pipeline',
+            pipelineRunId: runId,
+            researchedAt: now,
+            researchedBy: 'discovery-pipeline',
+            reviewedBy: null,
+            reviewedAt: null,
+            reviewNotes: null,
+            activityId: null,
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          await db.ref().update({
+            [`suggestions/${suggestionId}`]: suggestion,
+            [`suggestionHashes/${safeHash}`]: suggestionId,
+            [`studioAuditLog/${logId}`]: {
+              action: 'draft',
+              actorUid: actor.uid,
+              actorEmail: actor.email || null,
+              actorRole: actor.studioRole,
+              suggestionId,
+              activityId: null,
+              details: `Discovery draft: ${activity.title} (run: ${runId})`,
+              timestamp: now,
+            },
+          });
+
+          suggestionsSaved++;
+          savedSuggestionIds.push(suggestionId);
+        }
+      }
+    }
 
     const finishedAt = Date.now();
-    const successCount = results.filter(r => r.ok).length;
-    const errorCount   = results.filter(r => r.error).length;
+    const successCount = fetchResults.filter(r => r.ok).length;
+    const errorCount   = fetchResults.filter(r => r.error).length;
 
     // Aggregate signal summary
     const signalSummary = {};
     for (const signalKey of Object.keys(SIGNAL_PATTERNS)) {
-      signalSummary[signalKey] = results.filter(r => r.signals && r.signals[signalKey]?.detected).length;
+      signalSummary[signalKey] = fetchResults.filter(r => r.signals && r.signals[signalKey]?.detected).length;
     }
+
+    // Cost estimate
+    const estimatedCostUSD = mode === 'live'
+      ? (totalInputTokens / 1_000_000) * PRICE_INPUT_PER_MTOK
+        + (totalOutputTokens / 1_000_000) * PRICE_OUTPUT_PER_MTOK
+      : 0;
+
+    // Strip raw text from results before storing (keep signals + metadata)
+    const sourceResults = fetchResults.map(({ text: _text, ...rest }) => rest);
 
     const report = {
       runId,
       city,
-      mode: 'dry-run',
+      mode,
       limits: { maxSources: MAX_SOURCES, maxSuggestions: MAX_SUGGESTIONS, maxLlmCalls: MAX_LLM_CALLS },
       startedAt,
       finishedAt,
@@ -211,11 +506,21 @@ exports.handler = async (event) => {
       successCount,
       errorCount,
       signalSummary,
-      sourceResults: results,
+      sourceResults,
+      // LLM stats (zero in dry-run)
+      llmCallsUsed,
+      totalInputTokens,
+      totalOutputTokens,
+      estimatedCostUSD,
+      suggestionsProposed,
+      suggestionsSaved,
+      suggestionsDeduplicated,
+      savedSuggestionIds,
+      llmErrors: llmErrors.length > 0 ? llmErrors : null,
       triggeredBy: actor.uid,
     };
 
-    // Write report — read-only to suggestions/activities; only writes to discoveryPipelineRuns/
+    // Write report — only touches discoveryPipelineRuns/ and (in live) suggestions/
     await db.ref().update({ [`discoveryPipelineRuns/${runId}`]: report });
 
     return json(200, { ok: true, report });
@@ -225,6 +530,9 @@ exports.handler = async (event) => {
 };
 
 // ── Exported for testing ──────────────────────────────────────────────────────
-exports._stripHtml    = stripHtml;
-exports._detectSignals = detectSignals;
-exports._fetchSource  = fetchSource;
+exports._stripHtml          = stripHtml;
+exports._detectSignals      = detectSignals;
+exports._fetchSource        = fetchSource;
+exports._buildExtractionPrompt = buildExtractionPrompt;
+exports._callAnthropicAPI   = callAnthropicAPI;
+exports._validateActivity   = validateActivity;
