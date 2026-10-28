@@ -339,6 +339,8 @@ async function fetchSource(source) {
     const signals = detectSignals(text);
     const detectedCount = Object.values(signals).filter(s => s.detected).length;
     const contentQuality = assessContentQuality(text, jsonLdEvents.length);
+    // Preview of what would be sent to the LLM — available in both dry-run and live mode
+    const condensedPreview = condensePipelineText(text, LLM_TEXT_LIMIT).slice(0, 800);
 
     // Extract best address candidate from location signal examples for later LLM use
     const locExamples = signals.location?.examples || [];
@@ -359,6 +361,7 @@ async function fetchSource(source) {
       text,                    // included for LLM extraction; stripped before report storage
       jsonLdItems,             // all JSON-LD items (for LLM); stripped before report storage
       jsonLdEvents,            // schema.org Event items only; stripped before report storage
+      condensedPreview,        // first 800 chars of condensed text — kept in report for diagnostics
       jsonLdItemCount: jsonLdItems.length,
       jsonLdEventCount: jsonLdEvents.length,
       // First 3 events as a diagnostic sample (names only, no personal data)

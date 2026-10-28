@@ -1603,12 +1603,17 @@ function _renderPipelinePanel(runs) {
         ? `<div style="font-size:.75rem;color:var(--warning,#f59e0b);margin-top:2px">⚠ ${esc(qualityIssues.join(' · '))}</div>`
         : '';
 
+      // Text preview — shown in both dry-run and live mode
+      const textPreview = sr.condensedPreview
+        ? `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">Textvorschau (bereinigte Inhalte, erste 800 Zeichen)</summary><pre style="font-size:.72rem;white-space:pre-wrap;word-break:break-word;background:var(--surface2,#f8f9fa);padding:6px;border-radius:4px;margin:3px 0 0;max-height:120px;overflow-y:auto">${esc(sr.condensedPreview)}</pre></details>`
+        : '';
+
       const llmDiag = r.mode === 'live'
         ? (() => {
             if (sr.llmSkipped) {
-              return `<div style="font-size:.78rem;color:var(--muted);margin-top:2px">LLM übersprungen: ${esc(sr.llmSkipReason || 'Inhalt ungeeignet')}</div>`;
+              return `<div style="font-size:.78rem;color:var(--muted);margin-top:2px">LLM übersprungen: ${esc(sr.llmSkipReason || 'Inhalt ungeeignet')}${textPreview}</div>`;
             }
-            if (sr.llmActivitiesFound == null) return '';
+            if (sr.llmActivitiesFound == null) return textPreview;
             const found = sr.llmActivitiesFound;
             const saved = sr.llmActivitiesSaved ?? 0;
             const rejected = sr.llmActivitiesRejected ?? 0;
@@ -1617,12 +1622,9 @@ function _renderPipelinePanel(runs) {
             const diagText = found === 0
               ? 'LLM: 0 Aktivitäten erkannt — Inhalt prüfen (JS-rendered? Nur Navigation?)'
               : `LLM: ${found} erkannt → ${saved} gespeichert, ${rejected} abgelehnt, ${deduped} Duplikat`;
-            const preview = sr.condensedPreview
-              ? `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">Textvorschau (was an LLM gesendet wurde)</summary><pre style="font-size:.72rem;white-space:pre-wrap;word-break:break-word;background:var(--surface2,#f8f9fa);padding:6px;border-radius:4px;margin:3px 0 0;max-height:120px;overflow-y:auto">${esc(sr.condensedPreview)}</pre></details>`
-              : '';
-            return `<div style="font-size:.78rem;color:${diagColor};margin-top:2px">${diagText}${preview}</div>`;
+            return `<div style="font-size:.78rem;color:${diagColor};margin-top:2px">${diagText}${textPreview}</div>`;
           })()
-        : '';
+        : textPreview;
 
       // JSON-LD event sample for dry-run diagnostics
       const jsonLdSample = sr.jsonLdEventSample?.length
