@@ -10,6 +10,7 @@ const SUGGESTION_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls', 'sources',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution', 'missingFields',
+  'geoQuality',
 ];
 
 const ACTIVITY_FIELDS = [
@@ -19,6 +20,7 @@ const ACTIVITY_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution',
+  'geoQuality',
 ];
 
 exports.handler = async (event) => {

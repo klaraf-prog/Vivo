@@ -59,6 +59,7 @@ exports.handler = async (event) => {
       openingHours:      sug.openingHours      || null,
       exceptionalHours:  sug.exceptionalHours  || null,
       sourceAttribution: sug.sourceAttribution || null,
+      geoQuality:        sug.geoQuality        || (sug.lat && sug.lng ? 'manual' : 'missing'),
       suggestionId,
       publishedAt: now,
       publishedBy: actor.uid,

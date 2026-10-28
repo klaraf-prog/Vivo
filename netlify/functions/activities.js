@@ -14,6 +14,7 @@ const PUBLIC_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution',
+  'geoQuality',
   'publishedAt',
 ];
 

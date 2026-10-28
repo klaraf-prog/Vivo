@@ -118,6 +118,14 @@ async function fetchSource(source) {
     const signals = detectSignals(text);
     const detectedCount = Object.values(signals).filter(s => s.detected).length;
 
+    // Extract best address candidate from location signal examples for later LLM use
+    const locExamples = signals.location?.examples || [];
+    const locationSignal = {
+      detected: signals.location?.detected || false,
+      extractedText: locExamples.length > 0 ? locExamples[0] : null,
+      allExamples: locExamples,
+    };
+
     return {
       sourceId: source.id,
       url: source.url,
@@ -127,6 +135,7 @@ async function fetchSource(source) {
       truncated,
       textLength: text.length,
       signals,
+      locationSignal,
       detectedSignalCount: detectedCount,
       durationMs: Date.now() - start,
     };
