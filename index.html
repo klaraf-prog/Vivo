@@ -311,7 +311,7 @@ window.render = function render() {
   }
   $('app').innerHTML = (_currentUser ? _header() : header()) + p + bottom()
     + (S.page === 'home' && (S.tab === 'Calendar' || S.tab === 'Spaces')
-      ? `<button class="createfloat" aria-label="${S.tab==='Spaces'?'Create group':'Create event'}" onclick="${S.tab==='Spaces'?'_openSpaceCreate()':\"openCreate('personal')\"}">+</button>` : '')
+      ? `<button class="createfloat" aria-label="${S.tab==='Spaces'?'Create group':'Create event'}" onclick="${S.tab==='Spaces'?'_openSpaceCreate()':"openCreate('personal')"}">+</button>` : '')
     + (S.sheet ? (S.sheet === 'save' ? saveSheet() : S.sheet === 'space-create' ? _spaceCreateSheet() : createSheet()) : '');
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
   setTimeout(_applyImageFallbacks, 50);
