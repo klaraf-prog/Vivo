@@ -112,13 +112,13 @@ describe('studio-approve', () => {
     expect(parseBody(res).error).toMatch(/not found/i);
   });
 
-  test('5. returns 409 when status is draft (not submitted)', async () => {
+  test('5. returns 200 when status is draft (discovery pipeline suggestions)', async () => {
     mockVerifyStudioToken.mockResolvedValue(editor);
     const db = makeDbMock({ ...submitted, status: 'draft', activityId: null });
     mockInitAdmin.mockReturnValue({ database: () => db });
     const res = await approveHandler(post({ suggestionId: 'sug1' }));
-    expect(res.statusCode).toBe(409);
-    expect(parseBody(res).error).toMatch(/draft/);
+    expect(res.statusCode).toBe(200);
+    expect(parseBody(res).activityId).toBe('act_sug1');
   });
 
   test('6. returns 409 when status is rejected (no activityId)', async () => {

@@ -25,7 +25,7 @@ exports.handler = async (event) => {
     return json(200, { activityId: sug.activityId, idempotent: true });
   }
 
-  if (sug.status !== 'submitted') {
+  if (!['submitted', 'draft'].includes(sug.status)) {
     return json(409, { error: `Cannot approve suggestion with status: ${sug.status}` });
   }
 

@@ -801,7 +801,7 @@ async function selectSuggestion(id) {
   const sug = _allSugs[id];
   if (!sug) return;
 
-  const canAct  = ['editor','superadmin'].includes(_role) && sug.status === 'submitted';
+  const canAct  = ['editor','superadmin'].includes(_role) && ['draft','submitted'].includes(sug.status);
   const canEdit = ['editor','superadmin'].includes(_role);
   const rp = document.getElementById('sug-detail');
 
