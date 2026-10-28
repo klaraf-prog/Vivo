@@ -201,6 +201,49 @@ async function _deleteAccount() {
   }
 }
 
+// Privacy policy page — Art. 13 GDPR information obligation.
+// IMPORTANT: Content is a technical draft. Must be reviewed by a qualified
+// legal professional before public launch. Marked with ⚠ inline.
+function _privacyPage() {
+  return `<div class="content">
+    <button class="back" onclick="nav('Profile')">← Back</button>
+    <h1 class="headline">Privacy Policy</h1>
+    <div class="warn" style="margin-bottom:20px">⚠ Technischer Entwurf — muss vor dem Launch rechtlich geprüft werden. Kein Rechtsbeistand.</div>
+
+    <h2 class="section">1. Controller / Verantwortlicher</h2>
+    <p class="sub">Someday App — [Kontaktadresse für Datenschutzanfragen eintragen] ⚠</p>
+
+    <h2 class="section">2. Data we process</h2>
+    <div class="rowcard" style="margin-bottom:10px">
+      <p style="margin:0 0 6px;font-weight:800">Account data (Firebase Authentication)</p>
+      <p class="sub" style="margin:0">Email address, display name, profile photo (if sign-in via Google), unique user ID.</p>
+    </div>
+    <div class="rowcard" style="margin-bottom:10px">
+      <p style="margin:0 0 6px;font-weight:800">Profile data</p>
+      <p class="sub" style="margin:0">Username, bio, display name as stored in your profile.</p>
+    </div>
+    <div class="rowcard" style="margin-bottom:10px">
+      <p style="margin:0 0 6px;font-weight:800">Activity data</p>
+      <p class="sub" style="margin:0">Events you create or RSVP to, spaces you belong to, friend connections, notifications, invites.</p>
+    </div>
+
+    <h2 class="section">3. Purpose and legal basis</h2>
+    <p class="sub">Your data is processed to provide the service (account, events, social features). Legal basis: Art. 6(1)(b) GDPR — performance of a contract / steps prior to entering into a contract. ⚠ Confirm legal basis with counsel.</p>
+
+    <h2 class="section">4. Data retention</h2>
+    <p class="sub">Your personal data is stored for as long as your account exists. You can delete your account at any time via Profile → Settings → "Delete my account". Events you created that other people attended may be retained for those participants. ⚠ Retention periods must be specified by legal/product decision.</p>
+
+    <h2 class="section">5. Your rights (Art. 15–21 GDPR)</h2>
+    <p class="sub">You have the right to access, rectification, erasure, data portability, restriction, and to object. Use Profile → Settings to export your data or delete your account. For all other requests, contact us at [Datenschutz-E-Mail eintragen] ⚠. You also have the right to lodge a complaint with the competent supervisory authority.</p>
+
+    <h2 class="section">6. Processors / Subprocessors</h2>
+    <p class="sub">Google LLC (Firebase Authentication, Realtime Database) — data may be processed in the US. Appropriate safeguards apply (Google's Data Processing Terms). ⚠ DPA / Auftragsverarbeitungsvertrag mit Firebase / Google prüfen.</p>
+
+    <p class="footnote" style="margin-top:28px">Stand: [Datum nach rechtlicher Prüfung eintragen] ⚠ — Entwurf, nicht rechtsverbindlich.</p>
+    <button class="btn secondary full" style="margin-top:12px" onclick="nav('Profile')">← Back to Profile</button>
+  </div>`;
+}
+
 // Google Sign-In.
 // Uses popup first — popup stays on the same page and avoids Safari ITP cookie
 // issues that break the redirect flow in PWA standalone mode and iOS Safari.
@@ -265,7 +308,7 @@ function _signInForm() {
     <input id="auth-pw" class="field" type="password" placeholder="Password${mode==='signup'?' (min 6 chars)':''}" autocomplete="${mode==='signup'?'new-password':'current-password'}" style="margin-bottom:10px">
     <div id="auth-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
     ${mode === 'signup'
-      ? button('Create account →', '_signUp()', 'full')
+      ? button('Create account →', '_signUp()', 'full') + `<p class="footnote" style="margin-top:14px;text-align:center;line-height:1.7">Wenn du ein Konto erstellst, werden deine Daten zur Bereitstellung des Dienstes gemäß unserer <button onclick="nav('Privacy')" style="border:0;background:none;padding:0;color:#277c42;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer">Datenschutzerklärung</button> verarbeitet.</p>`
       : button('Sign in →', '_signIn()', 'full')}
   </div>`;
 }
@@ -325,8 +368,9 @@ function _profileTab() {
     ${button('Sign out', '_signOut()', 'secondary full')}
     <h2 class="section" style="margin-top:28px">Your data</h2>
     <p class="footnote" style="margin-bottom:10px">Download a copy of all your personal data or permanently delete your account.</p>
-    <button id="gdpr-export-btn" class="rowbtn full" onclick="_exportData()" style="margin-bottom:8px">Export my data</button>
-    <button id="gdpr-delete-btn" class="rowbtn full danger" onclick="_deleteAccount()">Delete my account</button>` :
+    <button id="gdpr-export-btn" class="btn secondary full" onclick="_exportData()" style="margin-bottom:8px">⬇ Export my data</button>
+    <button id="gdpr-delete-btn" class="btn full" onclick="_deleteAccount()" style="background:#fce8e6;color:#c0392b;border:0">Delete my account</button>
+    <p class="footnote" style="margin-top:20px;text-align:center"><button onclick="nav('Privacy')" style="border:0;background:none;padding:0;color:#277c42;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer">Datenschutzerklärung</button></p>` :
     `<div class="profiletop">
       <div class="hrow">
         <div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">${_currentUser && _currentUser.photoURL ? `<img src="${esc(_currentUser.photoURL)}" style="width:58px;height:58px;border-radius:50%;object-fit:cover" alt="">` : _avatarLetter()}</div>
@@ -399,7 +443,7 @@ window.render = function render() {
     const pages = { activity: detail, provider, session, space, planning, event: eventPage,
       booking: () => `<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>` };
     p = S.page === 'home'
-      ? ({ Discover: discovery, Calendar: calendar, Spaces: spaces, Profile: _profileTab }[S.tab] || discovery)()
+      ? ({ Discover: discovery, Calendar: calendar, Spaces: spaces, Profile: _profileTab, Privacy: _privacyPage }[S.tab] || discovery)()
       : (pages[S.page] || discovery)();
   }
   $('app').innerHTML = (_currentUser ? _header() : header()) + p + bottom()
