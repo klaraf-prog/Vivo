@@ -12,7 +12,7 @@ const MAX_SOURCES     = 5;
 const MAX_SUGGESTIONS = 20;
 const MAX_LLM_CALLS   = 10;
 const FETCH_TIMEOUT_MS = 8000;
-const MAX_BODY_BYTES   = 150_000;
+const MAX_BODY_BYTES   = 400_000;
 
 // LLM constants
 const LLM_MODEL            = 'claude-haiku-5-5';
@@ -213,6 +213,20 @@ function analyzeHtmlStructure(html) {
   // Which semantic element was selected for extraction
   const { selectedBy } = selectMainContent(html);
 
+  // Was the truncation boundary reached before </head>? (head spans full document)
+  const headComplete = /<\/head>/i.test(html);
+
+  // Does a <body> tag appear in the HTML? If not, we never reached page content.
+  const bodyIdx = html.search(/<body[\s>]/i);
+  const hasBody = bodyIdx >= 0;
+  // What percentage through the document does <body> first appear?
+  const bodyPositionPercent = hasBody && rawSize > 0 ? Math.round((bodyIdx / rawSize) * 100) : null;
+
+  // Embedded JSON blob signals (before stripping removed them)
+  const hasNextData   = /__NEXT_DATA__/.test(html);
+  const hasNuxtData   = /__NUXT__|__NUXT_DATA__/.test(html);
+  const hasJsonScript = /<script[^>]+type=["']application\/json["']/i.test(html);
+
   return {
     rawSizeChars:        rawSize,
     afterHeadChars:      afterHead.length,
@@ -226,6 +240,14 @@ function analyzeHtmlStructure(html) {
     scriptTypes,
     cssLeakPercent:      cssRatio,
     selectedBy,
+    // Truncation diagnostics
+    headComplete,        // false = </head> missing → we never got past <head>
+    hasBody,             // false = <body> tag not found → content not reached
+    bodyPositionPercent, // % through document where <body> starts (null if absent)
+    // Embedded structured data signals
+    hasNextData,
+    hasNuxtData,
+    hasJsonScript,
   };
 }
 
@@ -588,6 +610,20 @@ async function fetchSource(source) {
       contentQuality,          // { skip, issues, hasEventKeywords }
       htmlDiagnostics,         // structural analysis: step sizes, tag inventory, semantic elements
       contentSelectedBy,       // which selector chose the extraction scope
+      // Truncation and content-reach summary for dry-run visibility
+      truncationDiag: {
+        wasTruncated:    truncated,
+        limitKB:         Math.round(MAX_BODY_BYTES / 1000),
+        fetchedKB:       Math.round(totalBytes / 1000),
+        headComplete:    htmlDiagnostics.headComplete,
+        bodyFound:       htmlDiagnostics.hasBody,
+        bodyPositionPct: htmlDiagnostics.bodyPositionPercent,
+        hasNextData:     htmlDiagnostics.hasNextData,
+        hasNuxtData:     htmlDiagnostics.hasNuxtData,
+        hasJsonScript:   htmlDiagnostics.hasJsonScript,
+        jsonLdEvents:    jsonLdEvents.length,
+        embeddedEvents:  embeddedScriptData.reduce((n, g) => n + g.events.length, 0),
+      },
       signals,
       locationSignal,
       detectedSignalCount: detectedCount,

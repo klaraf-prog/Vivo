@@ -631,6 +631,53 @@ describe('_analyzeHtmlStructure', () => {
     expect(diag.topTags.some(t => t.startsWith('p('))).toBe(true);
     expect(diag.topTags.some(t => t.startsWith('div('))).toBe(true);
   });
+
+  test('headComplete is true when </head> is present', () => {
+    const html = '<html><head><title>Test</title></head><body><p>Content</p></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.headComplete).toBe(true);
+  });
+
+  test('headComplete is false when </head> is missing (truncated document)', () => {
+    // Simulate a truncated page where </head> never appears
+    const html = '<html><head><style>.a { color: red; } .b { margin: 0; }';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.headComplete).toBe(false);
+  });
+
+  test('hasBody is true when <body> tag is present', () => {
+    const html = '<html><head></head><body><p>Content</p></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasBody).toBe(true);
+    expect(diag.bodyPositionPercent).toBeGreaterThanOrEqual(0);
+    expect(diag.bodyPositionPercent).toBeLessThan(100);
+  });
+
+  test('hasBody is false when <body> is absent (truncated in head)', () => {
+    const html = '<html><head><title>Title</title><style>.a { color: red; }';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasBody).toBe(false);
+    expect(diag.bodyPositionPercent).toBeNull();
+  });
+
+  test('detects __NEXT_DATA__ signal', () => {
+    const html = '<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{}}</script></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasNextData).toBe(true);
+    expect(diag.hasNuxtData).toBe(false);
+  });
+
+  test('detects __NUXT__ signal', () => {
+    const html = '<html><body><script>window.__NUXT__={data:[]}</script></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasNuxtData).toBe(true);
+  });
+
+  test('detects generic JSON script', () => {
+    const html = '<html><body><script type="application/json">{"items":[]}</script></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasJsonScript).toBe(true);
+  });
 });
 
 // ── _looksLikeEventObject ─────────────────────────────────────────────────────

@@ -1637,7 +1637,41 @@ function _renderPipelinePanel(runs) {
         ? `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">JSON-LD Events (${jsonLdCount} gefunden)</summary><ul style="font-size:.72rem;margin:3px 0 0 14px;padding:0">${sr.jsonLdEventSample.map(e => `<li>${esc(e.name || '(kein Name)')}${e.startDate ? ' · ' + esc(e.startDate) : ''}${e.endDate ? '–' + esc(e.endDate) : ''}</li>`).join('')}${jsonLdCount > 3 ? `<li style="color:var(--muted)">… und ${jsonLdCount - 3} weitere</li>` : ''}</ul></details>`
         : '';
 
-      // HTML structure diagnostics — always shown to help understand extraction quality
+      // Truncation + content-reach status — shown prominently
+      const td = sr.truncationDiag;
+      const truncationRow = td ? (() => {
+        const parts = [];
+        if (td.wasTruncated) {
+          parts.push(`<span style="color:var(--danger)">✂ Abgeschnitten bei ${td.limitKB}K (${td.fetchedKB}K geladen)</span>`);
+        } else {
+          parts.push(`<span style="color:var(--green,#22c55e)">✓ Vollständig (${td.fetchedKB}K)</span>`);
+        }
+        if (td.headComplete === false) {
+          parts.push(`<span style="color:var(--danger)">✗ &lt;/head&gt; fehlt — nur CSS/Head erhalten</span>`);
+        } else if (td.headComplete === true) {
+          parts.push(`<span style="color:var(--green,#22c55e)">✓ &lt;head&gt; vollständig</span>`);
+        }
+        if (td.bodyFound === false) {
+          parts.push(`<span style="color:var(--danger)">✗ &lt;body&gt; nicht erreicht</span>`);
+        } else if (td.bodyFound === true) {
+          const pct = td.bodyPositionPct != null ? ` bei ${td.bodyPositionPct}%` : '';
+          parts.push(`<span style="color:var(--green,#22c55e)">✓ &lt;body&gt; gefunden${pct}</span>`);
+        }
+        const dataSignals = [];
+        if (td.hasNextData) dataSignals.push('__NEXT_DATA__');
+        if (td.hasNuxtData) dataSignals.push('__NUXT__');
+        if (td.hasJsonScript) dataSignals.push('JSON-Script');
+        if (dataSignals.length > 0) {
+          const color = td.embeddedEvents > 0 ? 'var(--green,#22c55e)' : 'var(--warning,#f59e0b)';
+          parts.push(`<span style="color:${color}">${esc(dataSignals.join(', '))} erkannt${td.embeddedEvents > 0 ? ` → ${td.embeddedEvents} Events extrahiert` : ' → 0 Events (JSON ggf. abgeschnitten)'}</span>`);
+        }
+        if (td.jsonLdEvents > 0) {
+          parts.push(`<span style="color:var(--green,#22c55e)">JSON-LD: ${td.jsonLdEvents} Events</span>`);
+        }
+        return `<div style="font-size:.75rem;margin-top:3px;display:flex;flex-wrap:wrap;gap:6px">${parts.join('')}</div>`;
+      })() : '';
+
+      // HTML structure diagnostics — collapsible detail
       const diag = sr.htmlDiagnostics;
       const htmlStructDiag = diag ? (() => {
         const steps = [
@@ -1658,10 +1692,10 @@ function _renderPipelinePanel(runs) {
         const selectedNote = diag.selectedBy && diag.selectedBy !== 'full-document'
           ? `<span style="color:var(--green,#22c55e)"> · Extraktion: ${esc(diag.selectedBy)}</span>`
           : ` · Extraktion: full-document`;
-        return `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">HTML-Struktur</summary><div style="font-size:.72rem;padding:3px 0 0">${steps}${cssWarn}${selectedNote}<br>Semantik: ${semantic || '<em>keine Landmarks</em>'}</div></details>`;
+        return `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">HTML-Struktur (Details)</summary><div style="font-size:.72rem;padding:3px 0 0">${steps}${cssWarn}${selectedNote}<br>Semantik: ${semantic || '<em>keine Landmarks</em>'}</div></details>`;
       })() : '';
 
-      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge}${embeddedBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${qualityNote}${jsonLdSample}${htmlStructDiag}${llmDiag}</div>`;
+      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge}${embeddedBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${truncationRow}${qualityNote}${jsonLdSample}${htmlStructDiag}${llmDiag}</div>`;
     }).join('');
     const skipNotes = [
       r.sourcesSkippedInactive     > 0 ? `${r.sourcesSkippedInactive} inaktiv`     : null,
