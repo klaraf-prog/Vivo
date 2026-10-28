@@ -124,12 +124,126 @@ const SIGNAL_PATTERNS = {
 // ── HTML stripping ────────────────────────────────────────────────────────────
 function stripHtml(html) {
   return html
+    // Remove entire head section (meta, title, link tags, etc.)
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    // Remove scripts and styles (including JSON-LD — already extracted separately)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    // Remove SVG, noscript, iframe — not useful text
+    .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, ' ')
+    // Remove all remaining tags
     .replace(/<[^>]+>/g, ' ')
+    // Decode common HTML entities
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#?\w+;/g, ' ')
+    // Remove leftover CSS-like fragments: selectors, properties, braces, @-rules
+    .replace(/@[a-zA-Z-]+\s*[^;{]*[;{][^}]*}/g, ' ')
+    .replace(/\b[a-zA-Z-]+\s*:\s*[^;{}\n]{1,120}\s*;/g, ' ')
+    .replace(/[{}]/g, ' ')
+    // Normalize whitespace
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// ── JSON-LD extraction ────────────────────────────────────────────────────────
+// Extracts structured event/place data from <script type="application/ld+json"> blocks.
+// Returns an array of JSON-LD items; invalid blocks are silently skipped.
+function extractJsonLd(html) {
+  const items = [];
+  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const parsed = JSON.parse(m[1]);
+      // Handle both single objects and @graph arrays
+      const nodes = parsed['@graph'] ? parsed['@graph'] : [parsed];
+      for (const node of nodes) {
+        if (node && typeof node === 'object') items.push(node);
+      }
+    } catch {
+      // Skip malformed JSON-LD
+    }
+  }
+  return items;
+}
+
+// Returns those JSON-LD items that are schema.org Event (or subtype).
+function filterJsonLdEvents(items) {
+  const EVENT_TYPES = new Set([
+    'Event', 'SocialEvent', 'Festival', 'MusicEvent', 'SportsEvent',
+    'ExhibitionEvent', 'TheaterEvent', 'ScreeningEvent', 'ChildrensEvent',
+    'ComedyEvent', 'DanceEvent', 'FoodEvent', 'LiteraryEvent', 'SaleEvent',
+  ]);
+  return items.filter(item => {
+    const type = item['@type'];
+    if (typeof type === 'string') return EVENT_TYPES.has(type);
+    if (Array.isArray(type)) return type.some(t => EVENT_TYPES.has(t));
+    return false;
+  });
+}
+
+// Formats JSON-LD events as readable text for the LLM prompt.
+function formatJsonLdEventsForPrompt(events, maxEvents = 30) {
+  return events.slice(0, maxEvents).map(e => {
+    const parts = [];
+    if (e.name) parts.push(`Name: ${e.name}`);
+    if (e.description) parts.push(`Beschreibung: ${String(e.description).slice(0, 300)}`);
+    if (e.startDate) parts.push(`Beginn: ${e.startDate}`);
+    if (e.endDate) parts.push(`Ende: ${e.endDate}`);
+    const loc = e.location;
+    if (loc) {
+      const addr = loc.address;
+      if (addr) {
+        const addrStr = typeof addr === 'string' ? addr
+          : [addr.streetAddress, addr.postalCode, addr.addressLocality].filter(Boolean).join(', ');
+        if (addrStr) parts.push(`Ort: ${addrStr}`);
+      } else if (loc.name) {
+        parts.push(`Ort: ${loc.name}`);
+      }
+    }
+    if (e.offers) {
+      const offer = Array.isArray(e.offers) ? e.offers[0] : e.offers;
+      if (offer?.price != null) parts.push(`Preis: ${offer.price}${offer.priceCurrency ? ' ' + offer.priceCurrency : ''}`);
+      else if (offer?.name) parts.push(`Preis: ${offer.name}`);
+    }
+    if (e.url) parts.push(`URL: ${e.url}`);
+    if (e.organizer) {
+      const org = Array.isArray(e.organizer) ? e.organizer[0] : e.organizer;
+      if (org?.name) parts.push(`Veranstalter: ${org.name}`);
+    }
+    return parts.join(' | ');
+  }).filter(Boolean).join('\n');
+}
+
+// ── Content quality assessment ────────────────────────────────────────────────
+// Detects if the stripped text is mostly CSS/navigation instead of real content.
+// Returns { skip: bool, issues: string[], hasEventKeywords: bool }
+function assessContentQuality(text, jsonLdEventCount) {
+  const issues = [];
+
+  // CSS leak: many property:value; patterns remaining after stripHtml
+  const cssPatternCount = (text.match(/\b[a-z-]{3,30}\s*:\s*[^;\n]{3,80}\b/g) || []).length;
+  const wordCount = (text.match(/\b\w{3,}\b/g) || []).length;
+  const cssRatio = wordCount > 0 ? cssPatternCount / wordCount : 0;
+  if (cssRatio > 0.15) issues.push(`CSS leak: ${Math.round(cssRatio * 100)}% of tokens look like CSS (${cssPatternCount} patterns)`);
+
+  // Navigation-heavy: many short lines / list items, few sentences
+  const sentenceCount = (text.match(/[.!?]\s/g) || []).length;
+  if (wordCount > 200 && sentenceCount < 5) issues.push(`Navigation-heavy: ${sentenceCount} sentences in ${wordCount} words`);
+
+  // Very short after stripping
+  if (text.length < 200) issues.push(`Very short text: ${text.length} chars after stripping`);
+
+  // Event keywords — a positive signal (no \b: German compound words like "Weihnachtsmarkt" contain these)
+  const eventKeywords = /(markt|weihnacht|advent|festival|konzert|ausstellung|veranstaltung|event|messe|theater|museum|ticket|eintrittspreis|öffnungszeit|öffnet|geöffnet)/i;
+  const hasEventKeywords = eventKeywords.test(text);
+
+  // Skip LLM if content is clearly CSS/nav or extremely short AND no JSON-LD events AND no event keywords
+  const skip = (issues.length > 0 && !hasEventKeywords && jsonLdEventCount === 0)
+    || (text.length < 200 && !hasEventKeywords && jsonLdEventCount === 0);
+
+  return { skip, issues, hasEventKeywords };
 }
 
 // ── Text condensing ───────────────────────────────────────────────────────────
@@ -215,10 +329,16 @@ async function fetchSource(source) {
     }
 
     const decoder = new TextDecoder('utf-8', { fatal: false });
-    const raw = chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
-    const text = stripHtml(raw);
+    const rawHtml = chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
+
+    // Extract JSON-LD structured data before stripping HTML
+    const jsonLdItems  = extractJsonLd(rawHtml);
+    const jsonLdEvents = filterJsonLdEvents(jsonLdItems);
+
+    const text = stripHtml(rawHtml);
     const signals = detectSignals(text);
     const detectedCount = Object.values(signals).filter(s => s.detected).length;
+    const contentQuality = assessContentQuality(text, jsonLdEvents.length);
 
     // Extract best address candidate from location signal examples for later LLM use
     const locExamples = signals.location?.examples || [];
@@ -237,6 +357,17 @@ async function fetchSource(source) {
       truncated,
       textLength: text.length,
       text,                    // included for LLM extraction; stripped before report storage
+      jsonLdItems,             // all JSON-LD items (for LLM); stripped before report storage
+      jsonLdEvents,            // schema.org Event items only; stripped before report storage
+      jsonLdItemCount: jsonLdItems.length,
+      jsonLdEventCount: jsonLdEvents.length,
+      // First 3 events as a diagnostic sample (names only, no personal data)
+      jsonLdEventSample: jsonLdEvents.slice(0, 3).map(e => ({
+        name: e.name || null,
+        startDate: e.startDate || null,
+        endDate: e.endDate || null,
+      })),
+      contentQuality,          // { skip, issues, hasEventKeywords }
       signals,
       locationSignal,
       detectedSignalCount: detectedCount,
@@ -250,7 +381,7 @@ async function fetchSource(source) {
 }
 
 // ── LLM extraction prompt ─────────────────────────────────────────────────────
-function buildExtractionPrompt(text, city) {
+function buildExtractionPrompt(text, city, jsonLdEvents) {
   const condensed = condensePipelineText(text, LLM_TEXT_LIMIT);
   const system = `You extract individual activity and event listings from website text for the city of ${city}.
 
@@ -264,7 +395,11 @@ Rules:
 - Ignore navigation menus, cookie notices, breadcrumbs and footer content.
 - Maximum ${MAX_SUGGESTIONS} activities.`;
 
-  const user = `Extract all individual activities from the following website text:\n\n${condensed}`;
+  const jsonLdSection = (jsonLdEvents && jsonLdEvents.length > 0)
+    ? `\n\n--- STRUCTURED EVENT DATA (JSON-LD, high confidence) ---\n${formatJsonLdEventsForPrompt(jsonLdEvents)}\n--- END STRUCTURED DATA ---\n\n`
+    : '';
+
+  const user = `Extract all individual activities from the following website content.${jsonLdSection}Website text:\n\n${condensed}`;
   // Return a brief preview of what was sent to the LLM for diagnostics
   const condensedPreview = condensed.slice(0, 800);
   return { system, user, condensedPreview };
@@ -286,8 +421,8 @@ function extractJsonFromLLMResponse(raw) {
 }
 
 // ── Call Anthropic API ────────────────────────────────────────────────────────
-async function callAnthropicAPI(text, city, apiKey) {
-  const { system, user, condensedPreview } = buildExtractionPrompt(text, city);
+async function callAnthropicAPI(text, city, apiKey, jsonLdEvents) {
+  const { system, user, condensedPreview } = buildExtractionPrompt(text, city, jsonLdEvents);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
@@ -506,8 +641,15 @@ exports.handler = async (event) => {
         if (llmCallsUsed >= MAX_LLM_CALLS) break;
         if (suggestionsSaved >= MAX_SUGGESTIONS) break;
 
+        // Skip LLM if content quality is poor and there are no JSON-LD events
+        if (result.contentQuality?.skip) {
+          result.llmSkipped = true;
+          result.llmSkipReason = result.contentQuality.issues.join('; ');
+          continue;
+        }
+
         llmCallsUsed++;
-        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey);
+        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey, result.jsonLdEvents);
         totalInputTokens  += inputTokens;
         totalOutputTokens += outputTokens;
 
@@ -606,8 +748,8 @@ exports.handler = async (event) => {
         + (totalOutputTokens / 1_000_000) * PRICE_OUTPUT_PER_MTOK
       : 0;
 
-    // Strip raw text from results before storing (keep signals + metadata)
-    const sourceResults = fetchResults.map(({ text: _text, ...rest }) => rest);
+    // Strip raw text and large JSON-LD arrays from results before storing
+    const sourceResults = fetchResults.map(({ text: _text, jsonLdItems: _items, jsonLdEvents: _events, ...rest }) => rest);
 
     const report = {
       runId,
@@ -652,6 +794,10 @@ exports.handler = async (event) => {
 exports._stripHtml              = stripHtml;
 exports._condensePipelineText   = condensePipelineText;
 exports._detectSignals          = detectSignals;
+exports._extractJsonLd          = extractJsonLd;
+exports._filterJsonLdEvents     = filterJsonLdEvents;
+exports._formatJsonLdEventsForPrompt = formatJsonLdEventsForPrompt;
+exports._assessContentQuality   = assessContentQuality;
 exports._fetchSource            = fetchSource;
 exports._buildExtractionPrompt  = buildExtractionPrompt;
 exports._extractJsonFromLLMResponse = extractJsonFromLLMResponse;

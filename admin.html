@@ -1590,8 +1590,25 @@ function _renderPipelinePanel(runs) {
     const srcRows = (r.sourceResults || []).map(sr => {
       if (sr.error) return `<div style="font-size:.82rem;padding:3px 0;color:var(--danger)">✗ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a> — ${esc(sr.error)}</div>`;
       const detected = sr.signals ? Object.entries(sr.signals).filter(([,v]) => v.detected).map(([k]) => k) : [];
-      const llmDiag = r.mode === 'live' && sr.llmActivitiesFound != null
+
+      // JSON-LD badge
+      const jsonLdCount = sr.jsonLdEventCount ?? 0;
+      const jsonLdBadge = jsonLdCount > 0
+        ? `<span style="font-size:.72rem;background:var(--green,#22c55e);color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px">JSON-LD: ${jsonLdCount} Events</span>`
+        : '';
+
+      // Content quality warning
+      const qualityIssues = sr.contentQuality?.issues || [];
+      const qualityNote = qualityIssues.length > 0
+        ? `<div style="font-size:.75rem;color:var(--warning,#f59e0b);margin-top:2px">⚠ ${esc(qualityIssues.join(' · '))}</div>`
+        : '';
+
+      const llmDiag = r.mode === 'live'
         ? (() => {
+            if (sr.llmSkipped) {
+              return `<div style="font-size:.78rem;color:var(--muted);margin-top:2px">LLM übersprungen: ${esc(sr.llmSkipReason || 'Inhalt ungeeignet')}</div>`;
+            }
+            if (sr.llmActivitiesFound == null) return '';
             const found = sr.llmActivitiesFound;
             const saved = sr.llmActivitiesSaved ?? 0;
             const rejected = sr.llmActivitiesRejected ?? 0;
@@ -1606,7 +1623,13 @@ function _renderPipelinePanel(runs) {
             return `<div style="font-size:.78rem;color:${diagColor};margin-top:2px">${diagText}${preview}</div>`;
           })()
         : '';
-      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a> — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${llmDiag}</div>`;
+
+      // JSON-LD event sample for dry-run diagnostics
+      const jsonLdSample = sr.jsonLdEventSample?.length
+        ? `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">JSON-LD Events (${jsonLdCount} gefunden)</summary><ul style="font-size:.72rem;margin:3px 0 0 14px;padding:0">${sr.jsonLdEventSample.map(e => `<li>${esc(e.name || '(kein Name)')}${e.startDate ? ' · ' + esc(e.startDate) : ''}${e.endDate ? '–' + esc(e.endDate) : ''}</li>`).join('')}${jsonLdCount > 3 ? `<li style="color:var(--muted)">… und ${jsonLdCount - 3} weitere</li>` : ''}</ul></details>`
+        : '';
+
+      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${qualityNote}${jsonLdSample}${llmDiag}</div>`;
     }).join('');
     const skipNotes = [
       r.sourcesSkippedInactive     > 0 ? `${r.sourcesSkippedInactive} inaktiv`     : null,

@@ -109,7 +109,10 @@ jest.mock('../netlify/functions/_studio-shared', () => {
   };
 });
 
-const { handler, _stripHtml, _detectSignals, _condensePipelineText } = require('../netlify/functions/discovery-pipeline');
+const {
+  handler, _stripHtml, _detectSignals, _condensePipelineText,
+  _extractJsonLd, _filterJsonLdEvents, _formatJsonLdEventsForPrompt, _assessContentQuality,
+} = require('../netlify/functions/discovery-pipeline');
 const shared = require('../netlify/functions/_studio-shared');
 
 function makeEvent(method, body, authHeader = 'Bearer tok') {
@@ -356,5 +359,151 @@ describe('dry-run pipeline', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.runs).toBeDefined();
+  });
+});
+
+// ── _stripHtml: improved removal ──────────────────────────────────────────────
+describe('_stripHtml improvements', () => {
+  test('removes <head> section entirely', () => {
+    const html = '<html><head><title>Page</title><meta name="x" content="y"><link rel="stylesheet" href="a.css"></head><body>Content here</body></html>';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('stylesheet');
+    expect(result).not.toContain('meta');
+    expect(result).toContain('Content here');
+  });
+
+  test('removes <svg> blocks', () => {
+    const html = '<p>Text</p><svg viewBox="0 0 100 100"><path d="M 0 0"/></svg><p>After</p>';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('viewBox');
+    expect(result).not.toContain('path');
+    expect(result).toContain('Text');
+    expect(result).toContain('After');
+  });
+
+  test('removes <noscript> blocks', () => {
+    const html = '<noscript><img src="tracker.gif"></noscript>Real content';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('tracker');
+    expect(result).toContain('Real content');
+  });
+
+  test('removes leftover CSS property fragments', () => {
+    // CSS that leaks through as text content (e.g. from CSS-in-JS SSR)
+    const cssLeak = 'background-color: #fff; font-size: 14px; color: red; Weihnachtsmarkt am Dom';
+    const result = _stripHtml(cssLeak);
+    expect(result).toContain('Weihnachtsmarkt');
+    // Reduced CSS noise
+    const cssPatterns = (result.match(/\b[a-z-]+:\s+[^;]+;/g) || []).length;
+    expect(cssPatterns).toBe(0);
+  });
+});
+
+// ── _extractJsonLd ────────────────────────────────────────────────────────────
+describe('_extractJsonLd', () => {
+  test('extracts single JSON-LD object', () => {
+    const html = `<html><script type="application/ld+json">{"@type":"Event","name":"Weihnachtsmarkt"}</script></html>`;
+    const items = _extractJsonLd(html);
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe('Weihnachtsmarkt');
+  });
+
+  test('extracts multiple JSON-LD blocks', () => {
+    const html = `
+      <script type="application/ld+json">{"@type":"Event","name":"Markt 1"}</script>
+      <script type="application/ld+json">{"@type":"Event","name":"Markt 2"}</script>
+    `;
+    const items = _extractJsonLd(html);
+    expect(items).toHaveLength(2);
+  });
+
+  test('extracts @graph arrays', () => {
+    const html = `<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Event","name":"A"},{"@type":"Place","name":"B"}]}</script>`;
+    const items = _extractJsonLd(html);
+    expect(items).toHaveLength(2);
+    expect(items.map(i => i.name)).toEqual(['A', 'B']);
+  });
+
+  test('skips malformed JSON-LD silently', () => {
+    const html = `<script type="application/ld+json">{broken json</script><script type="application/ld+json">{"@type":"Event","name":"Valid"}</script>`;
+    const items = _extractJsonLd(html);
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe('Valid');
+  });
+
+  test('returns empty array when no JSON-LD present', () => {
+    const html = '<html><body>No structured data here</body></html>';
+    const items = _extractJsonLd(html);
+    expect(items).toEqual([]);
+  });
+});
+
+// ── _filterJsonLdEvents ───────────────────────────────────────────────────────
+describe('_filterJsonLdEvents', () => {
+  test('returns only Event-type items', () => {
+    const items = [
+      { '@type': 'Event', name: 'Konzert' },
+      { '@type': 'Place', name: 'Dom' },
+      { '@type': 'Festival', name: 'Fest' },
+      { '@type': 'Organization', name: 'Org' },
+    ];
+    const events = _filterJsonLdEvents(items);
+    expect(events).toHaveLength(2);
+    expect(events.map(e => e.name)).toEqual(['Konzert', 'Fest']);
+  });
+
+  test('handles array @type', () => {
+    const items = [{ '@type': ['Event', 'MusicEvent'], name: 'Konzert' }];
+    const events = _filterJsonLdEvents(items);
+    expect(events).toHaveLength(1);
+  });
+
+  test('returns empty array when no events present', () => {
+    const items = [{ '@type': 'WebSite' }, { '@type': 'BreadcrumbList' }];
+    expect(_filterJsonLdEvents(items)).toEqual([]);
+  });
+});
+
+// ── _assessContentQuality ─────────────────────────────────────────────────────
+describe('_assessContentQuality', () => {
+  test('marks CSS-heavy text for skipping (no JSON-LD events)', () => {
+    const cssText = Array.from({ length: 50 }, (_, i) =>
+      `color: #${i.toString(16).padStart(3, '0')}; background-color: white; font-size: ${i}px;`
+    ).join(' ');
+    const result = _assessContentQuality(cssText, 0);
+    expect(result.skip).toBe(true);
+    expect(result.issues.length).toBeGreaterThan(0);
+  });
+
+  test('does not skip CSS-heavy text when JSON-LD events are present', () => {
+    const cssText = Array.from({ length: 50 }, (_, i) =>
+      `color: #${i.toString(16).padStart(3, '0')}; background-color: white; font-size: ${i}px;`
+    ).join(' ');
+    const result = _assessContentQuality(cssText, 3);
+    expect(result.skip).toBe(false);
+  });
+
+  test('marks very short text for skipping (no JSON-LD events)', () => {
+    const result = _assessContentQuality('Hi', 0);
+    expect(result.skip).toBe(true);
+  });
+
+  test('does not skip real event content', () => {
+    const eventText = 'Der Weihnachtsmarkt am Kölner Dom öffnet am 21. November. Öffnungszeiten täglich 11–21 Uhr. Eintritt frei.';
+    const result = _assessContentQuality(eventText, 0);
+    expect(result.skip).toBe(false);
+    expect(result.hasEventKeywords).toBe(true);
+  });
+
+  test('detects event keywords in German text', () => {
+    const text = 'Weihnachtsmarkt mit vielen Ständen und Konzerten.';
+    const result = _assessContentQuality(text, 0);
+    expect(result.hasEventKeywords).toBe(true);
+  });
+
+  test('returns issues array even when not skipping', () => {
+    const text = 'Weihnachtsmarkt am Dom.';
+    const result = _assessContentQuality(text, 0);
+    expect(Array.isArray(result.issues)).toBe(true);
   });
 });
