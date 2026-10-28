@@ -25,5 +25,5 @@
   from = "/*"
   to   = "/index.html"
   status = 200
-  conditions = {Path = {not = ["/.netlify/*", "/admin", "/admin.html", "/studio.html", "/bootstrap-admin.html", "/sw.js", "/manifest.webmanifest", "/icon-*.png"]}}
+  conditions = {Path = {not = ["/.netlify/*", "/admin", "/admin.html", "/studio.html", "/sw.js", "/manifest.webmanifest", "/icon-*.png"]}}
 
