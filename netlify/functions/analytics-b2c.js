@@ -113,7 +113,7 @@ exports.handler = async (event) => {
   }
 };
 
-function buildTimeBuckets(fromDate, toDate, eventDates) {
+function buildTimeBuckets(fromDate, toDate, eventDates) { // exported for testing
   if (!eventDates.length) return [];
 
   // For all-time view (no date filter), derive range from actual event dates
@@ -171,3 +171,5 @@ function buildTimeBuckets(fromDate, toDate, eventDates) {
   }
   return buckets;
 }
+
+module.exports._buildTimeBuckets = buildTimeBuckets;

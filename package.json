@@ -11,6 +11,7 @@
     "studio:seed-brunch": "node scripts/seed-brunch-club.js"
   },
   "dependencies": {
+    "chart.js": "^4.4.4",
     "firebase-admin": "^12.7.0",
     "resend": "^3.5.0",
     "web-push": "^3.6.7"
