@@ -141,13 +141,13 @@ const VALID_RAW = {
   sourceAttribution: 'Köln Tourismus',
 };
 
-// helper: mock a successful Anthropic API response
+// helper: mock a successful Anthropic API response (tool_use format)
 function mockAnthropicSuccess(activities, inputTokens = 500, outputTokens = 400) {
-  const content = JSON.stringify({ activities });
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
     json: async () => ({
-      content: [{ type: 'text', text: content }],
+      stop_reason: 'tool_use',
+      content: [{ type: 'tool_use', name: 'extract_activities', input: { activities } }],
       usage: { input_tokens: inputTokens, output_tokens: outputTokens },
     }),
   });
@@ -339,10 +339,10 @@ describe('_buildExtractionPrompt', () => {
     expect(system).toMatch(/lat|lng|coord/i);
   });
 
-  test('system prompt requires JSON output only', () => {
+  test('system prompt instructs to use null for unknown fields', () => {
     const { system } = _buildExtractionPrompt('text', 'Köln');
-    expect(system).toMatch(/JSON/i);
-    expect(system).toMatch(/no.*explanation|only.*JSON|Output only/i);
+    expect(system).toMatch(/null/i);
+    expect(system).toMatch(/never.*invent|never.*guess|infer/i);
   });
 });
 
@@ -358,15 +358,16 @@ describe('_callAnthropicAPI', () => {
     expect(result.outputTokens).toBe(200);
   });
 
-  test('sends correct model and API key header', async () => {
+  test('sends correct model, API key header, tool definition and tool_choice', async () => {
     mockAnthropicSuccess([]);
     await _callAnthropicAPI('text', 'Köln', 'my-test-key');
-    const call = global.fetch.mock.calls[0];
-    const [url, options] = call;
+    const [url, options] = global.fetch.mock.calls[0];
     expect(url).toBe('https://api.anthropic.com/v1/messages');
     expect(options.headers['x-api-key']).toBe('my-test-key');
     const body = JSON.parse(options.body);
     expect(body.model).toBe('claude-haiku-5-5');
+    expect(body.tools?.[0]?.name).toBe('extract_activities');
+    expect(body.tool_choice).toEqual({ type: 'tool', name: 'extract_activities' });
   });
 
   test('returns error on HTTP 401', async () => {
@@ -383,25 +384,42 @@ describe('_callAnthropicAPI', () => {
     expect(result.error).toMatch(/429/);
   });
 
-  test('returns error when LLM response is not valid JSON', async () => {
+  test('returns specific error when stop_reason is max_tokens', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        content: [{ type: 'text', text: 'This is not JSON at all.' }],
-        usage: { input_tokens: 100, output_tokens: 50 },
+        stop_reason: 'max_tokens',
+        content: [],
+        usage: { input_tokens: 3000, output_tokens: 4096 },
       }),
     });
     const result = await _callAnthropicAPI('text', 'Köln', 'sk-test');
-    expect(result.error).toMatch(/not valid JSON/i);
-    expect(result.inputTokens).toBe(100);
-    expect(result.outputTokens).toBe(50);
+    expect(result.error).toMatch(/max_tokens/i);
+    expect(result.inputTokens).toBe(3000);
+    expect(result.outputTokens).toBe(4096);
   });
 
-  test('returns error when activities array is missing from LLM response', async () => {
+  test('returns error when no extract_activities tool_use block is present', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        content: [{ type: 'text', text: '{"result": "ok"}' }],
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'I cannot extract activities.' }],
+        usage: { input_tokens: 100, output_tokens: 30 },
+      }),
+    });
+    const result = await _callAnthropicAPI('text', 'Köln', 'sk-test');
+    expect(result.error).toMatch(/tool_use block/i);
+    expect(result.inputTokens).toBe(100);
+    expect(result.outputTokens).toBe(30);
+  });
+
+  test('returns error when activities array is missing from tool input', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stop_reason: 'tool_use',
+        content: [{ type: 'tool_use', name: 'extract_activities', input: { result: 'ok' } }],
         usage: { input_tokens: 80, output_tokens: 30 },
       }),
     });
@@ -412,34 +430,6 @@ describe('_callAnthropicAPI', () => {
   test('returns empty activities array when LLM finds nothing', async () => {
     mockAnthropicSuccess([]);
     const result = await _callAnthropicAPI('empty text', 'Köln', 'sk-test');
-    expect(result.error).toBeNull();
-    expect(result.activities).toHaveLength(0);
-  });
-
-  test('handles response wrapped in markdown code fences', async () => {
-    const wrapped = `\`\`\`json\n${JSON.stringify({ activities: [VALID_RAW] })}\n\`\`\``;
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        content: [{ type: 'text', text: wrapped }],
-        usage: { input_tokens: 200, output_tokens: 400 },
-      }),
-    });
-    const result = await _callAnthropicAPI('text', 'Köln', 'sk-test');
-    expect(result.error).toBeNull();
-    expect(result.activities).toHaveLength(1);
-  });
-
-  test('handles response with preamble before JSON', async () => {
-    const preamble = `Here are the extracted activities:\n${JSON.stringify({ activities: [] })}`;
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        content: [{ type: 'text', text: preamble }],
-        usage: { input_tokens: 100, output_tokens: 50 },
-      }),
-    });
-    const result = await _callAnthropicAPI('text', 'Köln', 'sk-test');
     expect(result.error).toBeNull();
     expect(result.activities).toHaveLength(0);
   });
@@ -531,7 +521,7 @@ describe('handler live mode', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            content: [{ type: 'text', text: JSON.stringify({ activities: [VALID_RAW] }) }],
+            content: [{ type: 'tool_use', name: 'extract_activities', input: { activities: [VALID_RAW] } }], stop_reason: 'tool_use',
             usage: { input_tokens: 400, output_tokens: 300 },
           }),
         });
@@ -580,7 +570,7 @@ describe('handler live mode', () => {
     const anthropicResponse = {
       ok: true,
       json: async () => ({
-        content: [{ type: 'text', text: JSON.stringify({ activities: [VALID_RAW] }) }],
+        content: [{ type: 'tool_use', name: 'extract_activities', input: { activities: [VALID_RAW] } }], stop_reason: 'tool_use',
         usage: { input_tokens: 200, output_tokens: 150 },
       }),
     };
@@ -644,7 +634,7 @@ describe('handler live mode', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            content: [{ type: 'text', text: JSON.stringify({ activities: [] }) }],
+            content: [{ type: 'tool_use', name: 'extract_activities', input: { activities: [] } }], stop_reason: 'tool_use',
             usage: { input_tokens: 1_000_000, output_tokens: 1_000_000 },
           }),
         });
@@ -711,7 +701,7 @@ describe('handler live mode', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            content: [{ type: 'text', text: JSON.stringify({ activities: [] }) }],
+            content: [{ type: 'tool_use', name: 'extract_activities', input: { activities: [] } }], stop_reason: 'tool_use',
             usage: { input_tokens: 10, output_tokens: 10 },
           }),
         });
@@ -787,7 +777,7 @@ describe('handler live mode', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            content: [{ type: 'text', text: JSON.stringify({ activities: [VALID_RAW] }) }],
+            content: [{ type: 'tool_use', name: 'extract_activities', input: { activities: [VALID_RAW] } }], stop_reason: 'tool_use',
             usage: { input_tokens: 100, output_tokens: 80 },
           }),
         });

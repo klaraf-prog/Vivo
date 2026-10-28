@@ -1592,6 +1592,14 @@ function _renderPipelinePanel(runs) {
       const detected = sr.signals ? Object.entries(sr.signals).filter(([,v]) => v.detected).map(([k]) => k) : [];
       return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a> — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}</div>`;
     }).join('');
+    const skipNotes = [
+      r.sourcesSkippedInactive     > 0 ? `${r.sourcesSkippedInactive} inaktiv`     : null,
+      r.sourcesSkippedCityMismatch > 0 ? `${r.sourcesSkippedCityMismatch} Stadt-Mismatch` : null,
+      r.sourcesSkippedDuplicateUrl > 0 ? `${r.sourcesSkippedDuplicateUrl} Duplikat-URL`  : null,
+    ].filter(Boolean);
+    const skipBadge = skipNotes.length
+      ? `<div style="font-size:.78rem;color:var(--muted);margin-top:2px">Übersprungen: ${esc(skipNotes.join(', '))}</div>`
+      : '';
 
     const modeTag = r.mode === 'live'
       ? `<span style="font-size:.75rem;background:var(--green,#22c55e);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px">LLM</span>`
@@ -1628,7 +1636,7 @@ function _renderPipelinePanel(runs) {
         </div>
         ${llmRow}
         ${signalRows ? `<div style="margin-bottom:8px;padding:8px;background:var(--surface2,#f8f9fa);border-radius:6px"><strong style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">SIGNALE PRO QUELLE</strong>${signalRows}</div>` : ''}
-        ${srcRows ? `<div><strong style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">QUELLEN</strong>${srcRows}</div>` : ''}
+        ${srcRows || skipBadge ? `<div><strong style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">QUELLEN (${r.sourcesConsidered ?? 0} gefunden)</strong>${srcRows}${skipBadge}</div>` : ''}
       </div>
     </div>`;
   }).join('');

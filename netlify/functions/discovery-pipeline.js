@@ -29,6 +29,59 @@ const VALID_CATEGORIES = [
   'outdoor', 'food', 'culture', 'family', 'nightlife', 'other',
 ];
 
+// Tool schema forces structured output — no JSON.parse needed.
+const EXTRACTION_TOOL = {
+  name: 'extract_activities',
+  description: 'Extract individual activity/event listings from website text.',
+  input_schema: {
+    type: 'object',
+    required: ['activities'],
+    properties: {
+      activities: {
+        type: 'array',
+        description: 'Each distinct activity as a separate entry. Empty array if none found.',
+        items: {
+          type: 'object',
+          required: ['title', 'description', 'category'],
+          properties: {
+            title:             { type: 'string' },
+            description:       { type: 'string' },
+            category:          { type: 'string', enum: VALID_CATEGORIES },
+            tagline:           { type: ['string', 'null'] },
+            eyebrow:           { type: ['string', 'null'] },
+            providerName:      { type: ['string', 'null'] },
+            website:           { type: ['string', 'null'] },
+            price:             { type: ['string', 'null'] },
+            openingHours:      { type: ['string', 'null'] },
+            exceptionalHours:  { type: ['string', 'null'] },
+            sourceAttribution: { type: ['string', 'null'] },
+            location: {
+              anyOf: [
+                {
+                  type: 'object', required: ['address'],
+                  properties: { address: { type: 'string' } },
+                  additionalProperties: false,
+                },
+                { type: 'null' },
+              ],
+            },
+            operatingPeriod: {
+              anyOf: [
+                {
+                  type: 'object', required: ['from', 'to'],
+                  properties: { from: { type: 'string' }, to: { type: 'string' } },
+                  additionalProperties: false,
+                },
+                { type: 'null' },
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 // ── Signal detection patterns (German + common formats) ──────────────────────
 const SIGNAL_PATTERNS = {
   operatingPeriod: [
@@ -199,41 +252,17 @@ async function fetchSource(source) {
 // ── LLM extraction prompt ─────────────────────────────────────────────────────
 function buildExtractionPrompt(text, city) {
   const condensed = condensePipelineText(text, LLM_TEXT_LIMIT);
-  const system = `You are a structured data extraction assistant. Extract individual activity/event listings from website text for the city of ${city}.
-
-The text may contain navigation menus, cookie notices, breadcrumbs and footer content — ignore these entirely and focus only on distinct activity or event listings.
-
-Output ONLY a valid JSON object with this exact shape:
-{
-  "activities": [
-    {
-      "title": "string (required, max 120 chars — name of this specific activity, not the website name)",
-      "description": "string (required, max 500 chars — describe this specific activity only)",
-      "category": "one of: market|festival|concert|exhibition|sport|outdoor|food|culture|family|nightlife|other",
-      "tagline": "string or null (max 80 chars)",
-      "eyebrow": "string or null (max 60 chars, e.g. season label)",
-      "location": { "address": "string" } or null,
-      "providerName": "string or null",
-      "website": "string (URL) or null",
-      "price": "string or null (human-readable, e.g. 'kostenlos' or '5–10 €')",
-      "operatingPeriod": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" } or null,
-      "openingHours": "string or null (human-readable summary, e.g. 'täglich 11–21 Uhr')",
-      "exceptionalHours": "string or null",
-      "sourceAttribution": "string or null (display name of source website)"
-    }
-  ]
-}
+  const system = `You extract individual activity and event listings from website text for the city of ${city}.
 
 Rules:
-- Extract each distinct activity as a SEPARATE entry — an overview page listing multiple markets must produce one entry per market.
-- Each activity entry must be SELF-CONTAINED: only fill in data explicitly stated for that specific activity. Never copy data from one activity to another.
-- Only include activities clearly located in or explicitly associated with ${city}.
-- NEVER invent, guess or infer data. If a field is not explicitly stated for this specific activity, set it to null.
+- Extract EACH distinct activity as a SEPARATE entry in the activities array.
+- Each entry must be SELF-CONTAINED: only fill a field from data explicitly stated for that specific activity. Never copy data between entries.
+- Only include activities clearly located in or associated with ${city}.
+- NEVER invent, guess or infer data. Use null for unknown fields.
 - Do not include lat/lng coordinates.
-- Dates must be ISO-8601 (YYYY-MM-DD). If only month+year known, use the first day of "from" and last day of "to" month.
-- Maximum ${MAX_SUGGESTIONS} activities per response.
-- If no clear activities are found, return { "activities": [] }.
-- Output only the JSON object, no explanation, no markdown code fences.`;
+- Dates must be ISO-8601 (YYYY-MM-DD). For month+year only, use the first day of the from-month and last day of the to-month.
+- Ignore navigation menus, cookie notices, breadcrumbs and footer content.
+- Maximum ${MAX_SUGGESTIONS} activities.`;
 
   const user = `Extract all individual activities from the following website text:\n\n${condensed}`;
   return { system, user };
@@ -271,7 +300,9 @@ async function callAnthropicAPI(text, city, apiKey) {
       },
       body: JSON.stringify({
         model: LLM_MODEL,
-        max_tokens: 4096,  // up to ~20 JSON activity objects with full details
+        max_tokens: 4096,
+        tools: [EXTRACTION_TOOL],
+        tool_choice: { type: 'tool', name: 'extract_activities' },
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -287,21 +318,24 @@ async function callAnthropicAPI(text, city, apiKey) {
     const inputTokens  = data.usage?.input_tokens  || 0;
     const outputTokens = data.usage?.output_tokens || 0;
 
-    const rawText = data.content?.[0]?.text || '';
-    let parsed;
-    try {
-      parsed = JSON.parse(extractJsonFromLLMResponse(rawText));
-    } catch {
-      // Include a brief snippet (no PII, no API keys) to aid debugging
-      const snippet = rawText.slice(0, 120).replace(/\n/g, ' ');
-      return { activities: [], inputTokens, outputTokens, error: `LLM response is not valid JSON. Preview: ${snippet}` };
+    // Truncation check — must be before content inspection
+    if (data.stop_reason === 'max_tokens') {
+      return { activities: [], inputTokens, outputTokens, error: 'Response truncated (stop_reason: max_tokens). Raise max_tokens or reduce LLM_TEXT_LIMIT.' };
     }
 
-    if (!Array.isArray(parsed?.activities)) {
-      return { activities: [], inputTokens, outputTokens, error: 'LLM response missing activities array' };
+    // Tool use response: the Anthropic API guarantees valid JSON in toolBlock.input
+    const toolBlock = data.content?.find(b => b.type === 'tool_use' && b.name === 'extract_activities');
+    if (!toolBlock) {
+      const stopInfo = data.stop_reason ? ` stop_reason: ${data.stop_reason}` : '';
+      return { activities: [], inputTokens, outputTokens, error: `No extract_activities tool_use block in response.${stopInfo}` };
     }
 
-    return { activities: parsed.activities, inputTokens, outputTokens, error: null };
+    const activities = toolBlock.input?.activities;
+    if (!Array.isArray(activities)) {
+      return { activities: [], inputTokens, outputTokens, error: 'Tool response missing activities array' };
+    }
+
+    return { activities, inputTokens, outputTokens, error: null };
   } catch (err) {
     clearTimeout(timer);
     const msg = err.name === 'AbortError' ? `LLM timeout after ${LLM_TIMEOUT_MS}ms` : String(err.message || err);
@@ -434,12 +468,16 @@ exports.handler = async (event) => {
     // value case/whitespace mismatches that an exact RTDB query would drop silently.
     const sourcesSnap = await db.ref('discoverySources').once('value');
     const allSources = [];
-    let sourcesSkippedInactive = 0;
+    let sourcesSkippedInactive     = 0;
     let sourcesSkippedCityMismatch = 0;
+    let sourcesSkippedDuplicateUrl = 0;
+    const seenUrls = new Set();
     sourcesSnap.forEach(child => {
       const s = child.val();
       if (!s.active) { sourcesSkippedInactive++; return; }
       if (s.city?.trim() !== city) { sourcesSkippedCityMismatch++; return; }
+      if (seenUrls.has(s.url)) { sourcesSkippedDuplicateUrl++; return; }
+      seenUrls.add(s.url);
       allSources.push({ ...s, id: child.key });
     });
 
@@ -570,6 +608,7 @@ exports.handler = async (event) => {
       sourcesFetched: sources.length,
       sourcesSkippedInactive,
       sourcesSkippedCityMismatch,
+      sourcesSkippedDuplicateUrl,
       successCount,
       errorCount,
       signalSummary,
