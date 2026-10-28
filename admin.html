@@ -875,7 +875,10 @@ async function selectSuggestion(id) {
           <div class="edit-field"><label class="edit-label">Preis (Typ)</label><select class="edit-select" id="ef-price-type"><option value="">— wählen —</option><option value="free">Kostenlos</option><option value="donation">Spende</option><option value="fixed">Festpreis</option><option value="variable">Variabel</option></select></div>
           <div class="edit-field"><label class="edit-label">Preis (Betrag EUR)</label><input class="edit-input" id="ef-price-amount" type="number" step="0.01"></div>
           <div class="edit-field full"><label class="edit-label">Preis (Notiz)</label><input class="edit-input" id="ef-price-note"></div>
-          <div class="edit-field full"><label class="edit-label">Terminnotiz</label><input class="edit-input" id="ef-schedule-note"></div>
+          <div class="edit-field"><label class="edit-label">Zeitraum von (JJJJ-MM-TT)</label><input class="edit-input" id="ef-period-from" type="date"></div>
+          <div class="edit-field"><label class="edit-label">Zeitraum bis (JJJJ-MM-TT)</label><input class="edit-input" id="ef-period-to" type="date"></div>
+          <div class="edit-field full"><label class="edit-label">Öffnungszeiten (Freitext)</label><input class="edit-input" id="ef-openingHours" placeholder="z. B. Mo–Fr 11–21 Uhr, Sa–So 11–22 Uhr"></div>
+          <div class="edit-field full"><label class="edit-label">Reguläre Öffnungszeiten (JSON, z. B. [{"days":["mo","di"],"open":"11:00","close":"21:00"}])</label><textarea class="edit-textarea" id="ef-regularHours" rows="3" placeholder='[{"days":["mo","di","mi","do","fr"],"open":"11:00","close":"21:00"}]'></textarea></div>
           <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
           <div class="edit-field full"><label class="edit-label">Quellen (eine URL pro Zeile)</label><textarea class="edit-textarea" id="ef-sources"></textarea></div>
         </div>
@@ -991,7 +994,10 @@ function selectActivity(id) {
           <div class="edit-field"><label class="edit-label">Preis (Typ)</label><select class="edit-select" id="ef-price-type"><option value="">— wählen —</option><option value="free">Kostenlos</option><option value="donation">Spende</option><option value="fixed">Festpreis</option><option value="variable">Variabel</option></select></div>
           <div class="edit-field"><label class="edit-label">Preis (Betrag EUR)</label><input class="edit-input" id="ef-price-amount" type="number" step="0.01"></div>
           <div class="edit-field full"><label class="edit-label">Preis (Notiz)</label><input class="edit-input" id="ef-price-note"></div>
-          <div class="edit-field full"><label class="edit-label">Terminnotiz</label><input class="edit-input" id="ef-schedule-note"></div>
+          <div class="edit-field"><label class="edit-label">Zeitraum von (JJJJ-MM-TT)</label><input class="edit-input" id="ef-period-from" type="date"></div>
+          <div class="edit-field"><label class="edit-label">Zeitraum bis (JJJJ-MM-TT)</label><input class="edit-input" id="ef-period-to" type="date"></div>
+          <div class="edit-field full"><label class="edit-label">Öffnungszeiten (Freitext)</label><input class="edit-input" id="ef-openingHours" placeholder="z. B. Mo–Fr 11–21 Uhr, Sa–So 11–22 Uhr"></div>
+          <div class="edit-field full"><label class="edit-label">Reguläre Öffnungszeiten (JSON, z. B. [{"days":["mo","di"],"open":"11:00","close":"21:00"}])</label><textarea class="edit-textarea" id="ef-regularHours" rows="3" placeholder='[{"days":["mo","di","mi","do","fr"],"open":"11:00","close":"21:00"}]'></textarea></div>
           <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
         </div>
         <div class="edit-actions">
@@ -1068,7 +1074,12 @@ function _fillEditForm(target, data) {
   if (pt) pt.value = data.price?.type || '';
   set('ef-price-amount', data.price?.amount != null ? data.price.amount : '');
   set('ef-price-note', data.price?.note);
-  set('ef-schedule-note', data.schedule?.note);
+  const sch = data.schedule || {};
+  set('ef-period-from', sch.period?.from || data.operatingPeriod?.from || '');
+  set('ef-period-to', sch.period?.to || data.operatingPeriod?.to || '');
+  set('ef-openingHours', data.openingHours || '');
+  const rhEl = document.getElementById('ef-regularHours');
+  if (rhEl) rhEl.value = sch.regularHours ? JSON.stringify(sch.regularHours, null, 2) : '';
   set('ef-imageUrls', (data.imageUrls || []).join('\n'));
   if (target === 'suggestion') set('ef-sources', (data.sources || []).join('\n'));
 }
@@ -1101,8 +1112,15 @@ async function saveEdit(target, id) {
     if (priceAmt && priceAmt.trim() !== '') fields.price.amount = Number(priceAmt);
     if (priceNote) fields.price.note = priceNote;
   } else { fields.price = null; }
-  const schedNote = str('schedule-note');
-  fields.schedule = schedNote ? { note: schedNote } : null;
+  // Merge schedule fields without destroying pipeline-extracted data
+  const currentStore = target === 'suggestion' ? _allSugs : _allActs;
+  const currentSch = { ...((currentStore[id] || {}).schedule || {}) };
+  const pfrom = str('period-from'), pto = str('period-to');
+  if (pfrom && pto) currentSch.period = { from: pfrom, to: pto };
+  const rhRaw = getVal('regularHours')?.trim();
+  if (rhRaw) { try { currentSch.regularHours = JSON.parse(rhRaw); } catch(e) { /* keep existing */ } }
+  fields.schedule = Object.keys(currentSch).length > 0 ? currentSch : null;
+  fields.openingHours = str('openingHours');
   const imgRaw = getVal('imageUrls');
   fields.imageUrls = imgRaw ? imgRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
   if (target === 'suggestion') {
