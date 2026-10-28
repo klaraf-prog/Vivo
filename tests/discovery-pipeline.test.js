@@ -166,27 +166,44 @@ describe('_condensePipelineText', () => {
     expect(result.length).toBeLessThanOrEqual(40_000);
   });
 
-  test('removes repeated short navigation fragments', () => {
-    // Simulate nav items repeated many times (e.g. breadcrumb links)
+  test('removes repeated short navigation fragments (> 3 occurrences)', () => {
+    // Simulate nav items repeated many times (e.g. breadcrumb links) — should be removed
     const navItem = 'Home  ';
     const content = 'Weihnachtsmarkt am Kölner Dom mit über 160 Ständen und vielen Attraktionen für die ganze Familie.';
-    // nav items appear 5 times, content once
-    const text = (navItem.repeat(5)) + '  ' + content;
+    // nav items appear 10 times, content once
+    const text = (navItem.repeat(10)) + '  ' + content;
     const result = _condensePipelineText(text, 40_000);
     expect(result).toContain('Weihnachtsmarkt');
-    // "Home" should appear at most 2 times (deduplication threshold)
+    // "Home" appears > 3 times so deduplication removes all but 3
     const homeCount = (result.match(/Home/g) || []).length;
-    expect(homeCount).toBeLessThanOrEqual(2);
+    expect(homeCount).toBeLessThanOrEqual(3);
   });
 
-  test('skips opening nav on long pages', () => {
-    // Page starts with nav-only content, real content comes later
-    const nav = 'Startseite '.repeat(2_000);  // ~22K chars of nav
-    const content = 'Weihnachtsmarkt am Dom: täglich geöffnet von 11 bis 22 Uhr.  '.repeat(50);
-    const text = nav + content;
-    expect(text.length).toBeGreaterThan(20_000);
+  test('preserves first-event content without skipping (selectMainContent handles scope)', () => {
+    // Previously the first 3% was skipped as "nav". Now we preserve all content
+    // because selectMainContent already focuses on the main content area.
+    const event1 = 'Weihnachtsmarkt am Dom Beginn: 21.11.2024';
+    const event2 = 'Weihnachtsmarkt am Neumarkt Beginn: 22.11.2024';
+    const text = `${event1}  ${event2}`;
     const result = _condensePipelineText(text, 40_000);
-    expect(result).toContain('Weihnachtsmarkt');
+    expect(result).toContain('Weihnachtsmarkt am Dom');
+    expect(result).toContain('Weihnachtsmarkt am Neumarkt');
+  });
+
+  test('uses newline separator to preserve event block boundaries', () => {
+    // Event cards should be separated by \n, not merged into one paragraph
+    const text = 'Event A Name  Event A Datum  Event B Name  Event B Datum';
+    const result = _condensePipelineText(text, 40_000);
+    expect(result).toContain('\n');
+  });
+
+  test('keeps repeated dates across ≤3 events (within threshold)', () => {
+    // A date like "21.11." appearing in 3 events should NOT be deduped
+    const date = '21.11.';
+    const text = `Event A ${date}  Event B ${date}  Event C ${date}`;
+    const result = _condensePipelineText(text, 40_000);
+    const dateCount = (result.match(/21\.11\./g) || []).length;
+    expect(dateCount).toBe(3);
   });
 
   test('preserves long content sentences', () => {

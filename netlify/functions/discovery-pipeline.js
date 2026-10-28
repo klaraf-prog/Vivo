@@ -476,15 +476,13 @@ function assessContentQuality(text, jsonLdEventCount) {
 
 // ── Text condensing ───────────────────────────────────────────────────────────
 // Removes navigation noise before LLM extraction.
-// On long pages (> 20K chars): skips the opening nav/header area.
 // Deduplicates repeated short fragments (nav links, breadcrumbs, footer items).
+// NOTE: no leading-skip — selectMainContent already scopes to main content,
+//       so the first fragment IS the first event on an overview page.
 function condensePipelineText(text, limit) {
-  // Skip the first 3 % (max 3 K chars) of long pages — almost always navigation.
-  const skipStart = text.length > 20_000 ? Math.min(3_000, Math.floor(text.length * 0.03)) : 0;
-  let t = text.slice(skipStart);
-
   // Split into rough phrases at double-space boundaries or after sentence punctuation.
-  const fragments = t.split(/\s{2,}|(?<=[.!?])\s+/);
+  // Using \n as separator preserves block structure (event cards, sections).
+  const fragments = text.split(/\s{2,}|(?<=[.!?])\s+/);
 
   // Count occurrences of each short fragment (case-insensitive key).
   const counts = new Map();
@@ -493,15 +491,18 @@ function condensePipelineText(text, limit) {
     if (key.length > 0 && key.length <= 60) counts.set(key, (counts.get(key) || 0) + 1);
   }
 
-  // Keep a fragment if it is long (likely real content) or appears only 1–2 times.
-  t = fragments
+  // Keep a fragment if:
+  //   - it is long (> 60 chars) — almost certainly real content
+  //   - it appears at most 3 times — allows repeated dates/locations across a few events
+  //     without keeping global nav items that repeat dozens of times
+  const t = fragments
     .filter(f => {
       const trimmed = f.trim();
       if (trimmed.length === 0) return false;
-      if (trimmed.length > 60) return true;            // long = content
-      return (counts.get(trimmed.toLowerCase()) || 0) <= 2; // rare short = keep
+      if (trimmed.length > 60) return true;
+      return (counts.get(trimmed.toLowerCase()) || 0) <= 3;
     })
-    .join(' ');
+    .join('\n');
 
   return t.slice(0, limit);
 }
@@ -641,9 +642,11 @@ function buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData) {
   const condensed = condensePipelineText(text, LLM_TEXT_LIMIT);
   const system = `You extract individual activity and event listings from website content for the city of ${city}.
 
+This is typically an overview page listing MULTIPLE distinct events. Extract every individual event you can identify.
+
 Rules:
-- Extract EACH distinct activity as a SEPARATE entry in the activities array.
-- Each entry must be SELF-CONTAINED: only fill a field from data explicitly stated for that specific activity. Never copy data between entries.
+- Extract EACH distinct activity as a SEPARATE entry in the activities array. Do not combine multiple events.
+- Each entry must be SELF-CONTAINED: only fill a field from data explicitly stated for that specific activity. Never copy data between entries, even if the data looks similar.
 - Only include activities clearly located in or associated with ${city}.
 - NEVER invent, guess or infer data. Use null for unknown fields.
 - Do not include lat/lng coordinates.
