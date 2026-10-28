@@ -6,7 +6,7 @@
 //         invites/$inviteeUid/$newId=true (for each inviteeUid)
 const { initAdmin, verifyUserToken, json, makeId } = require('./_studio-shared');
 
-const ALLOWED_FIELDS = ['emoji','title','date','time','location','details'];
+const ALLOWED_FIELDS = ['emoji','title','date','time','location','details','activityRef'];
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });

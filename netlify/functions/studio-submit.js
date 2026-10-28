@@ -59,6 +59,12 @@ exports.handler = async (event) => {
     bookingUrl: payload.bookingUrl || null,
     imageUrls: payload.imageUrls || null,
     sources: payload.sources || null,
+    // Structured offering fields (e.g. Christmas markets, recurring venues)
+    operatingPeriod:  payload.operatingPeriod  || null,  // { from: YYYY-MM-DD, to: YYYY-MM-DD }
+    openingHours:     payload.openingHours     || null,  // { mon:[{open,close}], tue:…, … }
+    exceptionalHours: payload.exceptionalHours || null,  // [{date,open?,close?,closed?,note?}]
+    sourceAttribution: payload.sourceAttribution || null, // displayed attribution string
+    missingFields: Array.isArray(payload.missingFields) ? payload.missingFields : null,
     duplicateHash: safeHash,
     status: 'submitted',
     researchedAt: now,

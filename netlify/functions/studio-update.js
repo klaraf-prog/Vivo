@@ -8,6 +8,8 @@ const SUGGESTION_FIELDS = [
   'city', 'district', 'location', 'lat', 'lng',
   'providerId', 'providerName', 'website', 'instagram',
   'price', 'schedule', 'bookingUrl', 'imageUrls', 'sources',
+  'operatingPeriod', 'openingHours', 'exceptionalHours',
+  'sourceAttribution', 'missingFields',
 ];
 
 const ACTIVITY_FIELDS = [
@@ -15,6 +17,8 @@ const ACTIVITY_FIELDS = [
   'city', 'district', 'location', 'lat', 'lng',
   'providerName', 'website', 'instagram',
   'price', 'schedule', 'bookingUrl', 'imageUrls',
+  'operatingPeriod', 'openingHours', 'exceptionalHours',
+  'sourceAttribution',
 ];
 
 exports.handler = async (event) => {

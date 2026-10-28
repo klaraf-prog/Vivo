@@ -12,6 +12,8 @@ const PUBLIC_FIELDS = [
   'city', 'district', 'location', 'lat', 'lng',
   'providerName', 'website', 'instagram',
   'price', 'schedule', 'bookingUrl', 'imageUrls',
+  'operatingPeriod', 'openingHours', 'exceptionalHours',
+  'sourceAttribution',
   'publishedAt',
 ];
 
