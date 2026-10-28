@@ -1573,7 +1573,7 @@ function _renderPipelinePanel(runs) {
   const info = '';
 
   if (!runs.length) {
-    return `<div class="section"><h3 style="margin-bottom:8px">Discovery Pipeline</h3>${info}${runBtn}<p style="color:var(--muted)">Noch keine Pipeline-Läufe.</p></div>`;
+    return `<div class="section"><h3 style="margin-bottom:8px">Discovery Pipeline</h3>${info}${runBtns}<p style="color:var(--muted)">Noch keine Pipeline-Läufe.</p></div>`;
   }
 
   const runCards = runs.map(r => {
