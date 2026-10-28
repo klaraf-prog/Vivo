@@ -1607,7 +1607,17 @@ function _renderPipelinePanel(runs) {
           <span>LLM-Calls: <strong>${r.llmCallsUsed ?? 0}</strong></span>
           <span>Kosten: <strong>$${(r.estimatedCostUSD ?? 0).toFixed(4)}</strong></span>
         </div>
-        ${r.llmErrors?.length ? `<div style="color:var(--danger);font-size:.78rem;margin-top:4px">${r.llmErrors.length} Fehler im LLM-Lauf</div>` : ''}
+        ${r.llmErrors?.length ? `<div style="color:var(--danger);font-size:.78rem;margin-top:4px">
+          ${r.llmErrors.length} Fehler im LLM-Lauf:
+          <ul style="margin:2px 0 0 14px;padding:0">${r.llmErrors.slice(0, 5).map(e => {
+            const msg = e.error
+              ? esc(e.error.slice(0, 200))
+              : e.validationErrors?.length
+                ? esc(e.validationErrors.slice(0, 3).join('; '))
+                : 'Unbekannter Fehler';
+            return `<li>${msg}</li>`;
+          }).join('')}</ul>
+        </div>` : ''}
       </div>` : '';
 
     return `<div class="source-card" style="margin-bottom:12px">

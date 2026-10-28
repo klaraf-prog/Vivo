@@ -110,6 +110,7 @@ const {
   handler,
   _validateActivity,
   _buildExtractionPrompt,
+  _extractJsonFromLLMResponse,
   _callAnthropicAPI,
 } = require('../netlify/functions/discovery-pipeline');
 const shared = require('../netlify/functions/_studio-shared');
@@ -413,6 +414,73 @@ describe('_callAnthropicAPI', () => {
     const result = await _callAnthropicAPI('empty text', 'Köln', 'sk-test');
     expect(result.error).toBeNull();
     expect(result.activities).toHaveLength(0);
+  });
+
+  test('handles response wrapped in markdown code fences', async () => {
+    const wrapped = `\`\`\`json\n${JSON.stringify({ activities: [VALID_RAW] })}\n\`\`\``;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [{ type: 'text', text: wrapped }],
+        usage: { input_tokens: 200, output_tokens: 400 },
+      }),
+    });
+    const result = await _callAnthropicAPI('text', 'Köln', 'sk-test');
+    expect(result.error).toBeNull();
+    expect(result.activities).toHaveLength(1);
+  });
+
+  test('handles response with preamble before JSON', async () => {
+    const preamble = `Here are the extracted activities:\n${JSON.stringify({ activities: [] })}`;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [{ type: 'text', text: preamble }],
+        usage: { input_tokens: 100, output_tokens: 50 },
+      }),
+    });
+    const result = await _callAnthropicAPI('text', 'Köln', 'sk-test');
+    expect(result.error).toBeNull();
+    expect(result.activities).toHaveLength(0);
+  });
+});
+
+// ── _extractJsonFromLLMResponse ───────────────────────────────────────────────
+describe('_extractJsonFromLLMResponse', () => {
+  test('returns plain JSON unchanged', () => {
+    const json = '{"activities":[]}';
+    expect(_extractJsonFromLLMResponse(json)).toBe(json);
+  });
+
+  test('strips ```json ... ``` code fence', () => {
+    const input = '```json\n{"activities":[]}\n```';
+    const result = _extractJsonFromLLMResponse(input);
+    expect(result).toBe('{"activities":[]}');
+  });
+
+  test('strips plain ``` ... ``` code fence', () => {
+    const input = '```\n{"activities":[]}\n```';
+    const result = _extractJsonFromLLMResponse(input);
+    expect(result).toBe('{"activities":[]}');
+  });
+
+  test('extracts JSON when model adds a preamble sentence', () => {
+    const input = 'Here is the extracted data:\n{"activities":[]}';
+    const result = _extractJsonFromLLMResponse(input);
+    expect(JSON.parse(result)).toEqual({ activities: [] });
+  });
+
+  test('trims trailing text after closing brace', () => {
+    const input = '{"activities":[]}\n\nNote: nothing found.';
+    const result = _extractJsonFromLLMResponse(input);
+    expect(JSON.parse(result)).toEqual({ activities: [] });
+  });
+
+  test('returns the raw string if no { is found (parse will still fail gracefully)', () => {
+    const input = 'No JSON here at all.';
+    const result = _extractJsonFromLLMResponse(input);
+    expect(typeof result).toBe('string');
+    expect(() => JSON.parse(result)).toThrow();
   });
 });
 

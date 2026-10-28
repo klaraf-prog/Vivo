@@ -239,6 +239,21 @@ Rules:
   return { system, user };
 }
 
+// ── JSON extraction from LLM response ────────────────────────────────────────
+// Handles models that wrap JSON in markdown code fences or add a brief preamble.
+function extractJsonFromLLMResponse(raw) {
+  let text = raw.trim();
+  // Strip markdown code fences: ```json ... ``` or ``` ... ```
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  // If there is still a non-JSON preamble, seek the first opening brace
+  const start = text.indexOf('{');
+  if (start > 0) text = text.slice(start);
+  // Trim any trailing content after the last closing brace
+  const end = text.lastIndexOf('}');
+  if (end >= 0 && end < text.length - 1) text = text.slice(0, end + 1);
+  return text;
+}
+
 // ── Call Anthropic API ────────────────────────────────────────────────────────
 async function callAnthropicAPI(text, city, apiKey) {
   const { system, user } = buildExtractionPrompt(text, city);
@@ -256,7 +271,7 @@ async function callAnthropicAPI(text, city, apiKey) {
       },
       body: JSON.stringify({
         model: LLM_MODEL,
-        max_tokens: 2048,  // sufficient for up to ~20 JSON activity objects
+        max_tokens: 4096,  // up to ~20 JSON activity objects with full details
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -275,9 +290,11 @@ async function callAnthropicAPI(text, city, apiKey) {
     const rawText = data.content?.[0]?.text || '';
     let parsed;
     try {
-      parsed = JSON.parse(rawText);
+      parsed = JSON.parse(extractJsonFromLLMResponse(rawText));
     } catch {
-      return { activities: [], inputTokens, outputTokens, error: 'LLM response is not valid JSON' };
+      // Include a brief snippet (no PII, no API keys) to aid debugging
+      const snippet = rawText.slice(0, 120).replace(/\n/g, ' ');
+      return { activities: [], inputTokens, outputTokens, error: `LLM response is not valid JSON. Preview: ${snippet}` };
     }
 
     if (!Array.isArray(parsed?.activities)) {
@@ -580,10 +597,11 @@ exports.handler = async (event) => {
 };
 
 // ── Exported for testing ──────────────────────────────────────────────────────
-exports._stripHtml             = stripHtml;
-exports._condensePipelineText  = condensePipelineText;
-exports._detectSignals         = detectSignals;
-exports._fetchSource           = fetchSource;
-exports._buildExtractionPrompt = buildExtractionPrompt;
-exports._callAnthropicAPI      = callAnthropicAPI;
-exports._validateActivity      = validateActivity;
+exports._stripHtml              = stripHtml;
+exports._condensePipelineText   = condensePipelineText;
+exports._detectSignals          = detectSignals;
+exports._fetchSource            = fetchSource;
+exports._buildExtractionPrompt  = buildExtractionPrompt;
+exports._extractJsonFromLLMResponse = extractJsonFromLLMResponse;
+exports._callAnthropicAPI       = callAnthropicAPI;
+exports._validateActivity       = validateActivity;
