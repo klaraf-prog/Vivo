@@ -1326,10 +1326,75 @@ function formatPrice(price) {
 }
 function formatSchedule(schedule) {
   if (!schedule) return '';
-  if (schedule.note) return schedule.note;
-  const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-  const dayStr = schedule.daysOfWeek ? schedule.daysOfWeek.map(d => days[d]).join(', ') : '';
-  return [dayStr, schedule.time, schedule.type === 'recurring' ? '(wiederkehrend)' : ''].filter(Boolean).join(' ');
+  const parts = [];
+  const DAY_LABELS = { mo:'Mo', di:'Di', mi:'Mi', do:'Do', fr:'Fr', sa:'Sa', so:'So' };
+  const fmtDays = days => (days || []).map(d => DAY_LABELS[d] || d).join(', ');
+
+  // Specific dates
+  if (Array.isArray(schedule.dates) && schedule.dates.length > 0) {
+    const dateLines = schedule.dates.slice(0, 10).map(d => {
+      let s = d.date;
+      if (d.startTime) s += ' ' + d.startTime;
+      if (d.endTime)   s += '–' + d.endTime + ' Uhr';
+      if (d.note)      s += ' (' + d.note + ')';
+      return s;
+    });
+    parts.push(dateLines.join(', '));
+    if (schedule.dates.length > 10) parts.push(`+${schedule.dates.length - 10} weitere`);
+  }
+
+  // Continuous period
+  if (schedule.period) {
+    parts.push(`${schedule.period.from} – ${schedule.period.to}`);
+  }
+
+  // Recurring pattern
+  if (schedule.recurrence) {
+    const rec = schedule.recurrence;
+    let s = { weekly: 'wöchentlich', biweekly: '2-wöchentlich', monthly: 'monatlich', daily: 'täglich', other: 'wiederkehrend' }[rec.pattern] || rec.pattern;
+    if (rec.days && rec.days.length > 0) s += ' ' + fmtDays(rec.days);
+    if (rec.startTime) s += ' ' + rec.startTime;
+    if (rec.endTime)   s += '–' + rec.endTime + ' Uhr';
+    if (rec.note)      s += ' (' + rec.note + ')';
+    parts.push(s);
+  }
+
+  // Regular opening hours
+  if (Array.isArray(schedule.regularHours) && schedule.regularHours.length > 0) {
+    const hourLines = schedule.regularHours.map(h => {
+      let s = fmtDays(h.days);
+      if (h.open && h.close) s += ': ' + h.open + '–' + h.close + ' Uhr';
+      else if (h.open)       s += ': ab ' + h.open + ' Uhr';
+      if (h.note)            s += ' (' + h.note + ')';
+      return s;
+    });
+    parts.push(hourLines.join(', '));
+  }
+
+  // Exceptions
+  if (Array.isArray(schedule.exceptions) && schedule.exceptions.length > 0) {
+    const excLines = schedule.exceptions.slice(0, 5).map(e => {
+      let s = e.date;
+      if (e.closed)         s += ': geschlossen';
+      else if (e.open && e.close) s += ': ' + e.open + '–' + e.close + ' Uhr';
+      if (e.note)           s += ' (' + e.note + ')';
+      return s;
+    });
+    parts.push('Abweichend: ' + excLines.join(', '));
+  }
+
+  if (schedule.timezone) parts.push('(' + schedule.timezone + ')');
+
+  // Legacy fallback for old-format schedule objects
+  if (parts.length === 0) {
+    if (schedule.note) return schedule.note;
+    if (schedule.daysOfWeek) {
+      const legacyDays = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+      return [schedule.daysOfWeek.map(d => legacyDays[d]).join(', '), schedule.time].filter(Boolean).join(' ');
+    }
+  }
+
+  return parts.filter(Boolean).join(' · ');
 }
 function toast(msg) {
   const el = document.getElementById('toast');

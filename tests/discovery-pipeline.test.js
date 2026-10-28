@@ -113,6 +113,7 @@ const {
   handler, _stripHtml, _selectMainContent, _analyzeHtmlStructure, _detectSignals, _condensePipelineText,
   _extractJsonLd, _filterJsonLdEvents, _formatJsonLdEventsForPrompt, _assessContentQuality,
   _looksLikeEventObject, _findEventArraysInData, _extractEmbeddedScriptData, _formatEmbeddedEventsForPrompt,
+  _validateSchedule,
 } = require('../netlify/functions/discovery-pipeline');
 const shared = require('../netlify/functions/_studio-shared');
 
@@ -857,5 +858,161 @@ describe('_formatEmbeddedEventsForPrompt', () => {
 
   test('returns empty string for empty input', () => {
     expect(_formatEmbeddedEventsForPrompt([])).toBe('');
+  });
+});
+
+// ── _validateSchedule ─────────────────────────────────────────────────────────
+describe('_validateSchedule', () => {
+  test('returns null for null/undefined/non-object input', () => {
+    expect(_validateSchedule(null)).toBeNull();
+    expect(_validateSchedule(undefined)).toBeNull();
+    expect(_validateSchedule('string')).toBeNull();
+    expect(_validateSchedule(42)).toBeNull();
+  });
+
+  test('returns null for empty object', () => {
+    expect(_validateSchedule({})).toBeNull();
+  });
+
+  test('accepts single date with start and end time', () => {
+    const result = _validateSchedule({ dates: [{ date: '2024-12-21', startTime: '10:00', endTime: '18:00' }] });
+    expect(result).not.toBeNull();
+    expect(result.dates).toHaveLength(1);
+    expect(result.dates[0].date).toBe('2024-12-21');
+    expect(result.dates[0].startTime).toBe('10:00');
+    expect(result.dates[0].endTime).toBe('18:00');
+  });
+
+  test('accepts multiple concrete dates', () => {
+    const result = _validateSchedule({
+      dates: [
+        { date: '2024-12-21', startTime: '10:00' },
+        { date: '2024-12-22', startTime: '11:00' },
+        { date: '2024-12-23' },
+      ],
+    });
+    expect(result.dates).toHaveLength(3);
+  });
+
+  test('rejects dates with invalid ISO format', () => {
+    const result = _validateSchedule({ dates: [{ date: '21.12.2024' }] });
+    expect(result).toBeNull();
+  });
+
+  test('rejects times with invalid HH:MM format', () => {
+    const result = _validateSchedule({ dates: [{ date: '2024-12-21', startTime: '10:00:00' }] });
+    expect(result).not.toBeNull();
+    expect(result.dates[0].startTime).toBeUndefined();
+  });
+
+  test('accepts a continuous period', () => {
+    const result = _validateSchedule({ period: { from: '2024-11-15', to: '2024-12-26' } });
+    expect(result).not.toBeNull();
+    expect(result.period).toEqual({ from: '2024-11-15', to: '2024-12-26' });
+  });
+
+  test('rejects period with invalid dates', () => {
+    const result = _validateSchedule({ period: { from: 'Nov 2024', to: '2024-12-26' } });
+    expect(result).toBeNull();
+  });
+
+  test('accepts regular opening hours', () => {
+    const result = _validateSchedule({
+      regularHours: [
+        { days: ['mo', 'di', 'mi', 'do', 'fr'], open: '09:00', close: '18:00' },
+        { days: ['sa'], open: '10:00', close: '16:00' },
+      ],
+    });
+    expect(result.regularHours).toHaveLength(2);
+    expect(result.regularHours[0].days).toEqual(['mo', 'di', 'mi', 'do', 'fr']);
+    expect(result.regularHours[0].open).toBe('09:00');
+    expect(result.regularHours[0].close).toBe('18:00');
+  });
+
+  test('filters invalid day codes in regularHours', () => {
+    const result = _validateSchedule({
+      regularHours: [{ days: ['mo', 'xx', 'sa'], open: '09:00', close: '17:00' }],
+    });
+    expect(result.regularHours[0].days).toEqual(['mo', 'sa']);
+  });
+
+  test('rejects regularHours entry with no valid days', () => {
+    const result = _validateSchedule({
+      regularHours: [{ days: ['xx', 'yy'], open: '09:00', close: '18:00' }],
+    });
+    expect(result).toBeNull();
+  });
+
+  test('accepts exception (closed day)', () => {
+    const result = _validateSchedule({
+      exceptions: [{ date: '2024-12-25', closed: true, note: 'Weihnachten' }],
+    });
+    expect(result.exceptions).toHaveLength(1);
+    expect(result.exceptions[0].closed).toBe(true);
+    expect(result.exceptions[0].note).toBe('Weihnachten');
+  });
+
+  test('accepts exception with deviating hours', () => {
+    const result = _validateSchedule({
+      exceptions: [{ date: '2024-12-24', open: '10:00', close: '14:00', note: 'Heiligabend' }],
+    });
+    expect(result.exceptions[0].open).toBe('10:00');
+    expect(result.exceptions[0].close).toBe('14:00');
+  });
+
+  test('accepts weekly recurrence', () => {
+    const result = _validateSchedule({
+      recurrence: { pattern: 'weekly', days: ['sa'], startTime: '15:00' },
+    });
+    expect(result.recurrence).toEqual({ pattern: 'weekly', days: ['sa'], startTime: '15:00' });
+  });
+
+  test('rejects recurrence with invalid pattern', () => {
+    const result = _validateSchedule({
+      recurrence: { pattern: 'hourly', days: ['mo'] },
+    });
+    expect(result).toBeNull();
+  });
+
+  test('accepts timezone', () => {
+    const result = _validateSchedule({
+      timezone: 'Europe/Berlin',
+      dates: [{ date: '2024-12-21' }],
+    });
+    expect(result.timezone).toBe('Europe/Berlin');
+  });
+
+  test('timezone alone does not produce a non-null result', () => {
+    // timezone with no other data is stored — it IS meaningful on its own
+    const result = _validateSchedule({ timezone: 'Europe/Berlin' });
+    expect(result).not.toBeNull();
+    expect(result.timezone).toBe('Europe/Berlin');
+  });
+
+  test('combines dates + period + recurrence in one schedule', () => {
+    const result = _validateSchedule({
+      dates: [{ date: '2024-11-15', startTime: '10:00' }],
+      period: { from: '2024-11-15', to: '2024-12-26' },
+      recurrence: { pattern: 'weekly', days: ['sa', 'so'] },
+      timezone: 'Europe/Berlin',
+    });
+    expect(result.dates).toHaveLength(1);
+    expect(result.period).toEqual({ from: '2024-11-15', to: '2024-12-26' });
+    expect(result.recurrence.days).toEqual(['sa', 'so']);
+    expect(result.timezone).toBe('Europe/Berlin');
+  });
+
+  test('truncates notes to 200 chars', () => {
+    const longNote = 'x'.repeat(300);
+    const result = _validateSchedule({
+      dates: [{ date: '2024-12-21', note: longNote }],
+    });
+    expect(result.dates[0].note.length).toBe(200);
+  });
+
+  test('limits dates array to 50 entries', () => {
+    const dates = Array.from({ length: 60 }, (_, i) => ({ date: `2024-12-${String(i % 28 + 1).padStart(2, '0')}` }));
+    const result = _validateSchedule({ dates });
+    expect(result.dates.length).toBeLessThanOrEqual(50);
   });
 });

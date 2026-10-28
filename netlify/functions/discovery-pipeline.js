@@ -75,6 +75,112 @@ const EXTRACTION_TOOL = {
                 { type: 'null' },
               ],
             },
+            schedule: {
+              anyOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    timezone: { type: ['string', 'null'], description: 'IANA timezone, e.g. "Europe/Berlin". Null if unknown.' },
+                    dates: {
+                      anyOf: [
+                        {
+                          type: 'array',
+                          description: 'Specific single dates or date+time entries.',
+                          items: {
+                            type: 'object',
+                            required: ['date'],
+                            properties: {
+                              date:      { type: 'string', description: 'ISO-8601 date YYYY-MM-DD' },
+                              startTime: { type: ['string', 'null'], description: 'HH:MM in 24h format' },
+                              endTime:   { type: ['string', 'null'] },
+                              note:      { type: ['string', 'null'] },
+                            },
+                            additionalProperties: false,
+                          },
+                        },
+                        { type: 'null' },
+                      ],
+                    },
+                    period: {
+                      anyOf: [
+                        {
+                          type: 'object',
+                          required: ['from', 'to'],
+                          description: 'Continuous period (e.g. a festival running start–end).',
+                          properties: {
+                            from: { type: 'string', description: 'ISO-8601 YYYY-MM-DD' },
+                            to:   { type: 'string', description: 'ISO-8601 YYYY-MM-DD' },
+                          },
+                          additionalProperties: false,
+                        },
+                        { type: 'null' },
+                      ],
+                    },
+                    regularHours: {
+                      anyOf: [
+                        {
+                          type: 'array',
+                          description: 'Weekly opening hours by day group.',
+                          items: {
+                            type: 'object',
+                            required: ['days'],
+                            properties: {
+                              days:  { type: 'array', items: { type: 'string', enum: ['mo','di','mi','do','fr','sa','so'] } },
+                              open:  { type: ['string', 'null'], description: 'HH:MM' },
+                              close: { type: ['string', 'null'], description: 'HH:MM' },
+                              note:  { type: ['string', 'null'] },
+                            },
+                            additionalProperties: false,
+                          },
+                        },
+                        { type: 'null' },
+                      ],
+                    },
+                    exceptions: {
+                      anyOf: [
+                        {
+                          type: 'array',
+                          description: 'Specific dates with deviating hours or closure.',
+                          items: {
+                            type: 'object',
+                            required: ['date'],
+                            properties: {
+                              date:   { type: 'string', description: 'ISO-8601 YYYY-MM-DD' },
+                              closed: { type: ['boolean', 'null'] },
+                              open:   { type: ['string', 'null'], description: 'HH:MM' },
+                              close:  { type: ['string', 'null'], description: 'HH:MM' },
+                              note:   { type: ['string', 'null'] },
+                            },
+                            additionalProperties: false,
+                          },
+                        },
+                        { type: 'null' },
+                      ],
+                    },
+                    recurrence: {
+                      anyOf: [
+                        {
+                          type: 'object',
+                          required: ['pattern'],
+                          description: 'Recurring event pattern (e.g. every Saturday at 15:00).',
+                          properties: {
+                            pattern:   { type: 'string', enum: ['weekly', 'biweekly', 'monthly', 'daily', 'other'] },
+                            days:      { anyOf: [{ type: 'array', items: { type: 'string', enum: ['mo','di','mi','do','fr','sa','so'] } }, { type: 'null' }] },
+                            startTime: { type: ['string', 'null'], description: 'HH:MM' },
+                            endTime:   { type: ['string', 'null'], description: 'HH:MM' },
+                            note:      { type: ['string', 'null'] },
+                          },
+                          additionalProperties: false,
+                        },
+                        { type: 'null' },
+                      ],
+                    },
+                  },
+                  additionalProperties: false,
+                },
+                { type: 'null' },
+              ],
+            },
           },
         },
       },
@@ -652,7 +758,16 @@ Rules:
 - Do not include lat/lng coordinates.
 - Dates must be ISO-8601 (YYYY-MM-DD). For month+year only, use the first day of the from-month and last day of the to-month.
 - Ignore navigation menus, cookie notices, breadcrumbs and footer content.
-- Maximum ${MAX_SUGGESTIONS} activities.`;
+- Maximum ${MAX_SUGGESTIONS} activities.
+
+schedule field — populate when temporal data is explicitly stated for the specific activity:
+- dates: one or more concrete dates (ISO-8601), with optional HH:MM start/end times.
+- period: a continuous date range (festival, exhibition running from–to).
+- regularHours: recurring weekly opening hours per day group (days as ['mo','di',…], open/close as HH:MM).
+- exceptions: specific dates with deviating hours or closure (e.g. closed on 25.12.).
+- recurrence: a repeating event pattern (weekly/biweekly/monthly/daily/other) with optional days and time.
+- timezone: IANA name (e.g. "Europe/Berlin") — use only when explicitly stated, otherwise null.
+All schedule sub-fields are optional and default to null. Leave schedule null when no temporal data is available for an activity.`;
 
   // Prioritise structured data sections — include both JSON-LD and embedded JS data
   const jsonLdSection = (jsonLdEvents && jsonLdEvents.length > 0)
@@ -748,6 +863,101 @@ async function callAnthropicAPI(text, city, apiKey, jsonLdEvents, embeddedScript
   }
 }
 
+// ── Schedule validation ───────────────────────────────────────────────────────
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE     = /^\d{2}:\d{2}$/;
+const VALID_DAYS  = new Set(['mo','di','mi','do','fr','sa','so']);
+const VALID_RECURRENCE_PATTERNS = new Set(['weekly','biweekly','monthly','daily','other']);
+
+function isIsoDate(v)  { return typeof v === 'string' && ISO_DATE_RE.test(v); }
+function isHhmm(v)     { return typeof v === 'string' && TIME_RE.test(v); }
+function strOrNull(v, max) {
+  if (v == null) return null;
+  const s = String(v).trim().slice(0, max);
+  return s.length > 0 ? s : null;
+}
+
+function validateSchedule(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const result = {};
+
+  // timezone
+  const tz = strOrNull(raw.timezone, 60);
+  if (tz) result.timezone = tz;
+
+  // dates — array of { date, startTime?, endTime?, note? }
+  if (Array.isArray(raw.dates)) {
+    const dates = raw.dates
+      .filter(d => d && typeof d === 'object' && isIsoDate(d.date))
+      .map(d => {
+        const entry = { date: d.date };
+        if (isHhmm(d.startTime)) entry.startTime = d.startTime;
+        if (isHhmm(d.endTime))   entry.endTime   = d.endTime;
+        const note = strOrNull(d.note, 200);
+        if (note) entry.note = note;
+        return entry;
+      });
+    if (dates.length > 0) result.dates = dates.slice(0, 50);
+  }
+
+  // period — { from: YYYY-MM-DD, to: YYYY-MM-DD }
+  if (raw.period && typeof raw.period === 'object' && isIsoDate(raw.period.from) && isIsoDate(raw.period.to)) {
+    result.period = { from: raw.period.from, to: raw.period.to };
+  }
+
+  // regularHours — array of { days: string[], open?, close?, note? }
+  if (Array.isArray(raw.regularHours)) {
+    const hours = raw.regularHours
+      .filter(h => h && typeof h === 'object' && Array.isArray(h.days) && h.days.length > 0)
+      .map(h => {
+        const days = h.days.filter(d => VALID_DAYS.has(d));
+        if (days.length === 0) return null;
+        const entry = { days };
+        if (isHhmm(h.open))  entry.open  = h.open;
+        if (isHhmm(h.close)) entry.close = h.close;
+        const note = strOrNull(h.note, 200);
+        if (note) entry.note = note;
+        return entry;
+      })
+      .filter(Boolean);
+    if (hours.length > 0) result.regularHours = hours.slice(0, 20);
+  }
+
+  // exceptions — array of { date, closed?, open?, close?, note? }
+  if (Array.isArray(raw.exceptions)) {
+    const excs = raw.exceptions
+      .filter(e => e && typeof e === 'object' && isIsoDate(e.date))
+      .map(e => {
+        const entry = { date: e.date };
+        if (typeof e.closed === 'boolean') entry.closed = e.closed;
+        if (isHhmm(e.open))  entry.open  = e.open;
+        if (isHhmm(e.close)) entry.close = e.close;
+        const note = strOrNull(e.note, 200);
+        if (note) entry.note = note;
+        return entry;
+      });
+    if (excs.length > 0) result.exceptions = excs.slice(0, 30);
+  }
+
+  // recurrence — { pattern, days?, startTime?, endTime?, note? }
+  if (raw.recurrence && typeof raw.recurrence === 'object' && VALID_RECURRENCE_PATTERNS.has(raw.recurrence.pattern)) {
+    const rec = { pattern: raw.recurrence.pattern };
+    if (Array.isArray(raw.recurrence.days)) {
+      const days = raw.recurrence.days.filter(d => VALID_DAYS.has(d));
+      if (days.length > 0) rec.days = days;
+    }
+    if (isHhmm(raw.recurrence.startTime)) rec.startTime = raw.recurrence.startTime;
+    if (isHhmm(raw.recurrence.endTime))   rec.endTime   = raw.recurrence.endTime;
+    const note = strOrNull(raw.recurrence.note, 200);
+    if (note) rec.note = note;
+    result.recurrence = rec;
+  }
+
+  // Return null when nothing meaningful was extracted
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 // ── Activity validation ───────────────────────────────────────────────────────
 function validateActivity(raw, sourceUrl, sourceName) {
   const errors = [];
@@ -795,6 +1005,14 @@ function validateActivity(raw, sourceUrl, sourceName) {
     }
   }
 
+  // schedule: structured temporal data
+  const schedule = validateSchedule(raw.schedule);
+
+  // Backward-compat: derive operatingPeriod from schedule.period when not already set
+  if (!operatingPeriod && schedule?.period) {
+    operatingPeriod = { from: schedule.period.from, to: schedule.period.to };
+  }
+
   // Track what the LLM could not determine
   const missingFields = [];
   if (!location) missingFields.push('location');
@@ -817,7 +1035,7 @@ function validateActivity(raw, sourceUrl, sourceName) {
     website,
     instagram: null,
     price,
-    schedule: null,
+    schedule,
     bookingUrl: null,
     imageUrls: null,
     operatingPeriod,
@@ -1077,3 +1295,4 @@ exports._buildExtractionPrompt  = buildExtractionPrompt;
 exports._extractJsonFromLLMResponse = extractJsonFromLLMResponse;
 exports._callAnthropicAPI       = callAnthropicAPI;
 exports._validateActivity       = validateActivity;
+exports._validateSchedule       = validateSchedule;
