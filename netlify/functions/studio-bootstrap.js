@@ -20,8 +20,16 @@ exports.handler = async (event) => {
   const targetUid      = process.env.BOOTSTRAP_TARGET_UID;
 
   if (!bootstrapToken || !targetUid) {
-    // BOOTSTRAP_TOKEN fehlt → Funktion dauerhaft inaktiv
-    return json(503, { error: 'bootstrap-not-configured' });
+    // Nur Präsenz loggen, niemals Werte
+    console.error('[bootstrap] Fehlende Umgebungsvariablen:', {
+      BOOTSTRAP_TOKEN_set:     !!bootstrapToken,
+      BOOTSTRAP_TARGET_UID_set: !!targetUid,
+    });
+    const missing = [
+      !bootstrapToken     && 'BOOTSTRAP_TOKEN',
+      !targetUid          && 'BOOTSTRAP_TARGET_UID',
+    ].filter(Boolean);
+    return json(503, { error: 'bootstrap-not-configured', missing });
   }
 
   // ── 2. Bootstrap-Token prüfen ────────────────────────────────────────────

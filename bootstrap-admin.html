@@ -244,8 +244,11 @@ async function doBootstrap() {
     if (res.ok) {
       setStep(3);
     } else {
+      const msgs503 = body.missing && body.missing.length
+        ? 'Umgebungsvariable(n) nicht gefunden: ' + body.missing.join(', ') + '. Scope in Netlify prüfen (muss „Functions" enthalten) und danach neu deployen.'
+        : 'Bootstrap nicht konfiguriert oder bereits deaktiviert.';
       const msgs = {
-        503: 'Bootstrap nicht konfiguriert oder bereits deaktiviert.',
+        503: msgs503,
         403: 'Token ungültig oder falscher Account.',
         401: 'Anmeldung abgelaufen — bitte Seite neu laden und erneut anmelden.',
         409: 'Superadmin wurde bereits eingerichtet. Bitte normal einloggen.',
