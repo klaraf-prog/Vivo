@@ -6,8 +6,25 @@ const mockInitAdmin = jest.fn();
 const mockMakeId = jest.fn((prefix) => `${prefix}_test_id`);
 const mockDuplicateHash = jest.fn((city, cat, title) => `${city}:${cat}:${title}`);
 
+// Smart mock: delegates to mockInitAdmin for auth so existing tests need no changes.
+// Tests that need 503 can use mockVerifyUserToken.mockResolvedValueOnce(...).
+const mockVerifyUserToken = jest.fn().mockImplementation(async (authHeader) => {
+  if (!authHeader || !/^Bearer\s+\S/i.test(authHeader)) {
+    return { decoded: null, errorStatus: 401, errorCode: 'missing-token' };
+  }
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  try {
+    const app = mockInitAdmin();
+    const decoded = await app.auth().verifyIdToken(token);
+    return { decoded, errorStatus: null, errorCode: null };
+  } catch {
+    return { decoded: null, errorStatus: 401, errorCode: 'unknown' };
+  }
+});
+
 jest.mock('../netlify/functions/_studio-shared', () => ({
   verifyStudioToken: (...args) => mockVerifyStudioToken(...args),
+  verifyUserToken:   (...args) => mockVerifyUserToken(...args),
   initAdmin: (...args) => mockInitAdmin(...args),
   json: (statusCode, body) => ({
     statusCode,
@@ -894,6 +911,13 @@ describe('user-data', () => {
     expect(body.invites).toEqual({});
     expect(body.friendProfiles).toEqual({});
   });
+
+  test('58b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await userDataHandler(get());
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
+  });
 });
 
 // ─── event-rsvp ──────────────────────────────────────────────────────────────
@@ -959,6 +983,13 @@ describe('event-rsvp', () => {
     expect(mockUpdate).toHaveBeenCalled();
     const updateArg = mockUpdate.mock.calls[0][0];
     expect(updateArg[`userEvents/${user.uid}/ev1`]).toBe('dabei');
+  });
+
+  test('64b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await rsvpHandler(post({ eventId: 'ev1', status: 'dabei' }));
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
   });
 });
 
@@ -1033,6 +1064,13 @@ describe('event-create', () => {
     const spaceKey  = Object.keys(updateArg).find(k => k.startsWith('spaceEvents/'));
     expect(spaceKey).toBeUndefined();
   });
+
+  test('69b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await createHandler(post({ title: 'Event' }));
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
+  });
 });
 
 // ─── user-search ──────────────────────────────────────────────────────────────
@@ -1100,6 +1138,13 @@ describe('user-search', () => {
     const res = await searchHandler(getReq('bob'));
     expect(res.statusCode).toBe(200);
     expect(parseBody(res).users).toEqual([]);
+  });
+
+  test('74b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await searchHandler(getReq('bob'));
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
   });
 });
 
@@ -1181,6 +1226,13 @@ describe('friends', () => {
     expect(arg['friends/u1/u2']).toBeNull();
     expect(arg['friends/u2/u1']).toBeNull();
   });
+
+  test('79b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await friendsHandler(postReq({ action: 'request', targetUid: 'u2' }));
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
+  });
 });
 
 // ─── space-create ─────────────────────────────────────────────────────────────
@@ -1257,6 +1309,13 @@ describe('space-create', () => {
     const ghostKey = Object.keys(arg).find(k => k.startsWith('userSpaces/ghost_uid/'));
     expect(ghostKey).toBeUndefined();
   });
+
+  test('84b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await spaceCreateHandler(postReq({ name: 'Club' }));
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
+  });
 });
 
 // ─── user-profile ─────────────────────────────────────────────────────────────
@@ -1317,5 +1376,12 @@ describe('user-profile', () => {
     expect(arg[`users/${user.uid}`].createdAt).toBe(12345);
     expect(arg[`users/${user.uid}`].displayName).toBe('New Name');
     expect(arg['usernames/newname']).toBe(user.uid);
+  });
+
+  test('88b. returns 503 when Firebase Admin SDK not configured', async () => {
+    mockVerifyUserToken.mockResolvedValueOnce({ decoded: null, errorStatus: 503, errorCode: 'missing-env' });
+    const res = await profileHandler(postReq({ displayName: 'Name' }));
+    expect(res.statusCode).toBe(503);
+    expect(parseBody(res).error).toMatch(/unavailable/i);
   });
 });

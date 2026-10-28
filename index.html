@@ -122,7 +122,12 @@ function _initFirebaseAuth() {
           if (res.ok) {
             _userData = await res.json();
           } else {
-            _userData = { _error: true, _status: res.status };
+            const msg = res.status === 503
+              ? 'Dienst vorübergehend nicht verfügbar. Bitte versuche es später erneut.'
+              : res.status === 401
+              ? 'Sitzung abgelaufen – bitte melde dich erneut an.'
+              : `Soziale Daten konnten nicht geladen werden (HTTP ${res.status}).`;
+            _userData = { _error: true, _status: res.status, _message: msg };
           }
         } catch (e) {
           console.warn('[someday] user-data unavailable:', e.message);
@@ -379,7 +384,7 @@ function _profileTab() {
       <h2 style="margin:24px 0 3px">Good things are on the horizon.</h2>
       <p class="sub">Your little corner of someday ✳</p>
     </div>
-    ${_userData && _userData._error ? `<div class="warn" style="margin-bottom:12px">⚠ Could not load your social data (HTTP ${_userData._status||'?'}). Some features may be unavailable.</div>` : ''}
+    ${_userData && _userData._error ? `<div class="warn" style="margin-bottom:12px">⚠ ${esc(_userData._message || 'Soziale Daten konnten nicht geladen werden.')}</div>` : ''}
     <div class="between"><h2 class="section">Your profile</h2><button class="chip" onclick="set({settings:true})">⚙ Settings</button></div>
     ${segment('profileTab',['Saved','Spaces','Friends','Activity'])}
     <div style="margin-top:18px">

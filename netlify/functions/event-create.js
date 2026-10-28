@@ -4,22 +4,17 @@
 //         events/$newId/rsvps/$key (creator RSVP),
 //         spaceEvents/$spaceId/$newId=true (for each spaceId),
 //         invites/$inviteeUid/$newId=true (for each inviteeUid)
-const { initAdmin, json, makeId } = require('./_studio-shared');
+const { initAdmin, verifyUserToken, json, makeId } = require('./_studio-shared');
 
 const ALLOWED_FIELDS = ['emoji','title','date','time','location','details'];
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });
 
-  const authHeader = event.headers['authorization'] || '';
-  const idToken = authHeader.replace(/^Bearer\s+/i, '');
-  if (!idToken) return json(401, { error: 'Unauthorized' });
-
-  let decoded;
-  try {
-    decoded = await initAdmin().auth().verifyIdToken(idToken);
-  } catch {
-    return json(401, { error: 'Invalid token' });
+  const { decoded, errorStatus, errorCode } = await verifyUserToken(event.headers['authorization'] || '');
+  if (!decoded) {
+    if (errorStatus === 503) return json(503, { error: 'Service temporarily unavailable. Check server configuration.' });
+    return json(401, { error: errorCode === 'missing-token' ? 'Unauthorized' : 'Invalid token' });
   }
 
   let body;

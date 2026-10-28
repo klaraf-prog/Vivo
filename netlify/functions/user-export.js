@@ -3,24 +3,15 @@
 // GET with Authorization: Bearer <idToken>
 // Returns a JSON file containing all personal data for the authenticated user:
 //   profile, userEvents, userSpaces, friends, friendRequests, notifications, invites
-const { initAdmin } = require('./_studio-shared');
+const { initAdmin, verifyUserToken, json } = require('./_studio-shared');
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'GET') {
-    return { statusCode: 405, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-  }
+  if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
 
-  const authHeader = event.headers['authorization'] || '';
-  const idToken = authHeader.replace(/^Bearer\s+/i, '');
-  if (!idToken) {
-    return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Unauthorized' }) };
-  }
-
-  let decoded;
-  try {
-    decoded = await initAdmin().auth().verifyIdToken(idToken);
-  } catch {
-    return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Invalid token' }) };
+  const { decoded, errorStatus, errorCode } = await verifyUserToken(event.headers['authorization'] || '');
+  if (!decoded) {
+    if (errorStatus === 503) return json(503, { error: 'Service temporarily unavailable. Check server configuration.' });
+    return json(401, { error: errorCode === 'missing-token' ? 'Unauthorized' : 'Invalid token' });
   }
 
   const uid = decoded.uid;

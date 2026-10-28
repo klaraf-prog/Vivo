@@ -2,20 +2,15 @@
 // Returns the authenticated user's complete social data from RTDB.
 // Stage 1 (parallel): profile, userEvents, userSpaces, friends, invites, friendRequests
 // Stage 2 (parallel): full event objects, full space objects, spaceEvents, friend profiles
-const { initAdmin, json } = require('./_studio-shared');
+const { initAdmin, verifyUserToken, json } = require('./_studio-shared');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
 
-  const authHeader = event.headers['authorization'] || '';
-  const idToken = authHeader.replace(/^Bearer\s+/i, '');
-  if (!idToken) return json(401, { error: 'Unauthorized' });
-
-  let decoded;
-  try {
-    decoded = await initAdmin().auth().verifyIdToken(idToken);
-  } catch {
-    return json(401, { error: 'Invalid token' });
+  const { decoded, errorStatus, errorCode } = await verifyUserToken(event.headers['authorization'] || '');
+  if (!decoded) {
+    if (errorStatus === 503) return json(503, { error: 'Service temporarily unavailable. Check server configuration.' });
+    return json(401, { error: errorCode === 'missing-token' ? 'Unauthorized' : 'Invalid token' });
   }
 
   const uid = decoded.uid;

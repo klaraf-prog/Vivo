@@ -1,20 +1,15 @@
 'use strict';
 // GET /?q=<query> — search users by displayName prefix or exact username.
 // Returns up to 10 matches, excluding the caller's own uid.
-const { initAdmin, json } = require('./_studio-shared');
+const { initAdmin, verifyUserToken, json } = require('./_studio-shared');
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'GET') return json(405, { error: 'Method Not Allowed' });
 
-  const authHeader = event.headers['authorization'] || '';
-  const idToken = authHeader.replace(/^Bearer\s+/i, '');
-  if (!idToken) return json(401, { error: 'Unauthorized' });
-
-  let decoded;
-  try {
-    decoded = await initAdmin().auth().verifyIdToken(idToken);
-  } catch {
-    return json(401, { error: 'Invalid token' });
+  const { decoded, errorStatus, errorCode } = await verifyUserToken(event.headers['authorization'] || '');
+  if (!decoded) {
+    if (errorStatus === 503) return json(503, { error: 'Service temporarily unavailable. Check server configuration.' });
+    return json(401, { error: errorCode === 'missing-token' ? 'Unauthorized' : 'Invalid token' });
   }
 
   const qRaw = ((event.queryStringParameters || {}).q || '').trim();

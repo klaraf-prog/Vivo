@@ -1,20 +1,73 @@
+'use strict';
 const admin = require('firebase-admin');
 
-let _app = null;
+let _app       = null;
+let _initError = null;
 
 function initAdmin() {
-  if (_app) return _app;
-  if (admin.apps.length > 0) {
-    _app = admin.apps[0];
-    return _app;
+  if (_app)       return _app;
+  if (_initError) throw _initError;
+  if (admin.apps.length > 0) { _app = admin.apps[0]; return _app; }
+
+  const saJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!saJson) {
+    _initError = Object.assign(
+      new Error('FIREBASE_SERVICE_ACCOUNT_JSON environment variable is not set'),
+      { code: 'missing-env' }
+    );
+    throw _initError;
   }
-  _app = admin.initializeApp({
-    credential: admin.credential.cert(
-      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-    ),
-    databaseURL: process.env.FIREBASE_RTDB_URL,
-  });
-  return _app;
+  const dbUrl = process.env.FIREBASE_RTDB_URL;
+  if (!dbUrl) {
+    _initError = Object.assign(
+      new Error('FIREBASE_RTDB_URL environment variable is not set'),
+      { code: 'missing-env' }
+    );
+    throw _initError;
+  }
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(saJson);
+  } catch {
+    _initError = Object.assign(
+      new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON'),
+      { code: 'invalid-config' }
+    );
+    throw _initError;
+  }
+  try {
+    _app = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: dbUrl,
+    });
+    return _app;
+  } catch (e) {
+    _initError = e;
+    throw _initError;
+  }
+}
+
+async function verifyUserToken(authHeader) {
+  if (!authHeader || !/^Bearer\s+\S/i.test(authHeader)) {
+    return { decoded: null, errorStatus: 401, errorCode: 'missing-token' };
+  }
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  let app;
+  try {
+    app = initAdmin();
+  } catch (e) {
+    console.error('[someday:auth] Firebase Admin SDK initialisation failed:', e.message);
+    console.error('[someday:auth] Check that FIREBASE_SERVICE_ACCOUNT_JSON and FIREBASE_RTDB_URL are set correctly in Netlify environment variables.');
+    return { decoded: null, errorStatus: 503, errorCode: e.code || 'init-error' };
+  }
+  try {
+    const decoded = await app.auth().verifyIdToken(token);
+    return { decoded, errorStatus: null, errorCode: null };
+  } catch (e) {
+    const code = (e.errorInfo && e.errorInfo.code) || e.code || 'unknown';
+    console.warn('[someday:auth] Token verification failed:', code);
+    return { decoded: null, errorStatus: 401, errorCode: code };
+  }
 }
 
 async function verifyStudioToken(authHeader, allowedRoles) {
@@ -56,7 +109,8 @@ function duplicateHash(city, category, title) {
 }
 
 function _resetForTesting() {
-  _app = null;
+  _app       = null;
+  _initError = null;
 }
 
-module.exports = { initAdmin, verifyStudioToken, json, makeId, duplicateHash, _resetForTesting };
+module.exports = { initAdmin, verifyUserToken, verifyStudioToken, json, makeId, duplicateHash, _resetForTesting };

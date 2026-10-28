@@ -3,22 +3,17 @@
 // Actions: request | accept | decline | remove
 // friendRequests/$uid/$senderUid = { displayName, timestamp }
 // friends/$uid/$friendUid = true (bidirectional on accept)
-const { initAdmin, json } = require('./_studio-shared');
+const { initAdmin, verifyUserToken, json } = require('./_studio-shared');
 
 const VALID_ACTIONS = new Set(['request', 'accept', 'decline', 'remove']);
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });
 
-  const authHeader = event.headers['authorization'] || '';
-  const idToken = authHeader.replace(/^Bearer\s+/i, '');
-  if (!idToken) return json(401, { error: 'Unauthorized' });
-
-  let decoded;
-  try {
-    decoded = await initAdmin().auth().verifyIdToken(idToken);
-  } catch {
-    return json(401, { error: 'Invalid token' });
+  const { decoded, errorStatus, errorCode } = await verifyUserToken(event.headers['authorization'] || '');
+  if (!decoded) {
+    if (errorStatus === 503) return json(503, { error: 'Service temporarily unavailable. Check server configuration.' });
+    return json(401, { error: errorCode === 'missing-token' ? 'Unauthorized' : 'Invalid token' });
   }
 
   let body;
