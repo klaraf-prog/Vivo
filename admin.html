@@ -417,6 +417,9 @@
       <button class="nav-item" id="nav-sources" onclick="showTab('sources')">
         <span class="nav-icon">⊕</span> Quellen
       </button>
+      <button class="nav-item" id="nav-pipeline" onclick="showTab('pipeline')">
+        <span class="nav-icon">▶</span> Pipeline
+      </button>
       <hr class="nav-divider">
       <button class="nav-item" id="nav-users"     onclick="showTab('users')">
         <span class="nav-icon">◉</span> Nutzer
@@ -496,6 +499,13 @@
       <div class="tab-panel" id="tab-sources">
         <div class="scroll-content">
           <div id="sources-content"><p style="color:var(--muted)">Lade…</p></div>
+        </div>
+      </div>
+
+      <!-- PIPELINE -->
+      <div class="tab-panel" id="tab-pipeline">
+        <div class="scroll-content">
+          <div id="pipeline-content"><p style="color:var(--muted)">Lade…</p></div>
         </div>
       </div>
 
@@ -620,6 +630,7 @@ function showAdmin() {
     document.getElementById('nav-activities').style.display = 'none';
     document.getElementById('nav-analytics').style.display  = 'none';
     document.getElementById('nav-sources').style.display    = 'none';
+    document.getElementById('nav-pipeline').style.display   = 'none';
     showTab('suggestions');
   } else {
     showTab('dashboard');
@@ -687,6 +698,7 @@ function showTab(name) {
   if (name === 'suggestions') renderSugList();
   if (name === 'activities')  renderActList();
   if (name === 'sources')     renderSources();
+  if (name === 'pipeline')    renderPipeline();
   if (name === 'users')       loadUsers();
   if (name === 'settings')    renderSettings();
   if (name === 'analytics')   renderAnalytics();
@@ -1520,6 +1532,98 @@ async function deleteSource(sourceId) {
     if (res.ok) { showToast('Quelle gelöscht'); renderSources(); }
     else showToast('Fehler beim Löschen');
   } catch { showToast('Netzwerkfehler'); }
+}
+
+// ── Discovery Pipeline ────────────────────────────────────────────
+let _pipelineRunning = false;
+
+async function renderPipeline() {
+  const el = document.getElementById('pipeline-content');
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--muted)">Lade Pipeline-Berichte…</p>';
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/discovery-pipeline', {
+      headers: { 'Authorization': `Bearer ${_idToken}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      el.innerHTML = `<p style="color:var(--danger)">Fehler: ${esc(err.error || 'HTTP ' + res.status)}</p>`;
+      return;
+    }
+    const { runs } = await res.json();
+    const runList = Object.values(runs || {}).sort((a, b) => b.startedAt - a.startedAt);
+    el.innerHTML = _renderPipelinePanel(runList);
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--danger)">Netzwerkfehler: ${esc(e.message)}</p>`;
+  }
+}
+
+function _renderPipelinePanel(runs) {
+  const canRun = _role === 'editor' || _role === 'superadmin';
+  const runBtn = canRun
+    ? `<button class="btn btn-primary" onclick="triggerPipelineRun()" id="pipeline-run-btn" style="margin-bottom:16px">▶ Dry-Run starten (Köln)</button>`
+    : '';
+  const info = `<p style="color:var(--muted);font-size:.85rem;margin-bottom:16px">Dry-Run: Quellen abrufen und Signale erkennen – keine Vorschläge werden gespeichert, keine LLM-Aufrufe.</p>`;
+
+  if (!runs.length) {
+    return `<div class="section"><h3 style="margin-bottom:8px">Discovery Pipeline</h3>${info}${runBtn}<p style="color:var(--muted)">Noch keine Pipeline-Läufe.</p></div>`;
+  }
+
+  const runCards = runs.map(r => {
+    const dt = new Date(r.startedAt).toLocaleString('de-DE');
+    const dur = (r.durationMs / 1000).toFixed(1) + 's';
+    const signalRows = r.signalSummary
+      ? Object.entries(r.signalSummary).map(([k, n]) => {
+          const label = { operatingPeriod: 'Veranstaltungszeitraum', openingHours: 'Öffnungszeiten', exceptionalHours: 'Sonderöffnungszeiten', location: 'Standort', price: 'Preis', provider: 'Anbieter' }[k] || k;
+          const pct = r.sourcesFetched > 0 ? Math.round(n / r.sourcesFetched * 100) : 0;
+          return `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:2px 0"><span>${esc(label)}</span><span style="color:${n > 0 ? 'var(--green,#22c55e)' : 'var(--muted)'}">${n}/${r.sourcesFetched} Quellen (${pct}%)</span></div>`;
+        }).join('')
+      : '';
+
+    const srcRows = (r.sourceResults || []).map(sr => {
+      if (sr.error) return `<div style="font-size:.82rem;padding:3px 0;color:var(--danger)">✗ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a> — ${esc(sr.error)}</div>`;
+      const detected = sr.signals ? Object.entries(sr.signals).filter(([,v]) => v.detected).map(([k]) => k) : [];
+      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a> — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}</div>`;
+    }).join('');
+
+    return `<div class="source-card" style="margin-bottom:12px">
+      <div class="source-card-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:.9rem">${esc(r.city)} · ${dt}</strong>
+          <span style="font-size:.8rem;color:var(--muted)">${dur} · ${r.successCount} OK / ${r.errorCount} Fehler</span>
+        </div>
+        ${signalRows ? `<div style="margin-bottom:8px;padding:8px;background:var(--surface2,#f8f9fa);border-radius:6px"><strong style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">SIGNALE PRO QUELLE</strong>${signalRows}</div>` : ''}
+        ${srcRows ? `<div><strong style="font-size:.8rem;color:var(--muted);display:block;margin-bottom:4px">QUELLEN</strong>${srcRows}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div class="section"><h3 style="margin-bottom:8px">Discovery Pipeline</h3>${info}${runBtn}${runCards}</div>`;
+}
+
+async function triggerPipelineRun() {
+  if (_pipelineRunning) return;
+  _pipelineRunning = true;
+  const btn = document.getElementById('pipeline-run-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…läuft'; }
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/discovery-pipeline', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city: 'Köln' }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast('Fehler: ' + (data.error || 'HTTP ' + res.status)); return; }
+    showToast('Dry-Run abgeschlossen');
+    renderPipeline();
+  } catch (e) {
+    showToast('Netzwerkfehler: ' + e.message);
+  } finally {
+    _pipelineRunning = false;
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Dry-Run starten (Köln)'; }
+  }
 }
 
 // ── Analytics ─────────────────────────────────────────────────────
