@@ -595,3 +595,94 @@ describe('Integration: security — endpoint authorization', () => {
     expect(ue.val()).toBe('dabei');
   }, 10000);
 });
+
+// ─── event date integrity ─────────────────────────────────────────────────────
+describe('Integration: event date integrity', () => {
+  let dateUser;
+  beforeAll(async () => {
+    dateUser = await createUser('DateUser');
+    await db.ref(`users/${dateUser.uid}`).set({ displayName: dateUser.displayName, createdAt: Date.now() });
+  }, 15000);
+
+  test('personal event stores exact date string without timezone shift', async () => {
+    const tok   = await idToken(dateUser.uid);
+    const res   = await eventCreateHandler(post({ title: 'Date Test', date: '2026-10-28', time: '18:00' }, tok));
+    expect(res.statusCode).toBe(201);
+    const { eventId } = parseBody(res);
+    const stored = (await db.ref(`events/${eventId}`).once('value')).val();
+    expect(stored.date).toBe('2026-10-28');
+    expect(stored.time).toBe('18:00');
+  }, 10000);
+
+  test('group event appears in spaceEvents after creation', async () => {
+    const tok = await idToken(dateUser.uid);
+    // Create a space
+    const spRes = await spaceCreateHandler(post({ name: 'Date Group' }, tok));
+    expect(spRes.statusCode).toBe(201);
+    const { spaceId } = parseBody(spRes);
+
+    // Create an event linked to that space
+    const evRes = await eventCreateHandler(post({ title: 'Group Date Event', date: '2026-10-28', spaceIds: [spaceId] }, tok));
+    expect(evRes.statusCode).toBe(201);
+    const { eventId } = parseBody(evRes);
+
+    const spEvSnap = await db.ref(`spaceEvents/${spaceId}/${eventId}`).once('value');
+    expect(spEvSnap.exists()).toBe(true);
+  }, 10000);
+
+  test('space member receives invite when event is created in space', async () => {
+    const memberUser = await createUser('InviteMember');
+    await db.ref(`users/${memberUser.uid}`).set({ displayName: memberUser.displayName, createdAt: Date.now() });
+    const creatorTok = await idToken(dateUser.uid);
+
+    // Create space with the member
+    const spRes = await spaceCreateHandler(post({ name: 'Invite Test Space', memberUids: [memberUser.uid] }, creatorTok));
+    expect(spRes.statusCode).toBe(201);
+    const { spaceId } = parseBody(spRes);
+
+    // Create event with inviteUids populated from the space member
+    const evRes = await eventCreateHandler(post({
+      title: 'Member Invite Event', date: '2026-10-29', spaceIds: [spaceId], inviteUids: [memberUser.uid],
+    }, creatorTok));
+    expect(evRes.statusCode).toBe(201);
+    const { eventId } = parseBody(evRes);
+
+    const inviteSnap = await db.ref(`invites/${memberUser.uid}/${eventId}`).once('value');
+    expect(inviteSnap.exists()).toBe(true);
+  }, 15000);
+
+  test('created event is loadable via user-data by its ID', async () => {
+    const tok   = await idToken(dateUser.uid);
+    const evRes = await eventCreateHandler(post({ title: 'Loadable Event', date: '2026-11-05' }, tok));
+    expect(evRes.statusCode).toBe(201);
+    const { eventId } = parseBody(evRes);
+
+    const udRes  = await userDataHandler({ httpMethod: 'GET', headers: { authorization: `Bearer ${tok}` }, queryStringParameters: {} });
+    expect(udRes.statusCode).toBe(200);
+    const data = parseBody(udRes);
+    expect(data.events[eventId]).toBeDefined();
+    expect(data.events[eventId].title).toBe('Loadable Event');
+    expect(data.userEvents[eventId]).toBeDefined();
+  }, 15000);
+
+  test('explicit inviteUids creates invite entries for each uid', async () => {
+    const invitee1 = await createUser('Invitee1');
+    const invitee2 = await createUser('Invitee2');
+    await db.ref(`users/${invitee1.uid}`).set({ displayName: invitee1.displayName, createdAt: Date.now() });
+    await db.ref(`users/${invitee2.uid}`).set({ displayName: invitee2.displayName, createdAt: Date.now() });
+    const tok   = await idToken(dateUser.uid);
+
+    const evRes = await eventCreateHandler(post({
+      title: 'Invite List Event', date: '2026-11-10', inviteUids: [invitee1.uid, invitee2.uid],
+    }, tok));
+    expect(evRes.statusCode).toBe(201);
+    const { eventId } = parseBody(evRes);
+
+    const [inv1, inv2] = await Promise.all([
+      db.ref(`invites/${invitee1.uid}/${eventId}`).once('value'),
+      db.ref(`invites/${invitee2.uid}/${eventId}`).once('value'),
+    ]);
+    expect(inv1.exists()).toBe(true);
+    expect(inv2.exists()).toBe(true);
+  }, 15000);
+});

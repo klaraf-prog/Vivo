@@ -10,7 +10,7 @@ const card=(a,compact=false)=>`<article class="card"><div onclick="openActivity(
 const discovery=()=>`<div class="content"><div class="eyebrow">LESS SCROLLING. MORE LIVING. ✳</div><h1 class="headline">What are we doing next?</h1><p class="sub">Find your next “remember when”.</p><input id="search" class="search" placeholder="Try pottery, supper clubs…" value="${esc(S.search)}" oninput="S.search=this.value;save();refreshDiscovery()">${filters()}<div class="switch" aria-label="Discover view"><button class="${!S.map?'on':''}" onclick="set({map:false},false)">Explore</button><button class="${S.map?'on':''}" onclick="set({map:true},false)">Map</button></div>${S.map?`<div id="realmap" class="realmap" aria-label="Interactive activity map of Cologne"></div><div id="map-info"></div><p class="footnote">Interactive OpenStreetMap · Provider locations are approximate demo locations, not verified addresses.</p>`:`<h2 class="section">Worth leaving the house for.</h2><div id="results">${resultCards()}</div>`}</div>`;function resultCards(){let arr=filtered();return arr.length?arr.map(a=>card(a)).join(''):'<div class="empty">No experiences found. Try another search.</div>'}function refreshDiscovery(){if(S.map)drawPins();else if($('results'))$('results').innerHTML=resultCards()}
 function initMap(){if(!S.map||S.tab!=='Discover'||S.page!=='home'||!$('realmap'))return;if(typeof L==='undefined'){$('realmap').innerHTML='<div class="empty">Map could not load. Check your internet connection and refresh.</div>';return}mapInstance=L.map('realmap',{zoomControl:true}).setView([50.936,6.947],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(mapInstance);drawPins();setTimeout(()=>mapInstance&&mapInstance.invalidateSize(),100)}function drawPins(){if(!mapInstance)return;mapMarkers.forEach(m=>mapInstance.removeLayer(m));mapMarkers=[];filtered().forEach((a,i)=>{if(a.lat==null||a.lng==null)return;let ico=L.divIcon({className:'',html:`<div class="mapbadge" style="background:${['#65db70','#ffe566','#f6a2b4','#d9caff'][A.indexOf(a)]}">${['✳','✦','♥','↗'][A.indexOf(a)]}</div>`,iconSize:[35,35],iconAnchor:[18,18]});let m=L.marker([a.lat,a.lng],{icon:ico}).addTo(mapInstance).on('click',()=>showMapCard(a.id));mapMarkers.push(m)});if(mapFocus&&filtered().some(a=>a.id===mapFocus))showMapCard(mapFocus);else if($('map-info'))$('map-info').innerHTML=filtered().length?'Tap a pin to explore an activity.':'<div class="empty">No matching activities on this map.</div>'}function showMapCard(id){mapFocus=id;let a=A.find(a=>a.id===id);if(!a||!$('map-info'))return;$('map-info').innerHTML=`<div class="mapinfo"><div class="hrow" style="gap:12px"><img src="${a.img}" alt=""><div style="flex:1;padding:8px 6px 8px 0"><strong>${esc(a.name)}</strong><div class="small">${esc(a.provider)} · ${esc(a.location)}</div><div class="small">${a.price}</div></div></div><div class="hrow" style="padding:0 10px 10px">${button('View activity →',`openActivity('${a.id}')`,'full')}${button('Provider',`set({selected:'${a.id}',page:'provider'})`,'secondary')}</div></div>`}
 const detail=()=>{let a=act();return `<div><img class="photo" style="height:270px" src="${a.img}" alt="${esc(a.name)}"><div class="content"><button class="back" onclick="goBack()">← Back</button><div class="eyebrow">${a.tag}</div><h1 class="headline">${esc(a.name)}</h1><p class="sub">${esc(a.provider)} · ${esc(a.location)} · From ${a.price}</p><p class="sub">Try something new, meet your people, and make a day worth remembering.</p><div class="stack">${button('♡ Save for someday',`openSave('${a.id}')`,'full')}${button('Explore provider →',`set({page:'provider',providerView:'List'})`,'secondary full')}${button('Plan with Weekend Crew',`startPlan('${a.id}','Weekend Crew')`,'secondary full')}</div></div></div>`};const provider=()=>{let a=act();return `<div class="content"><button class="back" onclick="goBack()">← Back to activity</button><div class="eyebrow">EXPERIENCE PROVIDER</div><h1 class="headline">${esc(a.provider)}</h1><p class="sub">${a.location} · Cologne</p><img class="photo" style="border-radius:18px;margin:16px 0" src="${a.img}" alt="${esc(a.provider)}"><h2 class="section">Upcoming sessions</h2>${segment('providerView',['List','Calendar'])}${S.providerView==='Calendar'?`<div class="monthgrid" style="margin:15px 0">${[23,24,27].map(d=>`<button class="rowcard" style="padding:10px;text-align:center;background:#e2f8df" onclick="set({date:'2026-10-${d}',page:'session'})">Oct ${d}</button>`).join('')}</div>`:''}<div class="stack" style="margin-top:15px">${[['23','Fri 23 Oct · 18:30'],['24','Sat 24 Oct · 11:00'],['27','Tue 27 Oct · 17:00']].map(([d,t])=>`<button class="rowcard between" onclick="set({date:'2026-10-${d}',page:'session'})"><span><strong>${t}</strong><br><span class="small">${a.name} · ${a.price}</span></span><strong>→</strong></button>`).join('')}</div></div>`};const session=()=>{let a=act();return `<div class="content"><button class="back" onclick="goBack()">← Back to sessions</button><div class="eyebrow">UPCOMING SESSION</div><h1 class="headline">${a.name}</h1><div class="mutedbox"><strong>${S.date} · 18:30</strong><p>${a.provider} · ${a.location}</p><strong>${a.price} per person</strong></div><div class="stack" style="margin-top:18px">${button('Book a spot →',`set({page:'booking'})`,'full')}${button('Invite friends',`startPlan('${a.id}','Weekend Crew')`,'secondary full')}${button('Add to my calendar',`addPersonalSession()`,'secondary full')}</div></div>`};function addPersonalSession(){S.plans.push({id:Date.now(),activity:S.selected,title:act().name,space:'Personal',date:S.date,start:'18:30',end:'20:00',status:'Personal',rsvp:'Going',booked:false,custom:false});set({tab:'Calendar',page:'home'})}const segment=(key,options)=>`<div class="seg">${options.map(v=>`<button class="${S[key]===v?'active':''}" onclick="set({${key}:'${v}'},false)">${v}</button>`).join('')}</div>`;
-function openSave(id){S.selected=id;draft=[...(S.saved[id]||[])];set({sheet:'save'},false)}function toggleDraft(t){draft=draft.includes(t)?draft.filter(x=>x!==t):[...draft,t];render()}function commitSave(){S.saved[S.selected]=[...draft];set({sheet:false})}const saveSheet=()=>`<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">SAVE FOR SOMEDAY ✳</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">Keep this one close.</h1><p class="sub">${act().name} can live in more than one list.</p><div class="stack">${['Just for me','Weekend Crew','Run Club'].map(t=>`<button class="rowcard ${draft.includes(t)?'selected':''} between" onclick="toggleDraft('${t}')"><strong>${t}</strong><span>${draft.includes(t)?'✓':'○'}</span></button>`).join('')}${button('Save choices →','commitSave()','full')}</div></div></div>`;
+function openSave(id){S.selected=id;draft=[...(S.saved[id]||[])];set({sheet:'save'},false)}function toggleDraft(t){draft=draft.includes(t)?draft.filter(x=>x!==t):[...draft,t];render()}function commitSave(){S.saved[S.selected]=[...draft];set({sheet:false})}const saveSheet=()=>`<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">SAVE FOR SOMEDAY ✳</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">Keep this one close.</h1><p class="sub">${act().name} can live in more than one list.</p><div class="stack">${_spaceSaveTargets().map(t=>`<button class="rowcard ${draft.includes(t)?'selected':''} between" onclick="toggleDraft('${t}')"><strong>${t}</strong><span>${draft.includes(t)?'✓':'○'}</span></button>`).join('')}${button('Save choices →','commitSave()','full')}</div></div></div>`;
 const spaces=()=>`<div class="content"><div class="hero"><div class="eyebrow">BETTER TOGETHER ✳</div><h1>Your people.<br>Your plans.</h1></div><div class="stack">${['Weekend Crew','Run Club'].map(t=>`<button class="rowcard" onclick="set({space:'${t}',page:'space',spaceTab:'Ideas'})"><div class="between"><h2>${t}</h2><strong>→</strong></div><p class="sub">${t==='Weekend Crew'?'4 friends · Food, culture & adventures':'12 members · Movement & community'}</p><span class="tag">${A.filter(a=>(S.saved[a.id]||[]).includes(t)).length+(S.ideas||[]).filter(x=>x.spaces.includes(t)).length} ideas</span></button>`).join('')}</div>${button('+ Create group plan',"openCreate('group')",'full')}</div>`;
 const space=()=>{let ps=S.plans.filter(p=>(p.spaces||[p.space]).includes(S.space)),ideas=A.filter(a=>(S.saved[a.id]||[]).includes(S.space)),customIdeas=(S.ideas||[]).filter(i=>i.spaces.includes(S.space));let body='';if(S.spaceTab==='Ideas'){body='<h2 class="section">Our someday list</h2>'+ideas.map(a=>`<button class="rowcard" style="margin-bottom:12px" onclick="startPlan('${a.id}','${S.space}')"><div class="eyebrow">UNDATED IDEA</div><h3>${a.name}</h3><p class="sub">${a.provider} · ${a.price}</p><strong>Make a plan →</strong></button>`).join('')+customIdeas.map(i=>`<button class="rowcard" style="margin-bottom:12px" onclick="openCreate('group','${i.id}')"><div class="eyebrow">YOUR IDEA</div><h3>${esc(i.title)}</h3><p class="sub">${esc(i.description||'Not scheduled yet')}</p><strong>Make a plan →</strong></button>`).join('')+(!ideas.length&&!customIdeas.length?'<div class="empty">Nothing saved here yet.</div>':'')+button('+ Add an idea',"openCreate('idea')",'secondary full')}else{body=`<h2 class="section">${S.spaceTab==='Plans'?'Group plans':'Upcoming together'}</h2>`+(ps.length?ps.map(p=>planCard(p)).join(''):'<div class="empty">No plans yet.</div>')+button('+ Create a group plan',"openCreate('group')",'full')+(S.spaceTab==='Calendar'?button('Open full calendar',"nav('Calendar')",'secondary full'):'')}return `<div class="content"><button class="back" onclick="set({page:'home'})">← All Spaces</button><div class="hero"><div class="eyebrow">YOUR PEOPLE ✳</div><h1>${S.space}</h1><p class="sub">Good things ahead.</p></div>${segment('spaceTab',['Plans','Calendar','Ideas'])}<div style="margin-top:20px">${body}</div></div>`};
 function planCard(p){return `<button class="rowcard" style="margin-bottom:10px" onclick="openEvent('${p.id}')"><div class="eyebrow">${esc(p.status)} · ${p.booked?'BOOKED':'NOT BOOKED'}</div><h3>${esc(p.title)}</h3><div class="small">${esc(p.date)} · ${(p.spaces||[p.space]).join(', ')} · ${p.rsvp||'No RSVP'}</div></button>`}function startPlan(id,spaceName){set({selected:id,space:spaceName,page:'planning',step:'choose',mode:'quick',date:'2026-10-23',choices:['2026-10-23','2026-10-24']})}const dates=[['2026-10-23','Fri 23 Oct · 18:30'],['2026-10-24','Sat 24 Oct · 11:00'],['2026-10-27','Tue 27 Oct · 17:00']];function toggleChoice(d){S.choices=S.choices.includes(d)?S.choices.filter(x=>x!==d):[...S.choices,d];save();render()}function createPlan(){S.plans.push({id:Date.now(),activity:S.selected,title:act().name,space:S.space,spaces:[S.space],date:S.date,start:'18:30',end:'20:30',status:S.mode==='poll'?'Confirmed plan':'Proposed',rsvp:S.rsvp,booked:false});set({page:'space',spaceTab:'Plans'})}const planning=()=>`<div class="content"><button class="back" onclick="goBack()">← Back to Space</button><div class="eyebrow">FROM SOMEDAY TO A PLAN ✳</div><h1 class="headline">${act().name}</h1><p class="sub">Planning with ${S.space}</p>${S.step==='choose'?`<div class="stack"><button class="rowcard" onclick="set({mode:'quick',step:'date'})"><h2>📅 Suggest a date</h2><p class="sub">Already have a day in mind? Propose it and let friends RSVP.</p><strong>Quick plan →</strong></button><button class="rowcard" onclick="set({mode:'poll',step:'date'})"><h2>✳ Find a time together</h2><p class="sub">Compare several dates, collect availability and decide together.</p><strong>Coordinate →</strong></button></div>`:S.step==='date'?`<h2 class="section">${S.mode==='quick'?'Choose one session':'Suggest possible sessions'}</h2><div class="stack">${dates.map(([d,t])=>`<button class="rowcard between ${S.mode==='quick'?S.date===d?'selected':'':S.choices.includes(d)?'selected':''}" onclick="${S.mode==='quick'?`set({date:'${d}'},false)`:`toggleChoice('${d}')`}"><strong>${t}</strong><span>${S.mode==='quick'?S.date===d?'✓':'○':S.choices.includes(d)?'✓':'○'}</span></button>`).join('')}${button(S.mode==='quick'?'Send proposal →':'Collect availability →',`set({step:'${S.mode==='quick'?'rsvp':'poll'}'})`,'full')}</div>`:S.step==='poll'?`<h2 class="section">Choose the best fit</h2><p class="sub">Simulated responses from 4 friends. Select a date to finalize.</p><div class="stack">${S.choices.map(d=>`<button class="rowcard between ${S.date===d?'selected':''}" onclick="set({date:'${d}'},false)"><span><strong>${d}</strong><br><span class="small">${d==='2026-10-23'?'2 of 4':'3 of 4'} available</span></span><span>${S.date===d?'✓':'○'}</span></button>`).join('')}${button('Choose date →',"set({step:'rsvp'})",'full')}</div>`:`<div class="mutedbox"><strong>${act().name}</strong><p>${S.date} · ${S.space}</p><span class="small">This is a plan, not a booking.</span></div><h2 class="section">Your response</h2><div class="toggle">${['Going','Maybe',"Can't"].map(r=>`<button class="${S.rsvp===r?'on':''}" onclick="set({rsvp:'${r}'},false)">${r}</button>`).join('')}</div><div style="height:12px"></div>${button('Create group plan →','createPlan()','full')}`}</div>`;
@@ -18,7 +18,7 @@ const calOwners={'Personal':['#f9dce6','#b34d76'],'Weekend Crew':['#d8f5d5','#26
 const profile=()=>`<div class="content">${S.settings?`<button class="back" onclick="set({settings:false})">← Profile</button><h1 class="headline">Settings</h1><h2 class="section">Calendar connections</h2>${['Google','Apple','Outlook'].map(c=>`<button class="rowcard between" style="margin-bottom:10px" onclick="toggleConnection('${c}')"><strong>${c} Calendar</strong><span>${S.connections.includes(c)?'Demo enabled ✓':'Demo off'}</span></button>`).join('')}<p class="footnote">No actual calendar account is connected. These are preview toggles only.</p>`:`<div class="profiletop"><div class="hrow"><div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">K</div><div><h2 style="margin:0">Klara</h2><div class="sub">Cologne · 2 Spaces</div></div></div><h2 style="margin:24px 0 3px">Good things are on the horizon.</h2><p class="sub">Your little corner of someday ✳</p></div><div class="between"><h2 class="section">Your profile</h2><button class="chip" onclick="set({settings:true})">⚙ Settings</button></div>${segment('profileTab',['Saved','Spaces','Activity'])}<div style="margin-top:18px">${S.profileTab==='Saved'?`<h2 class="section">Your someday list</h2><div class="grid2">${A.filter(a=>(S.saved[a.id]||[]).includes('Just for me')).map(a=>card(a,true)).join('')}</div>`:S.profileTab==='Spaces'?['Weekend Crew','Run Club'].map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${t}',page:'space'})"><strong>${t}</strong><span>→</span></button>`).join(''):`<div class="mutedbox">${S.plans.length} plans created in this demo.</div>`}</div>`}</div>`;function toggleConnection(c){S.connections=S.connections.includes(c)?S.connections.filter(x=>x!==c):[...S.connections,c];save();render()}
 // Create / edit custom personal events, multi-Space group plans, and undated ideas.
 function openCreate(type='personal',ideaId='',date=''){let idea=(S.ideas||[]).find(x=>String(x.id)===String(ideaId));D={id:null,kind:type,title:idea?.title||'',description:idea?.description||'',location:'',date:date||new Date().toISOString().slice(0,10),start:'18:00',end:'20:00',spaces:type==='group'?[S.space||'Weekend Crew']:[],method:'quick',options:[],step:'form',sourceIdea:ideaId||null};set({sheet:'create'},false)}function openEdit(id){let p=S.plans.find(p=>String(p.id)===String(id));if(!p)return;D={id:p.id,kind:p.space==='Personal'?'personal':'group',title:p.title,description:p.description||'',location:p.location||'',date:p.date,start:p.start||'18:00',end:p.end||'20:00',spaces:[...(p.spaces||[p.space])].filter(x=>x!=='Personal'),method:p.method||'quick',options:p.options||[],step:'form'};set({sheet:'create'},false)}function updateD(key,val){D[key]=val}function toggleDspace(t){D.spaces=D.spaces.includes(t)?D.spaces.filter(x=>x!==t):[...D.spaces,t];render()}function changeKind(k){D.kind=k;if(k==='group'&&!D.spaces.length)D.spaces=[S.space||'Weekend Crew'];render()}function saveCustom(){let title=($('d-title')?.value||D.title||'').trim();if(!title){alert('Please add a title.');return}D.title=title;D.description=$('d-desc')?.value||D.description;D.location=$('d-location')?.value||D.location;if(D.kind==='idea'){if(!D.spaces.length){alert('Choose at least one Space.');return}S.ideas=S.ideas||[];S.ideas.push({id:Date.now(),title:D.title,description:D.description,spaces:[...D.spaces]});set({sheet:false,tab:'Spaces',page:'space',space:D.spaces[0],spaceTab:'Ideas'});return}D.date=$('d-date')?.value||D.date;D.start=$('d-start')?.value||D.start;D.end=$('d-end')?.value||D.end;if(!D.date||!D.start||!D.end||D.end<=D.start){alert('Please choose a valid date and end time after the start.');return}if(D.kind==='group'&&!D.spaces.length){alert('Choose at least one Space.');return}if(D.kind==='group'&&D.method==='poll'&&!D.id&&D.step!=='poll'){D.step='poll';D.options=[D.date];render();return}commitCustom()}function commitCustom(){let p={id:D.id||Date.now(),title:D.title,description:D.description,location:D.location,date:D.date,start:D.start,end:D.end,space:D.kind==='personal'?'Personal':D.spaces[0],spaces:D.kind==='personal'?['Personal']:[...D.spaces],status:D.kind==='personal'?'Personal':D.method==='poll'?'Finding a time':'Proposed',rsvp:D.kind==='personal'?'Going':'Maybe',booked:false,custom:true,method:D.method,options:[...D.options]};let index=S.plans.findIndex(x=>String(x.id)===String(D.id));if(index>=0)S.plans[index]={...S.plans[index],...p};else S.plans.push(p);set({sheet:false,tab:D.kind==='personal'?'Calendar':'Spaces',page:D.kind==='personal'?'home':'space',space:D.kind==='personal'?S.space:D.spaces[0],spaceTab:'Plans'})}function addPollDate(){let d=$('poll-date')?.value;if(d&&!D.options.includes(d)){D.options.push(d);render()}}function removePollDate(d){D.options=D.options.filter(x=>x!==d);render()}
-function createSheet(){return `<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">${D.id?'EDIT EVENT':'CREATE SOMETHING ✳'}</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">${D.id?'Make a change.':D.step==='poll'?'Find a time together.':'Make it happen.'}</h1>${D.step==='poll'?`<p class="sub">Add candidate dates for your group. This creates a planning proposal, not a confirmed booking. Availability responses are demo-only.</p><div class="stack">${D.options.map(x=>`<div class="rowcard between"><strong>${esc(x)}</strong><button class="chip" onclick="removePollDate('${x}')">Remove</button></div>`).join('')}<label class="formlabel">Another date</label><input id="poll-date" type="date" class="field" value="${esc(D.date)}">${button('+ Add date','addPollDate()','secondary full')}${button('Create date poll →','commitCustom()','full')}</div>`:`<div class="switch" style="grid-template-columns:repeat(3,1fr)"><button class="${D.kind==='personal'?'on':''}" onclick="changeKind('personal')">Personal</button><button class="${D.kind==='group'?'on':''}" onclick="changeKind('group')">Group plan</button><button class="${D.kind==='idea'?'on':''}" onclick="changeKind('idea')">Idea</button></div><label class="formlabel">Title *</label><input class="field" id="d-title" placeholder="Dinner with friends, movie night…" value="${esc(D.title)}" oninput="updateD('title',this.value)"><label class="formlabel">Description (optional)</label><textarea class="field" id="d-desc" rows="2" placeholder="What's the plan?" oninput="updateD('description',this.value)">${esc(D.description)}</textarea>${D.kind!=='idea'?`<label class="formlabel">Location (optional)</label><input class="field" id="d-location" placeholder="Where?" value="${esc(D.location)}" oninput="updateD('location',this.value)"><label class="formlabel">Date</label><input class="field" id="d-date" type="date" value="${esc(D.date)}" onchange="updateD('date',this.value)"><div class="hrow"><div style="flex:1;min-width:0"><label class="formlabel">Start</label><input class="field" id="d-start" type="time" value="${esc(D.start)}" onchange="updateD('start',this.value)"></div><div style="flex:1;min-width:0"><label class="formlabel">End</label><input class="field" id="d-end" type="time" value="${esc(D.end)}" onchange="updateD('end',this.value)"></div></div>`:''}${D.kind!=='personal'?`<label class="formlabel">${D.kind==='idea'?'Save idea to Spaces':'Share with Spaces'}</label><div class="checks">${['Weekend Crew','Run Club'].map(t=>`<label class="checkrow"><input type="checkbox" ${D.spaces.includes(t)?'checked':''} onchange="toggleDspace('${t}')">${t}</label>`).join('')}</div>`:''}${D.kind==='group'&&!D.id?`<label class="formlabel">How should we plan?</label><div class="stack"><label class="checkrow"><input type="radio" name="method" ${D.method==='quick'?'checked':''} onchange="D.method='quick'">Suggest this date · friends RSVP</label><label class="checkrow"><input type="radio" name="method" ${D.method==='poll'?'checked':''} onchange="D.method='poll'">Find a time together · date poll</label></div>`:''}<div style="height:16px"></div>${button(D.kind==='idea'?'Save idea →':D.kind==='personal'?'Save to my calendar →':D.method==='poll'&&!D.id?'Continue to date options →':'Create group plan →','saveCustom()','full')}<p class="footnote">Events and ideas are stored on this device only. Sharing a plan with Spaces does not send real invitations yet.</p>`}</div></div>`}
+function createSheet(){return `<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">${D.id?'EDIT EVENT':'CREATE SOMETHING ✳'}</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">${D.id?'Make a change.':D.step==='poll'?'Find a time together.':'Make it happen.'}</h1>${D.step==='poll'?`<p class="sub">Add candidate dates for your group. This creates a planning proposal, not a confirmed booking. Availability responses are demo-only.</p><div class="stack">${D.options.map(x=>`<div class="rowcard between"><strong>${esc(x)}</strong><button class="chip" onclick="removePollDate('${x}')">Remove</button></div>`).join('')}<label class="formlabel">Another date</label><input id="poll-date" type="date" class="field" value="${esc(D.date)}">${button('+ Add date','addPollDate()','secondary full')}${button('Create date poll →','commitCustom()','full')}</div>`:`<div class="switch" style="grid-template-columns:repeat(3,1fr)"><button class="${D.kind==='personal'?'on':''}" onclick="changeKind('personal')">Personal</button><button class="${D.kind==='group'?'on':''}" onclick="changeKind('group')">Group plan</button><button class="${D.kind==='idea'?'on':''}" onclick="changeKind('idea')">Idea</button></div><label class="formlabel">Title *</label><input class="field" id="d-title" placeholder="Dinner with friends, movie night…" value="${esc(D.title)}" oninput="updateD('title',this.value)"><label class="formlabel">Description (optional)</label><textarea class="field" id="d-desc" rows="2" placeholder="What's the plan?" oninput="updateD('description',this.value)">${esc(D.description)}</textarea>${D.kind!=='idea'?`<label class="formlabel">Location (optional)</label><input class="field" id="d-location" placeholder="Where?" value="${esc(D.location)}" oninput="updateD('location',this.value)"><label class="formlabel">Date</label><input class="field" id="d-date" type="date" value="${esc(D.date)}" onchange="updateD('date',this.value)"><div class="hrow"><div style="flex:1;min-width:0"><label class="formlabel">Start</label><input class="field" id="d-start" type="time" value="${esc(D.start)}" onchange="updateD('start',this.value)"></div><div style="flex:1;min-width:0"><label class="formlabel">End</label><input class="field" id="d-end" type="time" value="${esc(D.end)}" onchange="updateD('end',this.value)"></div></div>`:''}${D.kind!=='personal'?`<label class="formlabel">${D.kind==='idea'?'Save idea to Spaces':'Share with Spaces'}</label><div class="checks">${(_spaceFormTargets().length?_spaceFormTargets().map(({name:t})=>`<label class="checkrow"><input type="checkbox" ${D.spaces.includes(t)?'checked':''} onchange="toggleDspace('${t}')">${esc(t)}</label>`).join(''):'<p class="sub" style="color:#c0392b">No groups yet. <button onclick="nav(\'Spaces\')" style="border:0;background:none;color:#277c42;font-weight:700;cursor:pointer">Create one →</button></p>')}</div>`:''}${D.kind==='group'&&!D.id?`<label class="formlabel">How should we plan?</label><div class="stack"><label class="checkrow"><input type="radio" name="method" ${D.method==='quick'?'checked':''} onchange="D.method='quick'">Suggest this date · friends RSVP</label><label class="checkrow"><input type="radio" name="method" ${D.method==='poll'?'checked':''} onchange="D.method='poll'">Find a time together · date poll</label></div>`:''}<div style="height:16px"></div>${button(D.kind==='idea'?'Save idea →':D.kind==='personal'?'Save to my calendar →':D.method==='poll'&&!D.id?'Continue to date options →':'Create group plan →','saveCustom()','full')}<p class="footnote">Events and ideas are stored on this device only. Sharing a plan with Spaces does not send real invitations yet.</p>`}</div></div>`}
 function render(){if(mapInstance){mapInstance.remove();mapInstance=null;mapMarkers=[]}let p=S.page==='home'?({Discover:discovery,Calendar:calendar,Spaces:spaces,Profile:profile}[S.tab]||discovery)():({activity:detail,provider,session,space,planning,event:eventPage,booking:()=>`<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>`}[S.page]||discovery)();$('app').innerHTML=header()+p+bottom()+(S.page==='home'&&(S.tab==='Calendar'||S.tab==='Spaces')?'<button class="createfloat" aria-label="Create event" onclick="openCreate(S.tab===\'Calendar\'?\'personal\':\'group\')">+</button>':'')+(S.sheet?(S.sheet==='save'?saveSheet():createSheet()):'');if(S.map&&S.tab==='Discover'&&S.page==='home')setTimeout(initMap,0)}
 // ── Firebase activity integration ─────────────────────────────────────────
 // Activities are loaded via the /.netlify/functions/activities endpoint.
@@ -391,9 +391,17 @@ function _profileTab() {
       ${S.profileTab==='Saved'
         ? `<h2 class="section">Your someday list</h2><div class="grid2">${A.filter(a=>(S.saved[a.id]||[]).includes('Just for me')).map(a=>card(a,true)).join('')}</div>`
         : S.profileTab==='Spaces'
-          ? (spaces.length
-              ? spaces.map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${esc(t)}',page:'space'})"><strong>${esc(t)}</strong><span>→</span></button>`).join('')
-              : ['Weekend Crew','Run Club'].map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${t}',page:'space'})"><strong>${t}</strong><span>→</span></button>`).join(''))
+          ? (() => {
+              const sl = (_userData && _userData.spaces)
+                ? Object.entries(_userData.userSpaces || {}).map(([id]) => {
+                    const sp = _userData.spaces[id];
+                    return sp && sp.name ? { id, name: sp.name } : null;
+                  }).filter(Boolean)
+                : [];
+              return sl.length
+                ? sl.map(({ id, name }) => `<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${esc(name)}',spaceId:'${id}',page:'space',spaceTab:'Events'})"><strong>${esc(name)}</strong><span>→</span></button>`).join('')
+                : '<div class="empty">No groups yet.</div>';
+            })()
           : S.profileTab==='Friends'
           ? (() => {
               const fps     = _userData && _userData.friendProfiles ? Object.entries(_userData.friendProfiles) : [];
@@ -445,7 +453,7 @@ window.render = function render() {
   } else if (S.tab === 'Spaces' && S.page === 'space' && S.spaceId && _currentUser && _userData && !_userData._error) {
     p = _authSpace();
   } else {
-    const pages = { activity: detail, provider, session, space, planning, event: eventPage,
+    const pages = { activity: detail, provider, session, space, planning, event: _authEventPage,
       booking: () => `<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>` };
     p = S.page === 'home'
       ? ({ Discover: discovery, Calendar: calendar, Spaces: spaces, Profile: _profileTab, Privacy: _privacyPage }[S.tab] || discovery)()
@@ -474,6 +482,21 @@ const _spaceColors = [
   ['#d8f5d5','#268547'], ['#dce8f5','#265985'], ['#f5e8d8','#855226'],
   ['#e8d8f5','#622685'], ['#f5d8e8','#854265'], ['#d8f5f2','#267a85'],
 ];
+
+function _spaceSaveTargets() {
+  const targets = ['Just for me'];
+  if (_userData && _userData.spaces) {
+    Object.values(_userData.spaces).forEach(sp => { if (sp && sp.name) targets.push(sp.name); });
+  }
+  return targets;
+}
+
+function _spaceFormTargets() {
+  if (!_userData || !_userData.spaces) return [];
+  return Object.entries(_userData.spaces)
+    .filter(([, sp]) => sp && sp.name)
+    .map(([id, sp]) => ({ id, name: sp.name }));
+}
 
 function _realCalOwners() {
   const owners = { Personal: ['#f9dce6','#b34d76'] };
@@ -658,31 +681,70 @@ async function _rsvp(eventId, fbStatus) {
 
 const _origCommitCustom = commitCustom;
 window.commitCustom = async function commitCustom_auth() {
-  _origCommitCustom();
-  if (!_currentUser || !D || !D.title) return;
-  const spaceIds = [];
+  // Unauthenticated: save locally only
+  if (!_currentUser) { _origCommitCustom(); return; }
+  if (!D || !D.title) return;
+
+  const spaceIds   = [];
+  const inviteUids = [];
+  const myUid = _userData && _userData.uid;
+
+  // Collect spaceIds from D._spaceIds (set by startGroupEvent) or from space names
+  const sIdSet = new Set(D._spaceIds || []);
   if (D.kind === 'group' && D.spaces && D.spaces.length && _userData && _userData.spaces) {
     D.spaces.forEach(spaceName => {
-      const entry = Object.entries(_userData.spaces).find(([,sp]) => sp.name === spaceName);
-      if (entry) spaceIds.push(entry[0]);
+      const entry = Object.entries(_userData.spaces).find(([, sp]) => sp.name === spaceName);
+      if (entry) sIdSet.add(entry[0]);
     });
   }
+  sIdSet.forEach(sId => {
+    spaceIds.push(sId);
+    const sp = (_userData && _userData.spaces || {})[sId];
+    if (sp) {
+      Object.keys(sp.members || {}).forEach(uid => {
+        if (uid !== myUid && !inviteUids.includes(uid)) inviteUids.push(uid);
+      });
+    }
+  });
+
+  // Disable submit buttons while writing
+  const sheetBtns = document.querySelectorAll('.sheet .btn');
+  sheetBtns.forEach(b => { b.disabled = true; });
   try {
     const token = await _currentUser.getIdToken();
-    await fetch('/.netlify/functions/event-create', {
+    const res = await fetch('/.netlify/functions/event-create', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: D.title, date: D.date, time: D.start, location: D.location, details: D.description, spaceIds }),
+      body: JSON.stringify({ title: D.title, date: D.date, time: D.start,
+                             location: D.location, details: D.description, spaceIds, inviteUids }),
     });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      sheetBtns.forEach(b => { b.disabled = false; });
+      alert('Fehler beim Speichern: ' + (d.error || `HTTP ${res.status}`));
+      return;
+    }
+    // Server confirmed — navigate first, then refresh
+    set({ sheet: false,
+          tab:      D.kind === 'personal' ? 'Calendar' : 'Spaces',
+          page:     D.kind === 'personal' ? 'home' : 'space',
+          space:    D.kind !== 'personal' && D.spaces && D.spaces[0] ? D.spaces[0] : S.space,
+          spaceTab: 'Events' });
     const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res2.ok) { _userData = await res2.json(); render(); }
-  } catch (e) { console.warn('[someday] event-create error:', e.message); }
+  } catch (e) {
+    console.warn('[someday] event-create error:', e.message);
+    sheetBtns.forEach(b => { b.disabled = false; });
+    alert('Fehler beim Speichern: ' + e.message);
+  }
 };
 
 // ── Auth-aware Spaces tab ─────────────────────────────────────────────────
 
 function _authSpaces() {
-  if (!_currentUser || !_userData || _userData._error) return spaces();
+  if (!_currentUser) return spaces();
+  if (!_userData) return `<div class="content"><div class="hero"><div class="eyebrow">BETTER TOGETHER ✳</div><h1>Your groups.</h1></div><div class="empty">Loading…</div></div>`;
+  if (_userData._error) return `<div class="content"><div class="hero"><div class="eyebrow">BETTER TOGETHER ✳</div><h1>Your groups.</h1></div><div class="warn">⚠ ${esc(_userData._message || 'Could not load groups.')}</div></div>`;
   const { spaces: fbSpaces, userSpaces } = _userData;
   const spaceList = Object.entries(userSpaces || {})
     .map(([id]) => ({ id, ...(fbSpaces[id] || {}) }))
@@ -761,9 +823,49 @@ function _authSpace() {
   </div>`;
 }
 
+function _authEventPage() {
+  const id = S.eventId;
+  if (!id || !_currentUser || !_userData || _userData._error) return eventPage();
+  const ev = (_userData.events || {})[id];
+  if (!ev) return eventPage();
+  const myStatus = (_userData.userEvents || {})[id];
+  let spaceName = 'Personal';
+  if (_userData.spaceEvents && _userData.spaces) {
+    for (const [sId, evts] of Object.entries(_userData.spaceEvents)) {
+      if (evts && evts[id]) { spaceName = ((_userData.spaces[sId] || {}).name) || 'Personal'; break; }
+    }
+  }
+  const label = myStatus ? (_rsvpToLabel[myStatus] || myStatus) : 'No RSVP';
+  const rsvpList = Object.values(ev.rsvps || {});
+  const goingCount = rsvpList.filter(r => r.status === 'dabei').length;
+  return `<div class="content">
+    <button class="back" onclick="nav('Calendar')">← Calendar</button>
+    <div class="eyebrow">${esc(spaceName)}</div>
+    <h1 class="headline">${esc(((ev.emoji || '') + ' ' + (ev.title || '')).trim())}</h1>
+    <div class="mutedbox">
+      <strong>${esc(ev.date || '')}</strong>
+      ${ev.time ? `<p>${esc(ev.time)}</p>` : ''}
+      ${ev.location ? `<p>⌖ ${esc(ev.location)}</p>` : ''}
+      ${ev.details ? `<p>${esc(ev.details)}</p>` : ''}
+      <div class="small">${goingCount} going · Your RSVP: ${esc(label)}</div>
+    </div>
+    <h2 class="section">RSVP</h2>
+    <div class="toggle">
+      ${['dabei', 'vielleicht', 'nein'].map(s =>
+        `<button class="${myStatus === s ? 'on' : ''}" onclick="_rsvp('${id}','${s}')">${{ dabei: '✓ Going', vielleicht: 'Maybe', nein: '✗ No' }[s]}</button>`
+      ).join('')}
+    </div>
+    <p class="footnote">Created by ${esc(ev.creatorName || '')}</p>
+  </div>`;
+}
+
 function startGroupEvent(spaceId) {
   const sp = (_userData && _userData.spaces || {})[spaceId];
-  if (sp) set({ space: sp.name, spaceId, page: 'planning', step: 'choose', mode: 'quick', date: new Date().toISOString().slice(0,10) });
+  if (!sp) return;
+  D = { id: null, kind: 'group', title: '', description: '', location: '',
+        date: new Date().toISOString().slice(0, 10), start: '18:00', end: '20:00',
+        spaces: [sp.name], _spaceIds: [spaceId], method: 'quick', options: [], step: 'form', sourceIdea: null };
+  set({ space: sp.name, spaceId, sheet: 'create' }, false);
 }
 
 if (!('spaceId' in S)) S.spaceId = null;
