@@ -268,11 +268,13 @@ describe('studio-submit', () => {
   };
 
   beforeEach(() => {
-    process.env.STUDIO_RESEARCHER_KEY = 'secret_key_123';
+    process.env.STUDIO_RESEARCHER_KEY  = 'secret_key_123';
+    process.env.RESEARCHER_KEY_ENABLED = 'true';
   });
 
   afterEach(() => {
     delete process.env.STUDIO_RESEARCHER_KEY;
+    delete process.env.RESEARCHER_KEY_ENABLED;
   });
 
   test('13. returns 403 when no auth and no API key', async () => {

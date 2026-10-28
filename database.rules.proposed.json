@@ -8,7 +8,7 @@
   "rules": {
     "users": {
       "$uid": {
-        ".read":  "$uid === auth.uid",
+        ".read":  "$uid === auth.uid || auth.token.studioRole === 'superadmin'",
         ".write": "$uid === auth.uid"
       }
     },
@@ -38,7 +38,7 @@
     },
     "spaces": {
       "$spaceId": {
-        ".read":  "auth != null && root.child('spaces').child($spaceId).child('members').child(auth.uid).exists()",
+        ".read":  "auth != null && (root.child('spaces').child($spaceId).child('members').child(auth.uid).exists() || auth.token.studioRole != null)",
         ".write": "auth != null && (!data.exists() || root.child('spaces').child($spaceId).child('members').child(auth.uid).exists())"
       }
     },
@@ -68,7 +68,7 @@
     },
     "spaceEvents": {
       "$spaceId": {
-        ".read":  "auth != null && root.child('spaces').child($spaceId).child('members').child(auth.uid).exists()",
+        ".read":  "auth != null && (root.child('spaces').child($spaceId).child('members').child(auth.uid).exists() || auth.token.studioRole != null)",
         ".write": "auth != null && root.child('spaces').child($spaceId).child('members').child(auth.uid).exists()"
       }
     },

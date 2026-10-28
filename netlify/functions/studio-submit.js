@@ -3,9 +3,10 @@ const { initAdmin, verifyStudioToken, json, makeId, duplicateHash } = require('.
 const REQUIRED = ['title', 'description', 'category', 'city'];
 
 async function authenticateRequest(event) {
-  const apiKey = event.headers['x-studio-key'];
+  const keyEnabled    = process.env.RESEARCHER_KEY_ENABLED === 'true';
   const researcherKey = process.env.STUDIO_RESEARCHER_KEY;
-  if (researcherKey && apiKey === researcherKey) {
+  const apiKey        = event.headers['x-studio-key'];
+  if (keyEnabled && researcherKey && apiKey === researcherKey) {
     return { uid: 'researcher-agent', studioRole: 'researcher', email: null };
   }
   return verifyStudioToken(event.headers['authorization'], ['researcher', 'editor', 'superadmin']);

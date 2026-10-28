@@ -109,10 +109,16 @@ function _initFirebaseAuth() {
       _userData    = null;
       if (user) {
         try {
-          const token = await user.getIdToken();
-          const res   = await fetch('/.netlify/functions/user-data', {
+          let token = await user.getIdToken();
+          let res = await fetch('/.netlify/functions/user-data', {
             headers: { 'Authorization': `Bearer ${token}` },
           });
+          if (res.status === 401) {
+            token = await user.getIdToken(true);
+            res   = await fetch('/.netlify/functions/user-data', {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+          }
           if (res.ok) {
             _userData = await res.json();
           } else {
@@ -150,6 +156,49 @@ async function _signIn() {
 async function _signOut() {
   try { if (_fbAuth) await _fbAuth.signOut(); }
   catch (e) { console.warn('[someday] sign-out error:', e.message); }
+}
+
+async function _exportData() {
+  if (!_currentUser) return;
+  const btn = document.getElementById('gdpr-export-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/user-export', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) { alert('Export failed: ' + res.status); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'someday-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Export error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Export my data'; }
+  }
+}
+
+async function _deleteAccount() {
+  if (!_currentUser) return;
+  if (!confirm('Delete your account and all personal data permanently? This cannot be undone.')) return;
+  const btn = document.getElementById('gdpr-delete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/user-delete', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!res.ok) { alert('Delete failed: ' + res.status); return; }
+    await _fbAuth.signOut();
+  } catch (e) {
+    alert('Delete error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete my account'; }
+  }
 }
 
 // Google Sign-In.
@@ -273,7 +322,11 @@ function _profileTab() {
     <p class="footnote">No actual calendar account is connected. These are preview toggles only.</p>
     <h2 class="section">Account</h2>
     <div class="mutedbox"><strong>${esc(email)}</strong></div>
-    ${button('Sign out', '_signOut()', 'secondary full')}` :
+    ${button('Sign out', '_signOut()', 'secondary full')}
+    <h2 class="section" style="margin-top:28px">Your data</h2>
+    <p class="footnote" style="margin-bottom:10px">Download a copy of all your personal data or permanently delete your account.</p>
+    <button id="gdpr-export-btn" class="rowbtn full" onclick="_exportData()" style="margin-bottom:8px">Export my data</button>
+    <button id="gdpr-delete-btn" class="rowbtn full danger" onclick="_deleteAccount()">Delete my account</button>` :
     `<div class="profiletop">
       <div class="hrow">
         <div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">${_currentUser && _currentUser.photoURL ? `<img src="${esc(_currentUser.photoURL)}" style="width:58px;height:58px;border-radius:50%;object-fit:cover" alt="">` : _avatarLetter()}</div>
