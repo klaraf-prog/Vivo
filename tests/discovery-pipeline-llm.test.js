@@ -325,10 +325,10 @@ describe('_buildExtractionPrompt', () => {
     expect(system).toContain('Köln');
   });
 
-  test('truncates text to LLM_TEXT_LIMIT (8000 chars)', () => {
-    const longText = 'x'.repeat(20_000);
+  test('truncates text to LLM_TEXT_LIMIT (40000 chars)', () => {
+    const longText = 'x'.repeat(60_000);
     const { user } = _buildExtractionPrompt(longText, 'Köln');
-    // user prompt contains the truncated text
+    // user prompt contains the condensed/truncated text
     expect(user.length).toBeLessThan(longText.length);
     expect(user).toContain('x'.repeat(100));
   });

@@ -4,6 +4,10 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# Discovery pipeline: allow more time for source fetch + LLM call (max Netlify allows is 26s)
+[functions."discovery-pipeline"]
+  timeout = 26
+
 # Motivations-Benachrichtigungen — läuft stündlich in UTC 15–18 (= 17–20 Uhr CET/CEST)
 [functions."motivate"]
   schedule = "0 15,16,17,18 * * *"

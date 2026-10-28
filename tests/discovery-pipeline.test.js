@@ -109,7 +109,7 @@ jest.mock('../netlify/functions/_studio-shared', () => {
   };
 });
 
-const { handler, _stripHtml, _detectSignals } = require('../netlify/functions/discovery-pipeline');
+const { handler, _stripHtml, _detectSignals, _condensePipelineText } = require('../netlify/functions/discovery-pipeline');
 const shared = require('../netlify/functions/_studio-shared');
 
 function makeEvent(method, body, authHeader = 'Bearer tok') {
@@ -151,6 +151,44 @@ describe('_stripHtml', () => {
   test('collapses whitespace', () => {
     const result = _stripHtml('a   b\n\n\tc');
     expect(result).toBe('a b c');
+  });
+});
+
+// ── _condensePipelineText ─────────────────────────────────────────────────────
+describe('_condensePipelineText', () => {
+  test('returns text within the given limit', () => {
+    const long = 'word '.repeat(20_000);
+    const result = _condensePipelineText(long, 40_000);
+    expect(result.length).toBeLessThanOrEqual(40_000);
+  });
+
+  test('removes repeated short navigation fragments', () => {
+    // Simulate nav items repeated many times (e.g. breadcrumb links)
+    const navItem = 'Home  ';
+    const content = 'Weihnachtsmarkt am Kölner Dom mit über 160 Ständen und vielen Attraktionen für die ganze Familie.';
+    // nav items appear 5 times, content once
+    const text = (navItem.repeat(5)) + '  ' + content;
+    const result = _condensePipelineText(text, 40_000);
+    expect(result).toContain('Weihnachtsmarkt');
+    // "Home" should appear at most 2 times (deduplication threshold)
+    const homeCount = (result.match(/Home/g) || []).length;
+    expect(homeCount).toBeLessThanOrEqual(2);
+  });
+
+  test('skips opening nav on long pages', () => {
+    // Page starts with nav-only content, real content comes later
+    const nav = 'Startseite '.repeat(2_000);  // ~22K chars of nav
+    const content = 'Weihnachtsmarkt am Dom: täglich geöffnet von 11 bis 22 Uhr.  '.repeat(50);
+    const text = nav + content;
+    expect(text.length).toBeGreaterThan(20_000);
+    const result = _condensePipelineText(text, 40_000);
+    expect(result).toContain('Weihnachtsmarkt');
+  });
+
+  test('preserves long content sentences', () => {
+    const sentence = 'Der Kölner Weihnachtsmarkt am Dom ist einer der ältesten und schönsten Weihnachtsmärkte Deutschlands.';
+    const result = _condensePipelineText(sentence, 40_000);
+    expect(result).toContain('Kölner Weihnachtsmarkt');
   });
 });
 
@@ -246,6 +284,19 @@ describe('handler auth guards', () => {
     const body = JSON.parse(res.body);
     expect(body.ok).toBe(true);
     expect(body.report.mode).toBe('dry-run');
+  });
+
+  test('report includes sourcesSkippedCityMismatch when sources have different city', async () => {
+    // One source matches Köln, one has a different city
+    mockSet('discoverySources/src_koeln',  { city: 'Köln',    url: 'https://a.com', name: 'A', active: true });
+    mockSet('discoverySources/src_berlin', { city: 'Berlin',  url: 'https://b.com', name: 'B', active: true });
+    mockSet('discoverySources/src_inactive', { city: 'Köln', url: 'https://c.com', name: 'C', active: false });
+    shared.verifyStudioToken.mockResolvedValue({ uid: 'ed', studioRole: 'editor' });
+    const res = await handler(makeEvent('POST', { city: 'Köln' }));
+    const { report } = JSON.parse(res.body);
+    expect(report.sourcesConsidered).toBe(1);       // only the active Köln source
+    expect(report.sourcesSkippedCityMismatch).toBe(1); // Berlin skipped
+    expect(report.sourcesSkippedInactive).toBe(1);     // inactive skipped
   });
 
   test('POST returns 400 for unsupported city', async () => {

@@ -16,10 +16,10 @@ const MAX_BODY_BYTES   = 150_000;
 
 // LLM constants
 const LLM_MODEL            = 'claude-haiku-5-5';
-const LLM_TEXT_LIMIT       = 8_000;   // chars sent to LLM per source
+const LLM_TEXT_LIMIT       = 40_000;  // chars sent to LLM per source (after condensing)
 const PRICE_INPUT_PER_MTOK = 0.10;    // USD per million input tokens
 const PRICE_OUTPUT_PER_MTOK = 0.50;   // USD per million output tokens
-const LLM_TIMEOUT_MS       = 30_000;
+const LLM_TIMEOUT_MS       = 24_000;  // stay under Netlify's 26s function limit
 
 // Only these cities may be processed; expand deliberately when ready.
 const ALLOWED_CITIES = ['Köln'];
@@ -77,6 +77,38 @@ function stripHtml(html) {
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#?\w+;/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// ── Text condensing ───────────────────────────────────────────────────────────
+// Removes navigation noise before LLM extraction.
+// On long pages (> 20K chars): skips the opening nav/header area.
+// Deduplicates repeated short fragments (nav links, breadcrumbs, footer items).
+function condensePipelineText(text, limit) {
+  // Skip the first 3 % (max 3 K chars) of long pages — almost always navigation.
+  const skipStart = text.length > 20_000 ? Math.min(3_000, Math.floor(text.length * 0.03)) : 0;
+  let t = text.slice(skipStart);
+
+  // Split into rough phrases at double-space boundaries or after sentence punctuation.
+  const fragments = t.split(/\s{2,}|(?<=[.!?])\s+/);
+
+  // Count occurrences of each short fragment (case-insensitive key).
+  const counts = new Map();
+  for (const f of fragments) {
+    const key = f.trim().toLowerCase();
+    if (key.length > 0 && key.length <= 60) counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  // Keep a fragment if it is long (likely real content) or appears only 1–2 times.
+  t = fragments
+    .filter(f => {
+      const trimmed = f.trim();
+      if (trimmed.length === 0) return false;
+      if (trimmed.length > 60) return true;            // long = content
+      return (counts.get(trimmed.toLowerCase()) || 0) <= 2; // rare short = keep
+    })
+    .join(' ');
+
+  return t.slice(0, limit);
 }
 
 // ── Signal detection ──────────────────────────────────────────────────────────
@@ -166,15 +198,17 @@ async function fetchSource(source) {
 
 // ── LLM extraction prompt ─────────────────────────────────────────────────────
 function buildExtractionPrompt(text, city) {
-  const truncated = text.slice(0, LLM_TEXT_LIMIT);
-  const system = `You are a structured data extraction assistant. Extract activity/event listings from website text for the city of ${city}.
+  const condensed = condensePipelineText(text, LLM_TEXT_LIMIT);
+  const system = `You are a structured data extraction assistant. Extract individual activity/event listings from website text for the city of ${city}.
+
+The text may contain navigation menus, cookie notices, breadcrumbs and footer content — ignore these entirely and focus only on distinct activity or event listings.
 
 Output ONLY a valid JSON object with this exact shape:
 {
   "activities": [
     {
-      "title": "string (required, max 120 chars)",
-      "description": "string (required, max 500 chars)",
+      "title": "string (required, max 120 chars — name of this specific activity, not the website name)",
+      "description": "string (required, max 500 chars — describe this specific activity only)",
       "category": "one of: market|festival|concert|exhibition|sport|outdoor|food|culture|family|nightlife|other",
       "tagline": "string or null (max 80 chars)",
       "eyebrow": "string or null (max 60 chars, e.g. season label)",
@@ -183,23 +217,25 @@ Output ONLY a valid JSON object with this exact shape:
       "website": "string (URL) or null",
       "price": "string or null (human-readable, e.g. 'kostenlos' or '5–10 €')",
       "operatingPeriod": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" } or null,
-      "openingHours": "string or null (human-readable summary)",
+      "openingHours": "string or null (human-readable summary, e.g. 'täglich 11–21 Uhr')",
       "exceptionalHours": "string or null",
-      "sourceAttribution": "string or null (display name of source)"
+      "sourceAttribution": "string or null (display name of source website)"
     }
   ]
 }
 
 Rules:
+- Extract each distinct activity as a SEPARATE entry — an overview page listing multiple markets must produce one entry per market.
+- Each activity entry must be SELF-CONTAINED: only fill in data explicitly stated for that specific activity. Never copy data from one activity to another.
 - Only include activities clearly located in or explicitly associated with ${city}.
-- Never invent data. Use null for any field you cannot determine from the text.
+- NEVER invent, guess or infer data. If a field is not explicitly stated for this specific activity, set it to null.
 - Do not include lat/lng coordinates.
-- Dates must be ISO-8601 (YYYY-MM-DD). If only month+year known, use first/last day of that month.
+- Dates must be ISO-8601 (YYYY-MM-DD). If only month+year known, use the first day of "from" and last day of "to" month.
 - Maximum ${MAX_SUGGESTIONS} activities per response.
 - If no clear activities are found, return { "activities": [] }.
 - Output only the JSON object, no explanation, no markdown code fences.`;
 
-  const user = `Extract activities from the following website text:\n\n${truncated}`;
+  const user = `Extract all individual activities from the following website text:\n\n${condensed}`;
   return { system, user };
 }
 
@@ -220,7 +256,7 @@ async function callAnthropicAPI(text, city, apiKey) {
       },
       body: JSON.stringify({
         model: LLM_MODEL,
-        max_tokens: 4096,
+        max_tokens: 2048,  // sufficient for up to ~20 JSON activity objects
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -377,12 +413,17 @@ exports.handler = async (event) => {
 
     const db = initAdmin().database();
 
-    // Fetch active sources for city (up to MAX_SOURCES)
-    const sourcesSnap = await db.ref('discoverySources').orderByChild('city').equalTo(city).once('value');
+    // Full scan with client-side filter — avoids missing sources due to city
+    // value case/whitespace mismatches that an exact RTDB query would drop silently.
+    const sourcesSnap = await db.ref('discoverySources').once('value');
     const allSources = [];
+    let sourcesSkippedInactive = 0;
+    let sourcesSkippedCityMismatch = 0;
     sourcesSnap.forEach(child => {
       const s = child.val();
-      if (s.active) allSources.push({ ...s, id: child.key });
+      if (!s.active) { sourcesSkippedInactive++; return; }
+      if (s.city?.trim() !== city) { sourcesSkippedCityMismatch++; return; }
+      allSources.push({ ...s, id: child.key });
     });
 
     const sources = allSources.slice(0, MAX_SOURCES);
@@ -510,6 +551,8 @@ exports.handler = async (event) => {
       durationMs: finishedAt - startedAt,
       sourcesConsidered: allSources.length,
       sourcesFetched: sources.length,
+      sourcesSkippedInactive,
+      sourcesSkippedCityMismatch,
       successCount,
       errorCount,
       signalSummary,
@@ -537,9 +580,10 @@ exports.handler = async (event) => {
 };
 
 // ── Exported for testing ──────────────────────────────────────────────────────
-exports._stripHtml          = stripHtml;
-exports._detectSignals      = detectSignals;
-exports._fetchSource        = fetchSource;
+exports._stripHtml             = stripHtml;
+exports._condensePipelineText  = condensePipelineText;
+exports._detectSignals         = detectSignals;
+exports._fetchSource           = fetchSource;
 exports._buildExtractionPrompt = buildExtractionPrompt;
-exports._callAnthropicAPI   = callAnthropicAPI;
-exports._validateActivity   = validateActivity;
+exports._callAnthropicAPI      = callAnthropicAPI;
+exports._validateActivity      = validateActivity;
