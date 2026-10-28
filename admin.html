@@ -288,6 +288,49 @@
              pointer-events: none; white-space: nowrap; }
     #toast.show { opacity: 1; }
 
+    /* ── ANALYTICS ── */
+    .analytics-filter-bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
+    .range-pill { padding:6px 14px; border-radius:50px; border:1.5px solid var(--border);
+                  background:var(--card); font-size:.82rem; font-weight:600; cursor:pointer;
+                  color:var(--muted); transition:all .15s; }
+    .range-pill:hover { border-color:var(--primary); color:var(--primary-d); }
+    .range-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+    .custom-range-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .custom-range-row input[type=date] { padding:6px 10px; border-radius:9px;
+      border:1.5px solid var(--border); font-size:.82rem; background:var(--bg);
+      color:var(--text); outline:none; }
+    .custom-range-row input[type=date]:focus { border-color:var(--primary); }
+    .btn-apply { padding:6px 14px; border-radius:9px; background:var(--dark);
+      border:none; color:#fff; font-size:.82rem; font-weight:700; cursor:pointer; }
+    .analytics-sub-tabs { display:flex; gap:4px; margin-bottom:24px;
+                          border-bottom:2px solid var(--border); }
+    .sub-tab { padding:9px 18px; border:none; background:none; font-size:.9rem; font-weight:600;
+               color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;
+               margin-bottom:-2px; transition:all .15s; }
+    .sub-tab:hover { color:var(--text); }
+    .sub-tab.active { color:var(--primary-d); border-bottom-color:var(--primary); }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+                gap:14px; margin-bottom:28px; }
+    .kpi-card { background:var(--card); border:1.5px solid var(--border);
+                border-radius:var(--radius); padding:18px 20px; }
+    .kpi-value { font-size:2rem; font-weight:900; letter-spacing:-1px; color:var(--text); line-height:1; }
+    .kpi-label { font-size:.8rem; font-weight:600; color:var(--muted); margin-top:6px; }
+    .kpi-note  { font-size:.72rem; color:var(--muted); margin-top:3px; }
+    .chart-section { background:var(--card); border:1.5px solid var(--border);
+                     border-radius:var(--radius); padding:20px 24px; margin-bottom:20px; }
+    .chart-section h4 { font-size:.875rem; font-weight:700; margin-bottom:16px; color:var(--text); }
+    .chart-wrap { position:relative; height:220px; }
+    .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .data-note { font-size:.78rem; color:var(--muted); background:var(--bg);
+                 border-radius:8px; padding:8px 12px; margin-bottom:16px; }
+    .analytics-loading { display:flex; align-items:center; justify-content:center;
+                         min-height:200px; color:var(--muted); font-size:.9rem; }
+    .analytics-error { color:var(--pink); background:#fef2f2; border-radius:10px;
+                       padding:14px 18px; margin-bottom:16px; font-size:.875rem; }
+    .ana-section-title { font-size:1.375rem; font-weight:800; letter-spacing:-.5px;
+                         margin-bottom:20px; color:var(--text); }
+    @media (max-width: 900px) { .charts-row { grid-template-columns:1fr; } }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .app-body { grid-template-columns: 1fr; }
@@ -328,6 +371,9 @@
       <button class="nav-item active" id="nav-dashboard" onclick="showTab('dashboard')">
         <span class="nav-icon">◈</span> Dashboard
       </button>
+      <button class="nav-item" id="nav-analytics" onclick="showTab('analytics')">
+        <span class="nav-icon">◎</span> Analytics
+      </button>
       <div class="nav-label" style="margin-top:8px">Discovery</div>
       <button class="nav-item" id="nav-suggestions" onclick="showTab('suggestions')">
         <span class="nav-icon">✎</span> Vorschläge
@@ -350,6 +396,13 @@
       <!-- DASHBOARD -->
       <div class="tab-panel active" id="tab-dashboard">
         <div class="scroll-content" id="dashboard-content">
+          <p style="color:var(--muted)">Lade…</p>
+        </div>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div class="tab-panel" id="tab-analytics">
+        <div class="scroll-content" id="analytics-content">
           <p style="color:var(--muted)">Lade…</p>
         </div>
       </div>
@@ -423,6 +476,9 @@
 
 <div id="toast"></div>
 
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -455,6 +511,11 @@ let _me = null, _idToken = null, _role = null;
 let _allSugs = {}, _allActs = {}, _auditLog = [];
 let _sugFilter = 'all', _activeSugId = null, _activeActId = null;
 let _pollTimer = null, _unsubSugs = null, _unsubActs = null;
+let _analyticsRange   = { preset: '30d', customFrom: '', customTo: '' };
+let _analyticsSubTab  = 'overview';
+let _analyticsB2C     = null;
+let _analyticsLoading = false;
+let _charts           = {};
 
 // ── Auth ──────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
@@ -514,6 +575,7 @@ function showAdmin() {
   if (_role === 'researcher') {
     document.getElementById('nav-dashboard').style.display  = 'none';
     document.getElementById('nav-activities').style.display = 'none';
+    document.getElementById('nav-analytics').style.display  = 'none';
     showTab('suggestions');
   } else {
     showTab('dashboard');
@@ -582,6 +644,7 @@ function showTab(name) {
   if (name === 'activities')  renderActList();
   if (name === 'users')       loadUsers();
   if (name === 'settings')    renderSettings();
+  if (name === 'analytics')   renderAnalytics();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────
@@ -1215,6 +1278,390 @@ function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Analytics ─────────────────────────────────────────────────────
+function renderAnalytics() {
+  if (!_analyticsB2C && !_analyticsLoading) {
+    loadAndRenderAnalytics();
+  } else {
+    renderAnalyticsContent();
+  }
+}
+
+async function loadAndRenderAnalytics() {
+  if (_analyticsLoading) return;
+  _analyticsLoading = true;
+  const el = document.getElementById('analytics-content');
+  if (el) el.innerHTML = '<div class="analytics-loading">Lade Analytics…</div>';
+  try {
+    await refreshIdToken();
+    const { from, to } = getAnalyticsDates();
+    const params = (from && to) ? `?from=${from}&to=${to}` : '';
+    const res = await fetch(`/.netlify/functions/analytics-b2c${params}`, {
+      headers: { 'Authorization': `Bearer ${_idToken}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    _analyticsB2C = await res.json();
+  } catch (e) {
+    _analyticsB2C = null;
+    const el2 = document.getElementById('analytics-content');
+    if (el2) el2.innerHTML = `<div class="analytics-error">Fehler beim Laden der Analytics: ${esc(e.message)}</div>`;
+    _analyticsLoading = false;
+    return;
+  }
+  _analyticsLoading = false;
+  renderAnalyticsContent();
+}
+
+function getAnalyticsDates() {
+  const today = new Date();
+  const toStr = today.toISOString().slice(0, 10);
+  if (_analyticsRange.preset === 'custom') {
+    return { from: _analyticsRange.customFrom || null, to: _analyticsRange.customTo || null };
+  }
+  if (_analyticsRange.preset === 'all') return { from: null, to: null };
+  const from = new Date(today);
+  if (_analyticsRange.preset === '7d')  from.setDate(from.getDate() - 7);
+  if (_analyticsRange.preset === '30d') from.setDate(from.getDate() - 30);
+  if (_analyticsRange.preset === '90d') from.setDate(from.getDate() - 90);
+  if (_analyticsRange.preset === '12m') from.setMonth(from.getMonth() - 12);
+  return { from: from.toISOString().slice(0, 10), to: toStr };
+}
+
+function setAnalyticsRange(preset) {
+  destroyCharts();
+  _analyticsRange = { preset, customFrom: '', customTo: '' };
+  _analyticsB2C   = null;
+  if (preset === 'custom') { renderAnalyticsContent(); return; }
+  loadAndRenderAnalytics();
+}
+
+function applyCustomRange() {
+  const from = document.getElementById('ana-custom-from')?.value;
+  const to   = document.getElementById('ana-custom-to')?.value;
+  if (!from || !to || from > to) { toast('Bitte gültiges Start- und Enddatum wählen.'); return; }
+  destroyCharts();
+  _analyticsRange = { preset: 'custom', customFrom: from, customTo: to };
+  _analyticsB2C   = null;
+  loadAndRenderAnalytics();
+}
+
+function setAnalyticsSubTab(tab) {
+  destroyCharts();
+  _analyticsSubTab = tab;
+  renderAnalyticsContent();
+  setTimeout(drawAnalyticsCharts, 60);
+}
+
+function destroyCharts() {
+  for (const c of Object.values(_charts)) { try { c.destroy(); } catch {} }
+  _charts = {};
+}
+
+function renderAnalyticsContent() {
+  const el = document.getElementById('analytics-content');
+  if (!el) return;
+
+  const isCustom = _analyticsRange.preset === 'custom';
+  const RANGE_LABELS = { '7d':'7 Tage', '30d':'30 Tage', '90d':'90 Tage', '12m':'12 Monate', 'all':'Gesamt', 'custom':'Benutzerdefiniert' };
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const filterBar = `
+    <div class="analytics-filter-bar">
+      ${['7d','30d','90d','12m','all','custom'].map(p => `
+        <button class="range-pill${_analyticsRange.preset === p ? ' active' : ''}" onclick="setAnalyticsRange('${p}')">${RANGE_LABELS[p]}</button>`
+      ).join('')}
+    </div>
+    ${isCustom ? `
+    <div class="custom-range-row">
+      <input type="date" id="ana-custom-from" value="${esc(_analyticsRange.customFrom)}" max="${todayStr}">
+      <span style="color:var(--muted)">–</span>
+      <input type="date" id="ana-custom-to"   value="${esc(_analyticsRange.customTo)}"   max="${todayStr}">
+      <button class="btn-apply" onclick="applyCustomRange()">Anwenden</button>
+    </div>` : ''}
+  `;
+
+  const subTabs = `
+    <div class="analytics-sub-tabs">
+      ${[['overview','Überblick'],['community','Community (B2C)'],['discovery','Discovery (B2B)']].map(([t,l]) => `
+        <button class="sub-tab${_analyticsSubTab === t ? ' active' : ''}" onclick="setAnalyticsSubTab('${t}')">${l}</button>`
+      ).join('')}
+    </div>
+  `;
+
+  let body = '';
+  if (!_analyticsB2C && !isCustom) {
+    body = '<div class="analytics-loading">Lade…</div>';
+  } else if (_analyticsSubTab === 'overview') {
+    body = renderAnalyticsOverview();
+  } else if (_analyticsSubTab === 'community') {
+    body = renderAnalyticsCommunity();
+  } else if (_analyticsSubTab === 'discovery') {
+    body = renderAnalyticsDiscovery();
+  }
+
+  el.innerHTML = `<h2 class="ana-section-title">Analytics</h2>${filterBar}${subTabs}<div id="analytics-body">${body}</div>`;
+  setTimeout(drawAnalyticsCharts, 60);
+}
+
+function _noData() {
+  return '<p style="color:var(--muted);font-size:.875rem;padding:20px 0">Keine Daten verfügbar.</p>';
+}
+
+function _kpiCard(value, label, note) {
+  return `<div class="kpi-card">
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-label">${label}</div>
+    ${note ? `<div class="kpi-note">${note}</div>` : ''}
+  </div>`;
+}
+
+function renderAnalyticsOverview() {
+  const b2c  = _analyticsB2C;
+  const sugs = Object.values(_allSugs);
+  const acts = Object.values(_allActs);
+
+  const kpis = [
+    _kpiCard(b2c ? b2c.users.total : '—', 'Registrierte Nutzer', 'B2C gesamt'),
+    _kpiCard(b2c ? b2c.events.total : '—', 'Events gesamt', 'Nutzer-Events'),
+    _kpiCard(b2c ? b2c.rsvps.dabei : '—', 'Dabei-RSVPs gesamt', 'alle Zeit'),
+    _kpiCard(acts.length, 'Aktivitäten live', 'Discovery'),
+    _kpiCard(sugs.filter(s => s.status === 'submitted').length, 'Offen zur Prüfung', 'Vorschläge'),
+    _kpiCard(sugs.length, 'Vorschläge gesamt', 'Discovery B2B'),
+  ];
+
+  const timeBuckets = b2c?.events?.timeBuckets || [];
+  const pipelineHas = sugs.length > 0;
+
+  return `
+    <div class="kpi-grid">${kpis.join('')}</div>
+    ${b2c?.period?.from ? `<div class="data-note">ℹ Events im Zeitraum werden nach Event-Datum gefiltert (kein Erstellungsdatum gespeichert).</div>` : ''}
+    <div class="charts-row">
+      <div class="chart-section"><h4>Events nach Datum (Zeitraum)</h4>
+        ${timeBuckets.length ? '<div class="chart-wrap"><canvas id="chart-overview-events"></canvas></div>' : _noData()}
+      </div>
+      <div class="chart-section"><h4>Discovery-Pipeline</h4>
+        ${pipelineHas ? '<div class="chart-wrap"><canvas id="chart-overview-pipeline"></canvas></div>' : _noData()}
+      </div>
+    </div>`;
+}
+
+function renderAnalyticsCommunity() {
+  const b2c = _analyticsB2C;
+  if (!b2c) return '<div class="analytics-loading">Lade Community-Daten…</div>';
+
+  const { from, to } = getAnalyticsDates();
+  const isFiltered = !!(from && to);
+
+  const rsvpDabei      = isFiltered ? b2c.rsvps.dabeiPeriod      : b2c.rsvps.dabei;
+  const rsvpVielleicht = isFiltered ? b2c.rsvps.vielleichtPeriod : b2c.rsvps.vielleicht;
+  const rsvpNein       = isFiltered ? b2c.rsvps.neinPeriod       : b2c.rsvps.nein;
+  const rsvpUniqDabei  = isFiltered ? b2c.rsvps.uniqueUsersDabeiPeriod : b2c.rsvps.uniqueUsersDabei;
+  const eventsShown    = isFiltered ? b2c.events.inPeriodByEventDate   : b2c.events.total;
+
+  const kpis = [
+    _kpiCard(b2c.users.total, 'Registrierte Nutzer gesamt'),
+    _kpiCard(b2c.users.withAnyRsvpActivity, 'Nutzer mit RSVP-Aktivität', 'mindestens 1 RSVP (alle Zeit)'),
+    _kpiCard(b2c.users.whoCreatedEvents, 'Nutzer mit eigenem Event', 'mind. 1 Event erstellt'),
+    _kpiCard(eventsShown, isFiltered ? 'Events im Zeitraum' : 'Events gesamt', isFiltered ? 'nach Event-Datum' : ''),
+    _kpiCard(b2c.events.upcomingByEventDate, 'Bevorstehende Events', isFiltered ? 'im Zeitraum' : 'ab heute'),
+    _kpiCard(b2c.events.completedByEventDate, 'Vergangene Events', isFiltered ? 'im Zeitraum' : 'vor heute'),
+    _kpiCard(rsvpDabei, 'Dabei-RSVPs', isFiltered ? 'nach Event-Datum' : 'alle Zeit'),
+    _kpiCard(rsvpUniqDabei, 'Nutzer mit dabei-RSVP', isFiltered ? 'nach Event-Datum' : 'alle Zeit'),
+    _kpiCard(b2c.spaces.total, 'Spaces gesamt'),
+    _kpiCard(b2c.invites.total, 'Einladungen gesamt'),
+  ];
+
+  const timeBuckets = b2c.events.timeBuckets || [];
+  const rsvpTotal = rsvpDabei + rsvpVielleicht + rsvpNein;
+
+  return `
+    <div class="kpi-grid">${kpis.join('')}</div>
+    ${isFiltered ? `<div class="data-note">ℹ RSVPs und Events im Zeitraum werden nach Event-Datum gefiltert. Der Zeitpunkt der RSVP-Abgabe ist nicht gespeichert.</div>` : ''}
+    <div class="charts-row">
+      <div class="chart-section"><h4>Events nach Datum</h4>
+        ${timeBuckets.length ? '<div class="chart-wrap"><canvas id="chart-community-events"></canvas></div>' : _noData()}
+      </div>
+      <div class="chart-section"><h4>RSVP-Verteilung</h4>
+        ${rsvpTotal ? '<div class="chart-wrap"><canvas id="chart-community-rsvp"></canvas></div>' : _noData()}
+      </div>
+    </div>`;
+}
+
+function renderAnalyticsDiscovery() {
+  const sugs = Object.values(_allSugs);
+  const acts = Object.values(_allActs);
+
+  if (!sugs.length && !acts.length) return _noData();
+
+  const catCounts = {};
+  for (const a of acts) { if (a.category) catCounts[a.category] = (catCounts[a.category] || 0) + 1; }
+  const topCats = Object.entries(catCounts).sort(([,a],[,b]) => b - a).slice(0, 8);
+
+  const cityCounts = {};
+  for (const a of acts) { if (a.city) cityCounts[a.city] = (cityCounts[a.city] || 0) + 1; }
+  const topCities = Object.entries(cityCounts).sort(([,a],[,b]) => b - a).slice(0, 8);
+
+  const providerCounts = {};
+  for (const a of acts) { if (a.providerName) providerCounts[a.providerName] = (providerCounts[a.providerName] || 0) + 1; }
+  const topProviders = Object.entries(providerCounts).sort(([,a],[,b]) => b - a).slice(0, 5);
+
+  const submitted = sugs.filter(s => s.status === 'submitted').length;
+  const approved  = sugs.filter(s => s.status === 'approved').length;
+  const rejected  = sugs.filter(s => s.status === 'rejected').length;
+  const draft     = sugs.filter(s => s.status === 'draft').length;
+
+  const kpis = [
+    _kpiCard(sugs.length, 'Vorschläge gesamt'),
+    _kpiCard(submitted, 'Offen zur Prüfung'),
+    _kpiCard(approved, 'Genehmigt', 'Vorschläge'),
+    _kpiCard(rejected, 'Abgelehnt', 'Vorschläge'),
+    _kpiCard(acts.length, 'Aktivitäten live', 'auf someday.'),
+    _kpiCard(topCats.length, 'Kategorien aktiv'),
+  ];
+
+  return `
+    <div class="kpi-grid">${kpis.join('')}</div>
+    <div class="charts-row">
+      <div class="chart-section"><h4>Vorschläge-Pipeline</h4>
+        ${sugs.length ? '<div class="chart-wrap"><canvas id="chart-discovery-pipeline"></canvas></div>' : _noData()}
+      </div>
+      <div class="chart-section"><h4>Top-Kategorien (Aktivitäten)</h4>
+        ${topCats.length ? '<div class="chart-wrap"><canvas id="chart-discovery-cats"></canvas></div>' : _noData()}
+      </div>
+    </div>
+    ${topCities.length ? `
+    <div class="chart-section"><h4>Aktivitäten nach Stadt</h4>
+      <div class="chart-wrap"><canvas id="chart-discovery-cities"></canvas></div>
+    </div>` : ''}
+    ${topProviders.length ? `
+    <div class="chart-section"><h4>Top-Anbieter</h4>
+      <table style="width:100%;font-size:.875rem;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Anbieter</th>
+          <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Aktivitäten</th>
+        </tr></thead>
+        <tbody>${topProviders.map(([name, count]) => `
+          <tr>
+            <td style="padding:7px 8px;border-bottom:1px solid var(--border)">${esc(name)}</td>
+            <td style="text-align:right;padding:7px 8px;border-bottom:1px solid var(--border);font-weight:600">${count}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>` : ''}`;
+}
+
+function drawAnalyticsCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  const C = {
+    green:'#65DB70', greenD:'#27a63a', blue:'#3B82F6',
+    purple:'#8B5CF6', pink:'#E8534A', amber:'#F59E0B', muted:'#68786d',
+  };
+
+  function mk(id, type, data, extra = {}) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    if (_charts[id]) { try { _charts[id].destroy(); } catch {} }
+    _charts[id] = new Chart(canvas, {
+      type, data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: type === 'doughnut', position: 'bottom', labels: { padding: 12, font: { size: 11 } } },
+        },
+        ...extra,
+      },
+    });
+  }
+
+  const b2c = _analyticsB2C;
+  const { from, to } = getAnalyticsDates();
+  const isFiltered = !!(from && to);
+
+  // Events over time bar
+  if (_analyticsSubTab === 'overview' || _analyticsSubTab === 'community') {
+    const buckets = b2c?.events?.timeBuckets || [];
+    const chartId = _analyticsSubTab === 'overview' ? 'chart-overview-events' : 'chart-community-events';
+    if (buckets.length) {
+      mk(chartId, 'bar', {
+        labels: buckets.map(b => b.label),
+        datasets: [{ label: 'Events', data: buckets.map(b => b.count),
+          backgroundColor: C.green + 'CC', borderColor: C.greenD, borderWidth: 1, borderRadius: 4 }],
+      }, { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
+    }
+  }
+
+  if (_analyticsSubTab === 'overview') {
+    const sugs = Object.values(_allSugs);
+    if (sugs.length) {
+      mk('chart-overview-pipeline', 'doughnut', {
+        labels: ['Eingereicht', 'Genehmigt', 'Abgelehnt', 'Entwurf'],
+        datasets: [{ data: [
+          sugs.filter(s => s.status === 'submitted').length,
+          sugs.filter(s => s.status === 'approved').length,
+          sugs.filter(s => s.status === 'rejected').length,
+          sugs.filter(s => s.status === 'draft').length,
+        ], backgroundColor: [C.blue, C.green, C.pink, C.muted], borderWidth: 2, borderColor: '#fff' }],
+      });
+    }
+  }
+
+  if (_analyticsSubTab === 'community' && b2c) {
+    const dabei      = isFiltered ? b2c.rsvps.dabeiPeriod      : b2c.rsvps.dabei;
+    const vielleicht = isFiltered ? b2c.rsvps.vielleichtPeriod : b2c.rsvps.vielleicht;
+    const nein       = isFiltered ? b2c.rsvps.neinPeriod       : b2c.rsvps.nein;
+    if (dabei + vielleicht + nein > 0) {
+      mk('chart-community-rsvp', 'doughnut', {
+        labels: ['Dabei', 'Vielleicht', 'Nein'],
+        datasets: [{ data: [dabei, vielleicht, nein],
+          backgroundColor: [C.green, C.amber, C.pink], borderWidth: 2, borderColor: '#fff' }],
+      });
+    }
+  }
+
+  if (_analyticsSubTab === 'discovery') {
+    const sugs = Object.values(_allSugs);
+    const acts = Object.values(_allActs);
+
+    if (sugs.length) {
+      mk('chart-discovery-pipeline', 'doughnut', {
+        labels: ['Eingereicht', 'Genehmigt', 'Abgelehnt', 'Entwurf'],
+        datasets: [{ data: [
+          sugs.filter(s => s.status === 'submitted').length,
+          sugs.filter(s => s.status === 'approved').length,
+          sugs.filter(s => s.status === 'rejected').length,
+          sugs.filter(s => s.status === 'draft').length,
+        ], backgroundColor: [C.blue, C.green, C.pink, C.muted], borderWidth: 2, borderColor: '#fff' }],
+      });
+    }
+
+    const catCounts = {};
+    for (const a of acts) { if (a.category) catCounts[a.category] = (catCounts[a.category] || 0) + 1; }
+    const topCats = Object.entries(catCounts).sort(([,a],[,b]) => b - a).slice(0, 8);
+    if (topCats.length) {
+      mk('chart-discovery-cats', 'bar', {
+        labels: topCats.map(([c]) => c),
+        datasets: [{ label: 'Aktivitäten', data: topCats.map(([,n]) => n),
+          backgroundColor: C.purple + 'CC', borderColor: C.purple, borderWidth: 1, borderRadius: 4 }],
+      }, { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } });
+    }
+
+    const cityCounts = {};
+    for (const a of acts) { if (a.city) cityCounts[a.city] = (cityCounts[a.city] || 0) + 1; }
+    const topCities = Object.entries(cityCounts).sort(([,a],[,b]) => b - a).slice(0, 8);
+    if (topCities.length) {
+      mk('chart-discovery-cities', 'bar', {
+        labels: topCities.map(([c]) => c),
+        datasets: [{ label: 'Aktivitäten', data: topCities.map(([,n]) => n),
+          backgroundColor: C.blue + 'CC', borderColor: C.blue, borderWidth: 1, borderRadius: 4 }],
+      }, { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
+    }
+  }
 }
 </script>
 </body>
