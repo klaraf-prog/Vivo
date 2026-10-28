@@ -35,6 +35,18 @@ exports.handler = async (event) => {
   const evSnap = await db.ref(`events/${eventId}`).once('value');
   if (!evSnap.exists()) return json(404, { error: 'Event not found' });
 
+  // Access check: must be creator, have been invited, or already have an RSVP entry
+  const ev = evSnap.val();
+  if (ev.createdBy !== uid) {
+    const [inviteSnap, existingRsvpSnap] = await Promise.all([
+      db.ref(`invites/${uid}/${eventId}`).once('value'),
+      db.ref(`userEvents/${uid}/${eventId}`).once('value'),
+    ]);
+    if (!inviteSnap.exists() && !existingRsvpSnap.exists()) {
+      return json(403, { error: 'Access denied: not invited to this event' });
+    }
+  }
+
   const profile = (await db.ref(`users/${uid}`).once('value')).val() || {};
   const name    = profile.displayName || decoded.email || uid;
 

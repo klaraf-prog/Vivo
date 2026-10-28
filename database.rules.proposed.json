@@ -1,0 +1,102 @@
+{
+  "_comment": "PROPOSED RULES — not yet applied to production. Requires explicit approval before deployment.",
+  "_changes": [
+    "users: read restricted from 'auth != null' (all users) to own uid only",
+    "spaces: write restricted to members only (or new space creation)",
+    "spaceEvents: write restricted to space members only"
+  ],
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "usernames": {
+      ".read": "auth != null",
+      "$username": {
+        ".write": "auth != null && (!data.exists() || data.val() === auth.uid)"
+      }
+    },
+    "events": {
+      ".read": "auth != null",
+      "$eventId": {
+        ".write": "auth != null && (!data.exists() || data.child('createdBy').val() === auth.uid)"
+      }
+    },
+    "userEvents": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "friends": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "spaces": {
+      "$spaceId": {
+        ".read":  "auth != null && root.child('spaces').child($spaceId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && (!data.exists() || root.child('spaces').child($spaceId).child('members').child(auth.uid).exists())"
+      }
+    },
+    "userSpaces": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "auth != null"
+      }
+    },
+    "invites": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "auth != null"
+      }
+    },
+    "friendRequests": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "auth != null"
+      }
+    },
+    "spaceEvents": {
+      "$spaceId": {
+        ".read":  "auth != null && root.child('spaces').child($spaceId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && root.child('spaces').child($spaceId).child('members').child(auth.uid).exists()"
+      }
+    },
+    "suggestions": {
+      ".read": "auth != null && auth.token.studioRole != null",
+      "$id": {
+        ".write": "auth != null && (auth.token.studioRole === 'editor' || auth.token.studioRole === 'superadmin' || (auth.token.studioRole === 'researcher' && (!data.exists() || data.child('status').val() === 'draft')))"
+      }
+    },
+    "activities": {
+      ".read": true,
+      ".write": false
+    },
+    "providers": {
+      ".read": "auth != null && auth.token.studioRole != null",
+      ".write": "auth != null && (auth.token.studioRole === 'editor' || auth.token.studioRole === 'superadmin')"
+    },
+    "suggestionHashes": {
+      ".read": "auth != null && auth.token.studioRole != null",
+      ".write": false
+    },
+    "studioAuditLog": {
+      ".read": "auth != null && (auth.token.studioRole === 'editor' || auth.token.studioRole === 'superadmin')",
+      ".write": false
+    },
+    "studioAdminUsers": {
+      ".read": "auth != null && auth.token.studioRole === 'superadmin'",
+      ".write": false
+    }
+  }
+}

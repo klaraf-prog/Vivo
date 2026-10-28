@@ -32,6 +32,10 @@ exports.handler = async (event) => {
   if (username !== undefined) {
     if (!USERNAME_RE.test(username)) return json(400, { error: 'username must be 2-30 lowercase alphanumeric/underscore characters' });
   }
+  if (bio !== undefined) {
+    if (typeof bio !== 'string') return json(400, { error: 'bio must be a string' });
+    if (bio.length > 500) return json(400, { error: 'bio too long (max 500 chars)' });
+  }
 
   const uid = decoded.uid;
   const db  = initAdmin().database();

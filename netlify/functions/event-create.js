@@ -27,6 +27,8 @@ exports.handler = async (event) => {
 
   const { title, spaceIds = [], inviteUids = [] } = body;
   if (!title || !String(title).trim()) return json(400, { error: 'title required' });
+  if (!Array.isArray(spaceIds)   || spaceIds.length   > 20)  return json(400, { error: 'spaceIds must be array (max 20)' });
+  if (!Array.isArray(inviteUids) || inviteUids.length > 100) return json(400, { error: 'inviteUids must be array (max 100)' });
 
   const uid = decoded.uid;
   const db  = initAdmin().database();
@@ -48,11 +50,16 @@ exports.handler = async (event) => {
     [`userEvents/${uid}/${eventId}`]: 'created',
   };
 
-  // Verify all spaceIds exist (prevent phantom writes)
+  // Verify spaceIds exist AND caller is a member — prevents creating events in foreign spaces
   if (spaceIds.length) {
-    const spaceSnaps = await Promise.all(spaceIds.map(id => db.ref(`spaces/${id}`).once('value')));
+    const [spaceSnaps, memberSnaps] = await Promise.all([
+      Promise.all(spaceIds.map(id => db.ref(`spaces/${id}`).once('value'))),
+      Promise.all(spaceIds.map(id => db.ref(`spaces/${id}/members/${uid}`).once('value'))),
+    ]);
     spaceIds.forEach((id, i) => {
-      if (spaceSnaps[i].exists()) updates[`spaceEvents/${id}/${eventId}`] = true;
+      if (spaceSnaps[i].exists() && memberSnaps[i].exists()) {
+        updates[`spaceEvents/${id}/${eventId}`] = true;
+      }
     });
   }
 
