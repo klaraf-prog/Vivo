@@ -5,6 +5,7 @@
 //       activity suggestions (written as status:'draft', never auto-published).
 //       Writes a run report to discoveryPipelineRuns/.
 // GET:  returns the last 10 pipeline run reports.
+// Env:  ANTHROPIC_API_KEY required for live mode (set in Netlify → Deploy previews scope).
 const { initAdmin, verifyStudioToken, json, makeId, duplicateHash } = require('./_studio-shared');
 
 const MAX_SOURCES     = 5;
