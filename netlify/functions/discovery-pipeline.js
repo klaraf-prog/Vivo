@@ -265,7 +265,9 @@ Rules:
 - Maximum ${MAX_SUGGESTIONS} activities.`;
 
   const user = `Extract all individual activities from the following website text:\n\n${condensed}`;
-  return { system, user };
+  // Return a brief preview of what was sent to the LLM for diagnostics
+  const condensedPreview = condensed.slice(0, 800);
+  return { system, user, condensedPreview };
 }
 
 // ── JSON extraction from LLM response ────────────────────────────────────────
@@ -285,7 +287,7 @@ function extractJsonFromLLMResponse(raw) {
 
 // ── Call Anthropic API ────────────────────────────────────────────────────────
 async function callAnthropicAPI(text, city, apiKey) {
-  const { system, user } = buildExtractionPrompt(text, city);
+  const { system, user, condensedPreview } = buildExtractionPrompt(text, city);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
@@ -311,7 +313,7 @@ async function callAnthropicAPI(text, city, apiKey) {
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
-      return { activities: [], inputTokens: 0, outputTokens: 0, error: `Anthropic HTTP ${res.status}: ${errBody.slice(0, 200)}` };
+      return { activities: [], inputTokens: 0, outputTokens: 0, condensedPreview, error: `Anthropic HTTP ${res.status}: ${errBody.slice(0, 200)}` };
     }
 
     const data = await res.json();
@@ -320,26 +322,26 @@ async function callAnthropicAPI(text, city, apiKey) {
 
     // Truncation check — must be before content inspection
     if (data.stop_reason === 'max_tokens') {
-      return { activities: [], inputTokens, outputTokens, error: 'Response truncated (stop_reason: max_tokens). Raise max_tokens or reduce LLM_TEXT_LIMIT.' };
+      return { activities: [], inputTokens, outputTokens, condensedPreview, error: 'Response truncated (stop_reason: max_tokens). Raise max_tokens or reduce LLM_TEXT_LIMIT.' };
     }
 
     // Tool use response: the Anthropic API guarantees valid JSON in toolBlock.input
     const toolBlock = data.content?.find(b => b.type === 'tool_use' && b.name === 'extract_activities');
     if (!toolBlock) {
       const stopInfo = data.stop_reason ? ` stop_reason: ${data.stop_reason}` : '';
-      return { activities: [], inputTokens, outputTokens, error: `No extract_activities tool_use block in response.${stopInfo}` };
+      return { activities: [], inputTokens, outputTokens, condensedPreview, error: `No extract_activities tool_use block in response.${stopInfo}` };
     }
 
     const activities = toolBlock.input?.activities;
     if (!Array.isArray(activities)) {
-      return { activities: [], inputTokens, outputTokens, error: 'Tool response missing activities array' };
+      return { activities: [], inputTokens, outputTokens, condensedPreview, error: 'Tool response missing activities array' };
     }
 
-    return { activities, inputTokens, outputTokens, error: null };
+    return { activities, inputTokens, outputTokens, condensedPreview, error: null };
   } catch (err) {
     clearTimeout(timer);
     const msg = err.name === 'AbortError' ? `LLM timeout after ${LLM_TIMEOUT_MS}ms` : String(err.message || err);
-    return { activities: [], inputTokens: 0, outputTokens: 0, error: msg };
+    return { activities: [], inputTokens: 0, outputTokens: 0, condensedPreview, error: msg };
   }
 }
 
@@ -505,9 +507,17 @@ exports.handler = async (event) => {
         if (suggestionsSaved >= MAX_SUGGESTIONS) break;
 
         llmCallsUsed++;
-        const { activities, inputTokens, outputTokens, error } = await callAnthropicAPI(result.text, city, apiKey);
+        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey);
         totalInputTokens  += inputTokens;
         totalOutputTokens += outputTokens;
+
+        // Per-source diagnostic stats (stored in result, stripped of 'text' before saving)
+        result.llmActivitiesFound     = activities.length;
+        result.llmActivitiesRejected  = 0;
+        result.llmActivitiesDeduplicated = 0;
+        result.llmActivitiesSaved     = 0;
+        result.llmError               = error || null;
+        result.condensedPreview       = condensedPreview || null;
 
         if (error) {
           llmErrors.push({ sourceId: result.sourceId, error });
@@ -521,6 +531,7 @@ exports.handler = async (event) => {
           const { valid, activity, errors: valErrors } = validateActivity(raw, result.url, result.name);
           if (!valid) {
             llmErrors.push({ sourceId: result.sourceId, validationErrors: valErrors });
+            result.llmActivitiesRejected++;
             continue;
           }
 
@@ -530,6 +541,7 @@ exports.handler = async (event) => {
           const hashSnap = await db.ref(`suggestionHashes/${safeHash}`).once('value');
           if (hashSnap.exists()) {
             suggestionsDeduplicated++;
+            result.llmActivitiesDeduplicated++;
             continue;
           }
 
@@ -572,6 +584,7 @@ exports.handler = async (event) => {
           });
 
           suggestionsSaved++;
+          result.llmActivitiesSaved++;
           savedSuggestionIds.push(suggestionId);
         }
       }

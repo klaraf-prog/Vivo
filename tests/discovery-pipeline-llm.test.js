@@ -688,13 +688,17 @@ describe('handler live mode', () => {
     expect(report.llmCallsUsed).toBe(0);
   });
 
-  test('live mode: source text is stripped from stored run report', async () => {
+  test('live mode: raw source text is stripped but condensedPreview is kept for diagnostics', async () => {
     mockSet('discoverySources/src1', { city: 'Köln', url: 'https://example.com', name: 'S', active: true });
     shared.verifyStudioToken.mockResolvedValue(editor);
 
-    const secretText = 'SECRET_INTERNAL_CONTENT';
+    // Use a text that is longer than the 800-char condensedPreview limit,
+    // so we can tell that the full text is stripped while a preview may remain.
+    const uniqueMarker = 'UNIQUE_MARKER_XY7Z';  // appears once at the end, past 800 chars
+    const pageText = 'Markt '.repeat(200) + uniqueMarker;  // > 1200 chars total
+
     const encoder = new TextEncoder();
-    const bytes = encoder.encode(secretText);
+    const bytes = encoder.encode(pageText);
 
     global.fetch = jest.fn().mockImplementation((url) => {
       if (url.includes('anthropic.com')) {
@@ -723,13 +727,17 @@ describe('handler live mode', () => {
     const res = await handler(makeEvent('POST', { city: 'Köln', mode: 'live' }));
     const { report } = JSON.parse(res.body);
 
-    // Raw fetched text must not appear in the stored report
-    const reportStr = JSON.stringify(report);
-    expect(reportStr).not.toContain(secretText);
-
-    // Also verify nothing leaked into the RTDB store
+    // The full text (marker past position 800) must not appear in report or RTDB
+    expect(JSON.stringify(report)).not.toContain(uniqueMarker);
     const storedRun = Object.values(mockGet('discoveryPipelineRuns') || {})[0];
-    expect(JSON.stringify(storedRun)).not.toContain(secretText);
+    expect(JSON.stringify(storedRun)).not.toContain(uniqueMarker);
+
+    // condensedPreview (first 800 chars) must be present in the report for diagnostics
+    const sr = report.sourceResults?.[0];
+    expect(sr).toBeDefined();
+    expect(sr.condensedPreview).toBeDefined();
+    expect(typeof sr.condensedPreview).toBe('string');
+    expect(sr.condensedPreview.length).toBeLessThanOrEqual(800);
   });
 
   test('live mode records LLM error in report without crashing', async () => {
