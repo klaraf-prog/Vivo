@@ -1385,3 +1385,120 @@ describe('user-profile', () => {
     expect(parseBody(res).error).toMatch(/unavailable/i);
   });
 });
+
+// ─── Home tab logic (pure JS, no Firebase calls) ─────────────────────────────
+describe('Home tab logic', () => {
+  // Helper: simulate _pendingInvites() behaviour
+  function pendingInvites(userData) {
+    if (!userData) return [];
+    const { invites, events, userEvents } = userData;
+    if (!invites || !events) return [];
+    return Object.keys(invites)
+      .filter(id => !(userEvents || {})[id])
+      .map(id => ({ id, event: events[id] }))
+      .filter(x => x.event);
+  }
+
+  // Helper: simulate _fbCalEntries() upcoming filter behaviour
+  function upcomingEntries(fbCalEntries, todayStr) {
+    return fbCalEntries
+      .filter(e => e.date >= todayStr && e._fbStatus !== 'nein')
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.start - b.start);
+  }
+
+  test('89. pendingInvites returns events in invites not yet in userEvents', () => {
+    const userData = {
+      invites: { 'ev_1': true, 'ev_2': true },
+      events:  { 'ev_1': { title: 'Hike', date: '2026-11-01' }, 'ev_2': { title: 'Dinner', date: '2026-11-05' } },
+      userEvents: { 'ev_2': 'dabei' },
+    };
+    const result = pendingInvites(userData);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('ev_1');
+    expect(result[0].event.title).toBe('Hike');
+  });
+
+  test('90. pendingInvites returns empty when all invites already RSVPed', () => {
+    const userData = {
+      invites: { 'ev_1': true },
+      events:  { 'ev_1': { title: 'Hike', date: '2026-11-01' } },
+      userEvents: { 'ev_1': 'dabei' },
+    };
+    expect(pendingInvites(userData)).toHaveLength(0);
+  });
+
+  test('91. pendingInvites returns empty when userData is null', () => {
+    expect(pendingInvites(null)).toHaveLength(0);
+  });
+
+  test('92. pendingInvites skips events missing from events map', () => {
+    const userData = {
+      invites: { 'ev_1': true, 'ev_ghost': true },
+      events:  { 'ev_1': { title: 'Hike', date: '2026-11-01' } },
+      userEvents: {},
+    };
+    const result = pendingInvites(userData);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('ev_1');
+  });
+
+  test('93. upcomingEntries sorts events chronologically by date then start time', () => {
+    const entries = [
+      { id: 'ev_c', date: '2026-11-10', start: 9,  _fbStatus: 'dabei' },
+      { id: 'ev_a', date: '2026-11-05', start: 18, _fbStatus: 'dabei' },
+      { id: 'ev_b', date: '2026-11-10', start: 8,  _fbStatus: 'vielleicht' },
+    ];
+    const sorted = upcomingEntries(entries, '2026-11-01');
+    expect(sorted.map(e => e.id)).toEqual(['ev_a', 'ev_b', 'ev_c']);
+  });
+
+  test('94. upcomingEntries excludes events with nein RSVP', () => {
+    const entries = [
+      { id: 'ev_yes', date: '2026-11-05', start: 18, _fbStatus: 'dabei' },
+      { id: 'ev_no',  date: '2026-11-06', start: 18, _fbStatus: 'nein' },
+    ];
+    const result = upcomingEntries(entries, '2026-11-01');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('ev_yes');
+  });
+
+  test('95. upcomingEntries excludes past events', () => {
+    const entries = [
+      { id: 'ev_past',   date: '2026-10-01', start: 18, _fbStatus: 'dabei' },
+      { id: 'ev_future', date: '2026-11-05', start: 18, _fbStatus: 'dabei' },
+    ];
+    const result = upcomingEntries(entries, '2026-10-28');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('ev_future');
+  });
+
+  test('96. upcomingEntries returns empty array when no future events', () => {
+    const entries = [
+      { id: 'ev_past', date: '2026-10-01', start: 18, _fbStatus: 'dabei' },
+    ];
+    expect(upcomingEntries(entries, '2026-10-28')).toHaveLength(0);
+  });
+
+  test('97. upcomingEntries includes events on today', () => {
+    const todayStr = '2026-10-28';
+    const entries = [
+      { id: 'ev_today', date: '2026-10-28', start: 18, _fbStatus: 'dabei' },
+    ];
+    const result = upcomingEntries(entries, todayStr);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('ev_today');
+  });
+
+  test('98. pendingInvites unread count reflects pending count', () => {
+    const userData = {
+      invites: { 'ev_1': true, 'ev_2': true, 'ev_3': true },
+      events: {
+        'ev_1': { title: 'A', date: '2026-11-01' },
+        'ev_2': { title: 'B', date: '2026-11-02' },
+        'ev_3': { title: 'C', date: '2026-11-03' },
+      },
+      userEvents: { 'ev_1': 'dabei' },
+    };
+    expect(pendingInvites(userData)).toHaveLength(2);
+  });
+});
