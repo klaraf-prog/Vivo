@@ -331,6 +331,39 @@
                          margin-bottom:20px; color:var(--text); }
     @media (max-width: 900px) { .charts-row { grid-template-columns:1fr; } }
 
+    /* ── SOURCES ── */
+    .sources-layout { display:grid; grid-template-columns:1fr 420px; gap:24px; align-items:start; }
+    .source-card { background:var(--card); border:1.5px solid var(--border);
+                   border-radius:var(--radius); padding:14px 16px; margin-bottom:10px;
+                   display:flex; align-items:flex-start; gap:12px; }
+    .source-card-body { flex:1; min-width:0; }
+    .source-card-name { font-weight:700; font-size:.9rem; margin-bottom:3px;
+                        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .source-card-url  { font-size:.78rem; color:var(--blue); word-break:break-all;
+                        margin-bottom:4px; }
+    .source-card-meta { font-size:.78rem; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
+    .source-type-badge { display:inline-block; padding:2px 7px; border-radius:20px;
+                         font-size:.72rem; font-weight:700; background:var(--bg);
+                         border:1px solid var(--border); }
+    .source-active-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+    .source-active-dot.on  { background:var(--green-ok); }
+    .source-active-dot.off { background:var(--muted); }
+    .source-actions { display:flex; gap:6px; flex-shrink:0; }
+    .btn-icon { padding:5px 8px; border-radius:7px; border:1.5px solid var(--border);
+                background:none; font-size:.8rem; cursor:pointer; color:var(--muted);
+                transition:all .15s; }
+    .btn-icon:hover { border-color:var(--pink); color:var(--pink); }
+    .btn-icon.toggle-on  { border-color:var(--green-ok); color:var(--green-ok); }
+    .btn-icon.toggle-on:hover { background:#D1FAE5; }
+    .sources-form { background:var(--card); border:1.5px solid var(--border);
+                    border-radius:var(--radius); padding:20px; position:sticky; top:20px; }
+    .sources-form h3 { font-size:.9rem; font-weight:700; margin-bottom:16px; }
+    .src-result { margin-top:10px; font-size:.875rem; padding:8px 12px;
+                  border-radius:8px; display:none; }
+    .src-result.ok  { background:#D1FAE5; color:#065F46; display:block; }
+    .src-result.err { background:#FEE2E2; color:#991B1B; display:block; }
+    @media (max-width: 1000px) { .sources-layout { grid-template-columns: 1fr; } }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .app-body { grid-template-columns: 1fr; }
@@ -380,6 +413,9 @@
       </button>
       <button class="nav-item" id="nav-activities"  onclick="showTab('activities')">
         <span class="nav-icon">✦</span> Aktivitäten
+      </button>
+      <button class="nav-item" id="nav-sources" onclick="showTab('sources')">
+        <span class="nav-icon">⊕</span> Quellen
       </button>
       <hr class="nav-divider">
       <button class="nav-item" id="nav-users"     onclick="showTab('users')">
@@ -453,6 +489,13 @@
               <div>Aktivität auswählen</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- QUELLEN -->
+      <div class="tab-panel" id="tab-sources">
+        <div class="scroll-content">
+          <div id="sources-content"><p style="color:var(--muted)">Lade…</p></div>
         </div>
       </div>
 
@@ -576,6 +619,7 @@ function showAdmin() {
     document.getElementById('nav-dashboard').style.display  = 'none';
     document.getElementById('nav-activities').style.display = 'none';
     document.getElementById('nav-analytics').style.display  = 'none';
+    document.getElementById('nav-sources').style.display    = 'none';
     showTab('suggestions');
   } else {
     showTab('dashboard');
@@ -642,6 +686,7 @@ function showTab(name) {
   if (name === 'dashboard')   renderDashboard();
   if (name === 'suggestions') renderSugList();
   if (name === 'activities')  renderActList();
+  if (name === 'sources')     renderSources();
   if (name === 'users')       loadUsers();
   if (name === 'settings')    renderSettings();
   if (name === 'analytics')   renderAnalytics();
@@ -1278,6 +1323,203 @@ function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Sources ───────────────────────────────────────────────────────
+let _allSources = {};
+let _sourcesLoaded = false;
+
+async function renderSources() {
+  const el = document.getElementById('sources-content');
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--muted)">Lade Quellen…</p>';
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/discovery-sources', {
+      headers: { 'Authorization': `Bearer ${_idToken}` },
+    });
+    if (!res.ok) { el.innerHTML = `<p style="color:var(--pink)">Fehler: HTTP ${res.status}</p>`; return; }
+    const data = await res.json();
+    _allSources = data.sources || {};
+    _sourcesLoaded = true;
+    _renderSourcesContent(el);
+  } catch (e) {
+    el.innerHTML = `<p style="color:var(--pink)">Fehler: ${esc(e.message)}</p>`;
+  }
+}
+
+function _renderSourcesContent(el) {
+  const canEdit = _role === 'editor' || _role === 'superadmin';
+  const sources = Object.entries(_allSources).sort(([,a],[,b]) => (b.addedAt||0)-(a.addedAt||0));
+
+  el.innerHTML = `
+    <h2 style="font-size:1.375rem;font-weight:800;letter-spacing:-.5px;margin-bottom:6px">
+      Discovery-Quellen
+    </h2>
+    <p style="color:var(--muted);font-size:.875rem;margin-bottom:24px">
+      Verwaltete Quell-URLs für die Discovery-Pipeline. Nur aktive Quellen werden beim nächsten Pipeline-Lauf abgerufen.
+    </p>
+    <div class="sources-layout">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-weight:700">${sources.length} Quelle${sources.length !== 1 ? 'n' : ''}</span>
+          <span style="font-size:.8rem;color:var(--muted)">${sources.filter(([,s])=>s.active).length} aktiv</span>
+        </div>
+        ${sources.length === 0
+          ? `<div class="empty-state" style="padding:40px 0;background:var(--card);border-radius:var(--radius);border:1.5px dashed var(--border)">
+               Noch keine Quellen eingetragen.${canEdit ? ' Füge die erste Quelle rechts hinzu.' : ''}
+             </div>`
+          : sources.map(([id, s]) => _sourceCard(id, s, canEdit)).join('')
+        }
+      </div>
+      ${canEdit ? _sourceForm() : ''}
+    </div>
+  `;
+}
+
+function _sourceCard(id, s, canEdit) {
+  const typeLabel = { website:'Website', 'open-data':'Open Data', api:'API', social:'Social', other:'Andere' }[s.sourceType] || s.sourceType;
+  const activeClass = s.active ? 'on' : 'off';
+  const addedDate = s.addedAt ? new Date(s.addedAt).toLocaleDateString('de-DE') : '–';
+  return `
+    <div class="source-card" id="src-card-${esc(id)}">
+      <div class="source-active-dot ${activeClass}" title="${s.active ? 'Aktiv' : 'Inaktiv'}"></div>
+      <div class="source-card-body">
+        <div class="source-card-name">${esc(s.name)}</div>
+        <div class="source-card-url"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a></div>
+        <div class="source-card-meta">
+          <span><strong>${esc(s.city)}</strong></span>
+          <span class="source-type-badge">${esc(typeLabel)}</span>
+          <span>Hinzugefügt ${esc(addedDate)}</span>
+          ${s.notes ? `<span style="font-style:italic">${esc(s.notes)}</span>` : ''}
+        </div>
+      </div>
+      ${canEdit ? `
+        <div class="source-actions">
+          <button class="btn-icon toggle-on" title="${s.active ? 'Deaktivieren' : 'Aktivieren'}"
+            onclick="toggleSource('${esc(id)}',${!s.active})">${s.active ? 'Pause' : 'Start'}</button>
+          <button class="btn-icon" title="Löschen" onclick="deleteSource('${esc(id)}')">✕</button>
+        </div>` : ''}
+    </div>
+  `;
+}
+
+function _sourceForm() {
+  return `
+    <div class="sources-form">
+      <h3>Neue Quelle hinzufügen</h3>
+      <div class="form-row">
+        <label class="form-label">URL *</label>
+        <input type="url" id="src-url" class="form-input" placeholder="https://…">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Name *</label>
+        <input type="text" id="src-name" class="form-input" placeholder="z. B. KW Köln Programm">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Stadt *</label>
+        <input type="text" id="src-city" class="form-input" placeholder="z. B. Köln">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Typ *</label>
+        <select id="src-type" class="form-select">
+          <option value="">— Bitte wählen —</option>
+          <option value="website">Website</option>
+          <option value="open-data">Open Data</option>
+          <option value="api">API</option>
+          <option value="social">Social Media</option>
+          <option value="other">Andere</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Notizen</label>
+        <input type="text" id="src-notes" class="form-input" placeholder="Optional: Hinweis zur Quelle">
+      </div>
+      <button class="btn-primary" style="width:100%" onclick="addSource()">Quelle hinzufügen</button>
+      <div class="src-result" id="src-result"></div>
+    </div>
+  `;
+}
+
+async function addSource() {
+  const url        = document.getElementById('src-url')?.value.trim();
+  const name       = document.getElementById('src-name')?.value.trim();
+  const city       = document.getElementById('src-city')?.value.trim();
+  const sourceType = document.getElementById('src-type')?.value;
+  const notes      = document.getElementById('src-notes')?.value.trim();
+  const resultEl   = document.getElementById('src-result');
+
+  resultEl.className = 'src-result';
+  resultEl.textContent = '';
+
+  if (!url || !name || !city || !sourceType) {
+    resultEl.className = 'src-result err';
+    resultEl.textContent = 'Bitte alle Pflichtfelder ausfüllen.';
+    return;
+  }
+  try { new URL(url); } catch {
+    resultEl.className = 'src-result err';
+    resultEl.textContent = 'Keine gültige URL.';
+    return;
+  }
+
+  const btn = document.querySelector('.sources-form .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/discovery-sources', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, name, city, sourceType, notes: notes || null }),
+    });
+    const data = await res.json();
+    if (res.status === 409) {
+      resultEl.className = 'src-result err';
+      resultEl.textContent = `Doppelte URL – bereits als Quelle gespeichert (ID: ${data.existingId}).`;
+    } else if (!res.ok) {
+      resultEl.className = 'src-result err';
+      resultEl.textContent = data.error || `Fehler ${res.status}`;
+    } else {
+      resultEl.className = 'src-result ok';
+      resultEl.textContent = `Quelle gespeichert (${data.sourceId})`;
+      ['src-url','src-name','src-city','src-notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+      document.getElementById('src-type').value = '';
+      renderSources();
+    }
+  } catch (e) {
+    resultEl.className = 'src-result err';
+    resultEl.textContent = 'Netzwerkfehler: ' + e.message;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Quelle hinzufügen'; }
+  }
+}
+
+async function toggleSource(sourceId, active) {
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/discovery-sources', {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${_idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceId, active }),
+    });
+    if (res.ok) { showToast(active ? 'Quelle aktiviert' : 'Quelle pausiert'); renderSources(); }
+    else showToast('Fehler beim Aktualisieren');
+  } catch { showToast('Netzwerkfehler'); }
+}
+
+async function deleteSource(sourceId) {
+  if (!confirm('Quelle wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+  try {
+    await refreshIdToken();
+    const res = await fetch('/.netlify/functions/discovery-sources', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${_idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceId }),
+    });
+    if (res.ok) { showToast('Quelle gelöscht'); renderSources(); }
+    else showToast('Fehler beim Löschen');
+  } catch { showToast('Netzwerkfehler'); }
 }
 
 // ── Analytics ─────────────────────────────────────────────────────
