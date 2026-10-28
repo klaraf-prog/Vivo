@@ -95,6 +95,15 @@ function _initFirebaseAuth() {
     const isLocal = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
     if (isLocal) _fbAuth.useEmulator('http://127.0.0.1:9099');
 
+    // Pick up the result when the page returns from a Google redirect sign-in.
+    _fbAuth.getRedirectResult().catch(e => {
+      if (e.code && e.code !== 'auth/no-auth-event') {
+        console.warn('[someday] Google redirect error:', e.message);
+        const errEl = $('auth-err');
+        if (errEl) errEl.textContent = e.message || 'Google sign-in failed.';
+      }
+    });
+
     _fbAuth.onAuthStateChanged(async user => {
       _currentUser = user || null;
       _userData    = null;
@@ -143,6 +152,20 @@ async function _signOut() {
   catch (e) { console.warn('[someday] sign-out error:', e.message); }
 }
 
+// Google Sign-In — uses redirect (works in Safari and PWA installed mode).
+async function _signInWithGoogle() {
+  const errEl = $('auth-err');
+  if (errEl) errEl.textContent = 'Redirecting to Google…';
+  try {
+    const auth = _initFirebaseAuth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithRedirect(provider);
+    // Browser navigates away; result is handled by getRedirectResult() on return.
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message || 'Google sign-in failed.';
+  }
+}
+
 // Returns user display name from userData profile or Firebase displayName.
 function _displayName() {
   if (_userData && _userData.profile && _userData.profile.displayName) return _userData.profile.displayName;
@@ -164,6 +187,11 @@ function _signInForm() {
   return `<div class="mutedbox" style="margin-bottom:20px">
     <div class="eyebrow">SOMEDAY ✳</div>
     <h2 style="margin:8px 0 4px">Your corner of someday.</h2>
+    <button onclick="_signInWithGoogle()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;margin-bottom:14px;background:white;border:1px solid #d9e3d8;border-radius:13px;font-size:14px;font-weight:700;color:#3c4043;cursor:pointer">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M47.5 24.6c0-1.6-.1-3.1-.4-4.6H24v8.7h13.2c-.6 2.9-2.3 5.4-4.9 7v5.8h7.9c4.6-4.2 7.3-10.5 7.3-16.9z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.9-5.9c-2.1 1.4-4.8 2.2-7.9 2.2-6.1 0-11.2-4.1-13-9.6H2.8v6.1C6.6 42.7 14.7 48 24 48z"/><path fill="#FBBC05" d="M11 28.9c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4v-6.1H2.8C1 17.3 0 20.5 0 24s1 6.7 2.8 9.1l8.2-4.2z"/><path fill="#EA4335" d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.7-6.7C35.9 2.4 30.5 0 24 0 14.7 0 6.6 5.3 2.8 14.9l8.2 6.1C12.8 13.6 17.9 9.5 24 9.5z"/></svg>
+      Continue with Google
+    </button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div style="flex:1;height:1px;background:#e6eae3"></div><span class="small">or</span><div style="flex:1;height:1px;background:#e6eae3"></div></div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
       <button class="chip${mode==='signin'?' on':''}" onclick="window._authMode='signin';render()">Sign in</button>
       <button class="chip${mode==='signup'?' on':''}" onclick="window._authMode='signup';render()">Create account</button>
