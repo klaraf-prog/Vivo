@@ -1637,7 +1637,31 @@ function _renderPipelinePanel(runs) {
         ? `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">JSON-LD Events (${jsonLdCount} gefunden)</summary><ul style="font-size:.72rem;margin:3px 0 0 14px;padding:0">${sr.jsonLdEventSample.map(e => `<li>${esc(e.name || '(kein Name)')}${e.startDate ? ' · ' + esc(e.startDate) : ''}${e.endDate ? '–' + esc(e.endDate) : ''}</li>`).join('')}${jsonLdCount > 3 ? `<li style="color:var(--muted)">… und ${jsonLdCount - 3} weitere</li>` : ''}</ul></details>`
         : '';
 
-      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge}${embeddedBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${qualityNote}${jsonLdSample}${llmDiag}</div>`;
+      // HTML structure diagnostics — always shown to help understand extraction quality
+      const diag = sr.htmlDiagnostics;
+      const htmlStructDiag = diag ? (() => {
+        const steps = [
+          `Raw: ${(diag.rawSizeChars / 1000).toFixed(0)}K`,
+          `−head: ${(diag.afterHeadChars / 1000).toFixed(0)}K`,
+          `−scripts: ${(diag.afterScriptsChars / 1000).toFixed(0)}K`,
+          `−nav: ${(diag.afterNavChars / 1000).toFixed(0)}K`,
+          `→ ${(diag.strippedChars / 1000).toFixed(0)}K Inhalt`,
+        ].join(' · ');
+        const semantic = [
+          diag.hasMain ? '✓ &lt;main&gt;' : '✗ &lt;main&gt;',
+          diag.hasRoleMain ? '✓ role=main' : null,
+          diag.hasArticle ? '✓ &lt;article&gt;' : null,
+        ].filter(Boolean).join(', ');
+        const cssWarn = diag.cssLeakPercent > 15
+          ? `<span style="color:var(--warning,#f59e0b)"> · CSS-Leak: ${diag.cssLeakPercent}%</span>`
+          : (diag.cssLeakPercent > 0 ? ` · CSS: ${diag.cssLeakPercent}%` : '');
+        const selectedNote = diag.selectedBy && diag.selectedBy !== 'full-document'
+          ? `<span style="color:var(--green,#22c55e)"> · Extraktion: ${esc(diag.selectedBy)}</span>`
+          : ` · Extraktion: full-document`;
+        return `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">HTML-Struktur</summary><div style="font-size:.72rem;padding:3px 0 0">${steps}${cssWarn}${selectedNote}<br>Semantik: ${semantic || '<em>keine Landmarks</em>'}</div></details>`;
+      })() : '';
+
+      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge}${embeddedBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${qualityNote}${jsonLdSample}${htmlStructDiag}${llmDiag}</div>`;
     }).join('');
     const skipNotes = [
       r.sourcesSkippedInactive     > 0 ? `${r.sourcesSkippedInactive} inaktiv`     : null,

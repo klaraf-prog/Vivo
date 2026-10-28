@@ -126,10 +126,8 @@ function stripHtml(html) {
   return html
     // Remove entire head section
     .replace(/<head[\s\S]*?<\/head>/gi, ' ')
-    // Remove navigation chrome blocks — entire text content, not just the tags
+    // Remove navigation-only chrome — NOT <header>/<footer> because they often wrap event content in HTML5
     .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
-    .replace(/<header[\s\S]*?<\/header>/gi, ' ')
-    .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
     .replace(/<aside[\s\S]*?<\/aside>/gi, ' ')
     .replace(/<template[\s\S]*?<\/template>/gi, ' ')
     // Remove scripts and styles (JSON-LD + embedded data already extracted separately)
@@ -149,6 +147,86 @@ function stripHtml(html) {
     // Normalize whitespace
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// ── Main content selection ────────────────────────────────────────────────────
+// Prefer semantic landmark elements over the full document body to reduce noise.
+// Falls back to full HTML when no semantic landmark is found or when the landmark
+// content would be too short (suggesting the interesting content is elsewhere).
+const MAIN_CONTENT_MIN_CHARS = 500;
+
+function selectMainContent(html) {
+  // Try <main> first, then [role="main"], then <article> as a narrower fallback
+  const patterns = [
+    /<main(?:\s[^>]*)?>([\s\S]*?)<\/main>/i,
+    /<[a-z][^>]*\srole=["']main["'][^>]*>([\s\S]*?)<\/[a-z]+>/i,
+    /<article(?:\s[^>]*)?>([\s\S]*?)<\/article>/i,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m && m[1].length >= MAIN_CONTENT_MIN_CHARS) {
+      // Keep the outer tag removed but preserve inner HTML for further stripping
+      return { html: m[1], selectedBy: re.source.slice(1, re.source.indexOf('(')) };
+    }
+  }
+  return { html, selectedBy: 'full-document' };
+}
+
+// ── HTML structure diagnostics ────────────────────────────────────────────────
+// Returns a lightweight report of what the HTML contains at each stripping stage.
+// Pure read-only — no side effects on the pipeline data path.
+function analyzeHtmlStructure(html) {
+  const rawSize = html.length;
+
+  // Step measurements
+  const afterHead    = html.replace(/<head[\s\S]*?<\/head>/gi, '');
+  const afterScripts = afterHead
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '');
+  const afterNav     = afterScripts.replace(/<nav[\s\S]*?<\/nav>/gi, '').replace(/<aside[\s\S]*?<\/aside>/gi, '');
+  const stripped     = stripHtml(html);
+
+  // Top-level tag inventory (first 15 distinct tag names by frequency)
+  const tagFreq = {};
+  for (const m of (html.match(/<([a-zA-Z][a-zA-Z0-9-]*)\b/g) || [])) {
+    const tag = m.slice(1).toLowerCase();
+    tagFreq[tag] = (tagFreq[tag] || 0) + 1;
+  }
+  const topTags = Object.entries(tagFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([tag, n]) => `${tag}(${n})`);
+
+  // Semantic landmark presence
+  const hasMain        = /<main[\s> ]/i.test(html);
+  const hasRoleMain    = /role=["']main["']/i.test(html);
+  const hasArticle     = /<article[\s>]/i.test(html);
+  const scriptTypes    = [...new Set(
+    (html.match(/type=["']([^"']+)["']/gi) || []).map(t => t.replace(/type=["']/i, '').replace(/["']/, '').toLowerCase())
+  )].slice(0, 10);
+
+  // CSS text leak ratio in final stripped text
+  const cssPatternCount = (stripped.match(/\b[a-z-]{3,30}\s*:\s*[^;\n]{3,80}\b/g) || []).length;
+  const wordCount       = (stripped.match(/\b\w{3,}\b/g) || []).length;
+  const cssRatio        = wordCount > 0 ? Math.round((cssPatternCount / wordCount) * 100) : 0;
+
+  // Which semantic element was selected for extraction
+  const { selectedBy } = selectMainContent(html);
+
+  return {
+    rawSizeChars:        rawSize,
+    afterHeadChars:      afterHead.length,
+    afterScriptsChars:   afterScripts.length,
+    afterNavChars:       afterNav.length,
+    strippedChars:       stripped.length,
+    topTags,
+    hasMain,
+    hasRoleMain,
+    hasArticle,
+    scriptTypes,
+    cssLeakPercent:      cssRatio,
+    selectedBy,
+  };
 }
 
 // ── Embedded script data extraction ──────────────────────────────────────────
@@ -464,7 +542,12 @@ async function fetchSource(source) {
     const jsonLdEvents      = filterJsonLdEvents(jsonLdItems);
     const embeddedScriptData = extractEmbeddedScriptData(rawHtml);
 
-    const text = stripHtml(rawHtml);
+    // HTML structure diagnostics (lightweight, no side effects)
+    const htmlDiagnostics = analyzeHtmlStructure(rawHtml);
+
+    // Prefer semantic main content area over full document when available
+    const { html: mainHtml, selectedBy: contentSelectedBy } = selectMainContent(rawHtml);
+    const text = stripHtml(mainHtml);
     const signals = detectSignals(text);
     const detectedCount = Object.values(signals).filter(s => s.detected).length;
     const contentQuality = assessContentQuality(text, jsonLdEvents.length);
@@ -503,6 +586,8 @@ async function fetchSource(source) {
         endDate: e.endDate || null,
       })),
       contentQuality,          // { skip, issues, hasEventKeywords }
+      htmlDiagnostics,         // structural analysis: step sizes, tag inventory, semantic elements
+      contentSelectedBy,       // which selector chose the extraction scope
       signals,
       locationSignal,
       detectedSignalCount: detectedCount,
@@ -936,6 +1021,8 @@ exports.handler = async (event) => {
 
 // ── Exported for testing ──────────────────────────────────────────────────────
 exports._stripHtml              = stripHtml;
+exports._selectMainContent      = selectMainContent;
+exports._analyzeHtmlStructure   = analyzeHtmlStructure;
 exports._condensePipelineText   = condensePipelineText;
 exports._detectSignals          = detectSignals;
 exports._extractJsonLd               = extractJsonLd;

@@ -110,7 +110,7 @@ jest.mock('../netlify/functions/_studio-shared', () => {
 });
 
 const {
-  handler, _stripHtml, _detectSignals, _condensePipelineText,
+  handler, _stripHtml, _selectMainContent, _analyzeHtmlStructure, _detectSignals, _condensePipelineText,
   _extractJsonLd, _filterJsonLdEvents, _formatJsonLdEventsForPrompt, _assessContentQuality,
   _looksLikeEventObject, _findEventArraysInData, _extractEmbeddedScriptData, _formatEmbeddedEventsForPrompt,
 } = require('../netlify/functions/discovery-pipeline');
@@ -526,20 +526,21 @@ describe('_stripHtml nav/chrome removal', () => {
     expect(result).toContain('Weihnachtsmarkt');
   });
 
-  test('removes <header> block text content entirely', () => {
-    const html = '<header><a href="/">Logo</a><nav>Menu Home About</nav></header><article>Konzert am 24.12. im Gürzenich</article>';
+  test('preserves <header> text content (HTML5 headers wrap event titles/dates)', () => {
+    // <header> is NOT removed because article headers often contain the event name and date
+    const html = '<header><h1>Konzert am 24.12. im Gürzenich</h1></header><article>Details zum Event</article>';
     const result = _stripHtml(html);
-    expect(result).not.toContain('Logo');
-    expect(result).not.toContain('Menu');
     expect(result).toContain('Konzert');
+    expect(result).toContain('Gürzenich');
+    expect(result).toContain('Details');
   });
 
-  test('removes <footer> block text content entirely', () => {
-    const html = '<main>Weihnachtsmarkt</main><footer>Impressum Datenschutz Kontakt AGB © 2024</footer>';
+  test('preserves <footer> text content (footers may contain venue or contact info)', () => {
+    // <footer> is NOT removed because footer elements may contain provider/address data
+    const html = '<main>Weihnachtsmarkt am Dom</main><footer>Veranstalter: KölnTourismus GmbH, Roncalliplatz 1</footer>';
     const result = _stripHtml(html);
-    expect(result).not.toContain('Impressum');
-    expect(result).not.toContain('Datenschutz');
     expect(result).toContain('Weihnachtsmarkt');
+    expect(result).toContain('KölnTourismus');
   });
 
   test('removes <aside> block text content entirely', () => {
@@ -556,6 +557,79 @@ describe('_stripHtml nav/chrome removal', () => {
     expect(result).toContain('KölnTourismus');
     expect(result).toContain('täglich');
     expect(result).toContain('Roncalliplatz');
+  });
+});
+
+// ── _selectMainContent ────────────────────────────────────────────────────────
+describe('_selectMainContent', () => {
+  test('extracts <main> content when present and large enough', () => {
+    const mainBody = 'Weihnachtsmarkt am Kölner Dom '.repeat(20); // > 500 chars
+    const html = `<header>Site Header</header><main>${mainBody}</main><footer>Footer</footer>`;
+    const { html: selected, selectedBy } = _selectMainContent(html);
+    expect(selected).toContain('Weihnachtsmarkt');
+    expect(selected).not.toContain('Site Header');
+    expect(selected).not.toContain('Footer');
+    expect(selectedBy).toContain('main');
+  });
+
+  test('falls back to full document when <main> is too short', () => {
+    const html = '<header>Site Header</header><main>Short</main><div>Full page content that is long enough to matter here</div>';
+    const { html: selected, selectedBy } = _selectMainContent(html);
+    expect(selected).toContain('Site Header');
+    expect(selectedBy).toBe('full-document');
+  });
+
+  test('falls back to full document when no semantic landmark exists', () => {
+    const html = '<div class="wrap"><p>All content here without any main landmark</p></div>';
+    const { selectedBy } = _selectMainContent(html);
+    expect(selectedBy).toBe('full-document');
+  });
+
+  test('uses role="main" when <main> tag is absent', () => {
+    const mainBody = 'Veranstaltungen in Köln '.repeat(30); // > 500 chars
+    const html = `<div role="main">${mainBody}</div><aside>Sidebar</aside>`;
+    const { html: selected, selectedBy } = _selectMainContent(html);
+    expect(selected).toContain('Veranstaltungen');
+    expect(selectedBy).toMatch(/role/);
+  });
+});
+
+// ── _analyzeHtmlStructure ──────────────────────────────────────────────────────
+describe('_analyzeHtmlStructure', () => {
+  test('returns step sizes in descending order', () => {
+    const html = '<html><head><style>.a{color:red}</style></head><body><nav>Menu</nav><main><p>Event content here and more text</p></main></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.rawSizeChars).toBeGreaterThan(0);
+    expect(diag.afterHeadChars).toBeLessThan(diag.rawSizeChars);
+    expect(diag.strippedChars).toBeLessThan(diag.rawSizeChars);
+  });
+
+  test('detects <main> presence', () => {
+    const html = '<html><body><main><p>Content</p></main></body></html>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasMain).toBe(true);
+    expect(diag.hasRoleMain).toBe(false);
+  });
+
+  test('detects role="main"', () => {
+    const html = '<div role="main"><p>Content</p></div>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.hasRoleMain).toBe(true);
+  });
+
+  test('reports cssLeakPercent when CSS text is present', () => {
+    // Build a text that will have many CSS-like patterns after stripping
+    const cssText = Array(50).fill('color: red; background-color: blue; margin-top: 10px;').join(' ');
+    const html = `<body>${cssText}</body>`;
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.cssLeakPercent).toBeGreaterThan(0);
+  });
+
+  test('reports topTags with tag names and counts', () => {
+    const html = '<div><p>a</p><p>b</p><span>c</span></div>';
+    const diag = _analyzeHtmlStructure(html);
+    expect(diag.topTags.some(t => t.startsWith('p('))).toBe(true);
+    expect(diag.topTags.some(t => t.startsWith('div('))).toBe(true);
   });
 });
 
