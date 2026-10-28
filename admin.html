@@ -1596,6 +1596,12 @@ function _renderPipelinePanel(runs) {
       const jsonLdBadge = jsonLdCount > 0
         ? `<span style="font-size:.72rem;background:var(--green,#22c55e);color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px">JSON-LD: ${jsonLdCount} Events</span>`
         : '';
+      // Embedded script data badge
+      const embeddedCount = sr.embeddedScriptEventCount ?? 0;
+      const embeddedSources = (sr.embeddedScriptSources || []).join(', ');
+      const embeddedBadge = embeddedCount > 0
+        ? `<span style="font-size:.72rem;background:var(--info,#3b82f6);color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px">${esc(embeddedSources)}: ${embeddedCount} Events</span>`
+        : '';
 
       // Content quality warning
       const qualityIssues = sr.contentQuality?.issues || [];
@@ -1631,7 +1637,7 @@ function _renderPipelinePanel(runs) {
         ? `<details style="margin-top:3px"><summary style="font-size:.75rem;color:var(--muted);cursor:pointer">JSON-LD Events (${jsonLdCount} gefunden)</summary><ul style="font-size:.72rem;margin:3px 0 0 14px;padding:0">${sr.jsonLdEventSample.map(e => `<li>${esc(e.name || '(kein Name)')}${e.startDate ? ' · ' + esc(e.startDate) : ''}${e.endDate ? '–' + esc(e.endDate) : ''}</li>`).join('')}${jsonLdCount > 3 ? `<li style="color:var(--muted)">… und ${jsonLdCount - 3} weitere</li>` : ''}</ul></details>`
         : '';
 
-      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${qualityNote}${jsonLdSample}${llmDiag}</div>`;
+      return `<div style="font-size:.82rem;padding:3px 0">✓ <a href="${esc(sr.url)}" target="_blank" rel="noopener">${esc(sr.name || sr.url)}</a>${jsonLdBadge}${embeddedBadge} — ${sr.textLength?.toLocaleString('de-DE')} Zeichen${sr.truncated ? ' (gekürzt)' : ''}, Signale: ${detected.length > 0 ? esc(detected.join(', ')) : '<em style="color:var(--muted)">keine</em>'}${qualityNote}${jsonLdSample}${llmDiag}</div>`;
     }).join('');
     const skipNotes = [
       r.sourcesSkippedInactive     > 0 ? `${r.sourcesSkippedInactive} inaktiv`     : null,

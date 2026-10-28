@@ -112,6 +112,7 @@ jest.mock('../netlify/functions/_studio-shared', () => {
 const {
   handler, _stripHtml, _detectSignals, _condensePipelineText,
   _extractJsonLd, _filterJsonLdEvents, _formatJsonLdEventsForPrompt, _assessContentQuality,
+  _looksLikeEventObject, _findEventArraysInData, _extractEmbeddedScriptData, _formatEmbeddedEventsForPrompt,
 } = require('../netlify/functions/discovery-pipeline');
 const shared = require('../netlify/functions/_studio-shared');
 
@@ -388,14 +389,21 @@ describe('_stripHtml improvements', () => {
     expect(result).toContain('Real content');
   });
 
-  test('removes leftover CSS property fragments', () => {
-    // CSS that leaks through as text content (e.g. from CSS-in-JS SSR)
-    const cssLeak = 'background-color: #fff; font-size: 14px; color: red; Weihnachtsmarkt am Dom';
+  test('removes CSS @-rules and brace blocks', () => {
+    // CSS that leaks through — @-rules and {...} blocks are removed
+    const cssLeak = '@media (max-width:768px){body{margin:0}} Weihnachtsmarkt am Dom';
     const result = _stripHtml(cssLeak);
     expect(result).toContain('Weihnachtsmarkt');
-    // Reduced CSS noise
-    const cssPatterns = (result.match(/\b[a-z-]+:\s+[^;]+;/g) || []).length;
-    expect(cssPatterns).toBe(0);
+    expect(result).not.toContain('@media');
+  });
+
+  test('does NOT delete German event text that looks like CSS (colon-semicolon)', () => {
+    // Critical regression test: the old broad CSS regex deleted real event data
+    const eventText = 'Veranstalter: KölnTourismus GmbH; Öffnungszeiten: täglich 11-22 Uhr; Adresse: Roncalliplatz, 50667 Köln;';
+    const result = _stripHtml(eventText);
+    expect(result).toContain('KölnTourismus');
+    expect(result).toContain('täglich');
+    expect(result).toContain('Roncalliplatz');
   });
 });
 
@@ -505,5 +513,211 @@ describe('_assessContentQuality', () => {
     const text = 'Weihnachtsmarkt am Dom.';
     const result = _assessContentQuality(text, 0);
     expect(Array.isArray(result.issues)).toBe(true);
+  });
+});
+
+// ── _stripHtml: nav/header/footer/aside removal ───────────────────────────────
+describe('_stripHtml nav/chrome removal', () => {
+  test('removes <nav> block text content entirely', () => {
+    const html = '<nav><ul><li><a href="/">Startseite</a></li><li><a href="/events">Veranstaltungen</a></li></ul></nav><main><p>Weihnachtsmarkt am Kölner Dom</p></main>';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('Startseite');
+    expect(result).not.toContain('Veranstaltungen');
+    expect(result).toContain('Weihnachtsmarkt');
+  });
+
+  test('removes <header> block text content entirely', () => {
+    const html = '<header><a href="/">Logo</a><nav>Menu Home About</nav></header><article>Konzert am 24.12. im Gürzenich</article>';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('Logo');
+    expect(result).not.toContain('Menu');
+    expect(result).toContain('Konzert');
+  });
+
+  test('removes <footer> block text content entirely', () => {
+    const html = '<main>Weihnachtsmarkt</main><footer>Impressum Datenschutz Kontakt AGB © 2024</footer>';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('Impressum');
+    expect(result).not.toContain('Datenschutz');
+    expect(result).toContain('Weihnachtsmarkt');
+  });
+
+  test('removes <aside> block text content entirely', () => {
+    const html = '<main><p>Stadtführung durch die Altstadt</p></main><aside><p>Werbung: Hotel Buchen</p></aside>';
+    const result = _stripHtml(html);
+    expect(result).not.toContain('Werbung');
+    expect(result).toContain('Stadtführung');
+  });
+
+  test('does NOT destroy German event data with colon-semicolon pattern', () => {
+    // Previously the CSS regex "\b[a-zA-Z-]+:\s*...\s*;" would delete these
+    const text = 'Veranstalter: KölnTourismus GmbH; Öffnungszeiten: täglich 11-22 Uhr; Adresse: Roncalliplatz, 50667 Köln;';
+    const result = _stripHtml(text);
+    expect(result).toContain('KölnTourismus');
+    expect(result).toContain('täglich');
+    expect(result).toContain('Roncalliplatz');
+  });
+});
+
+// ── _looksLikeEventObject ─────────────────────────────────────────────────────
+describe('_looksLikeEventObject', () => {
+  test('recognises event object with name and date', () => {
+    expect(_looksLikeEventObject({ name: 'Weihnachtsmarkt', startDate: '2024-11-21' })).toBe(true);
+  });
+
+  test('recognises event object with title and location', () => {
+    expect(_looksLikeEventObject({ title: 'Konzert', location: 'Köln', description: 'Jazz' })).toBe(true);
+  });
+
+  test('recognises German field names', () => {
+    expect(_looksLikeEventObject({ name: 'Markt', ort: 'Dom', beginn: '21.11.' })).toBe(true);
+  });
+
+  test('rejects object without name/title', () => {
+    expect(_looksLikeEventObject({ startDate: '2024-12-01', location: 'Köln' })).toBe(false);
+  });
+
+  test('rejects non-objects', () => {
+    expect(_looksLikeEventObject(null)).toBe(false);
+    expect(_looksLikeEventObject('string')).toBe(false);
+    expect(_looksLikeEventObject([1, 2])).toBe(false);
+  });
+});
+
+// ── _findEventArraysInData ────────────────────────────────────────────────────
+describe('_findEventArraysInData', () => {
+  test('finds event array at top level', () => {
+    const data = [
+      { name: 'Markt A', startDate: '2024-11-21', location: 'Dom' },
+      { name: 'Markt B', startDate: '2024-11-22', location: 'Altstadt' },
+    ];
+    const result = _findEventArraysInData(data);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(2);
+  });
+
+  test('finds event array nested inside an object', () => {
+    const data = {
+      meta: { title: 'Weihnachtsmärkte' },
+      events: [
+        { name: 'Markt A', location: 'Dom', description: 'Schöner Markt' },
+        { name: 'Markt B', location: 'Altstadt', description: 'Historisch' },
+      ],
+    };
+    const result = _findEventArraysInData(data);
+    expect(result).toHaveLength(1);
+    expect(result[0][0].name).toBe('Markt A');
+  });
+
+  test('finds event array in Next.js pageProps structure', () => {
+    const nextData = {
+      props: {
+        pageProps: {
+          listings: [
+            { title: 'Dom-Weihnachtsmarkt', date: '2024-11-21', venue: 'Roncalliplatz' },
+            { title: 'Neumarkt-Weihnachtsmarkt', date: '2024-11-21', venue: 'Neumarkt' },
+          ],
+        },
+      },
+      buildId: 'abc123',
+    };
+    const result = _findEventArraysInData(nextData);
+    expect(result).toHaveLength(1);
+    expect(result[0][0].title).toBe('Dom-Weihnachtsmarkt');
+  });
+
+  test('returns empty for data with no event-like arrays', () => {
+    const data = { menu: ['Home', 'About', 'Contact'], config: { lang: 'de' } };
+    expect(_findEventArraysInData(data)).toEqual([]);
+  });
+
+  test('respects node limit and does not throw on deep structures', () => {
+    // Deeply nested object
+    let deep = { val: null };
+    let cur = deep;
+    for (let i = 0; i < 200; i++) { cur.child = { val: i }; cur = cur.child; }
+    expect(() => _findEventArraysInData(deep)).not.toThrow();
+  });
+});
+
+// ── _extractEmbeddedScriptData ────────────────────────────────────────────────
+describe('_extractEmbeddedScriptData', () => {
+  test('extracts event array from Next.js __NEXT_DATA__', () => {
+    const events = [
+      { name: 'Dom-Weihnachtsmarkt', startDate: '2024-11-21', location: 'Roncalliplatz' },
+      { name: 'Neumarkt-Weihnachtsmarkt', startDate: '2024-11-21', location: 'Neumarkt' },
+    ];
+    const html = `<html><head></head><body>
+      <script id="__NEXT_DATA__" type="application/json">
+        {"props":{"pageProps":{"markets":${JSON.stringify(events)}}},"buildId":"abc"}
+      </script>
+    </body></html>`;
+    const result = _extractEmbeddedScriptData(html);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0].source).toBe('next.js');
+    expect(result[0].events).toHaveLength(2);
+    expect(result[0].events[0].name).toBe('Dom-Weihnachtsmarkt');
+  });
+
+  test('extracts event array from generic application/json script', () => {
+    const events = [
+      { title: 'Weihnachtsmarkt', date: '2024-12-01', ort: 'Köln' },
+      { title: 'Konzert', date: '2024-12-10', ort: 'Köln' },
+    ];
+    const html = `<html><body>
+      <script type="application/json">${JSON.stringify({ items: events })}</script>
+    </body></html>`;
+    const result = _extractEmbeddedScriptData(html);
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0].events[0].title).toBe('Weihnachtsmarkt');
+  });
+
+  test('returns empty array when no embedded data present', () => {
+    const html = '<html><body><p>Simple page</p></body></html>';
+    expect(_extractEmbeddedScriptData(html)).toEqual([]);
+  });
+
+  test('ignores JSON-LD blocks (already handled by extractJsonLd)', () => {
+    const html = `<script type="application/ld+json">{"@type":"Event","name":"Concert"}</script>`;
+    const result = _extractEmbeddedScriptData(html);
+    expect(result).toEqual([]);
+  });
+
+  test('handles malformed JSON gracefully', () => {
+    const html = `<script id="__NEXT_DATA__" type="application/json">{broken json</script>`;
+    expect(() => _extractEmbeddedScriptData(html)).not.toThrow();
+    expect(_extractEmbeddedScriptData(html)).toEqual([]);
+  });
+});
+
+// ── _formatEmbeddedEventsForPrompt ────────────────────────────────────────────
+describe('_formatEmbeddedEventsForPrompt', () => {
+  test('formats event arrays as readable lines', () => {
+    const data = [{
+      source: 'next.js',
+      events: [
+        { name: 'Dom-Markt', startDate: '2024-11-21', location: 'Roncalliplatz', url: 'https://example.com' },
+      ],
+    }];
+    const result = _formatEmbeddedEventsForPrompt(data);
+    expect(result).toContain('Dom-Markt');
+    expect(result).toContain('2024-11-21');
+    expect(result).toContain('Roncalliplatz');
+    expect(result).toContain('https://example.com');
+  });
+
+  test('handles German field names', () => {
+    const data = [{
+      source: 'json-script',
+      events: [{ name: 'Markt', beginn: '21.11.2024', ort: 'Altstadt' }],
+    }];
+    const result = _formatEmbeddedEventsForPrompt(data);
+    expect(result).toContain('Markt');
+    expect(result).toContain('21.11.2024');
+    expect(result).toContain('Altstadt');
+  });
+
+  test('returns empty string for empty input', () => {
+    expect(_formatEmbeddedEventsForPrompt([])).toBe('');
   });
 });

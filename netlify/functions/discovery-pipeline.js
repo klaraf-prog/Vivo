@@ -124,12 +124,18 @@ const SIGNAL_PATTERNS = {
 // ── HTML stripping ────────────────────────────────────────────────────────────
 function stripHtml(html) {
   return html
-    // Remove entire head section (meta, title, link tags, etc.)
+    // Remove entire head section
     .replace(/<head[\s\S]*?<\/head>/gi, ' ')
-    // Remove scripts and styles (including JSON-LD — already extracted separately)
+    // Remove navigation chrome blocks — entire text content, not just the tags
+    .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+    .replace(/<header[\s\S]*?<\/header>/gi, ' ')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+    .replace(/<aside[\s\S]*?<\/aside>/gi, ' ')
+    .replace(/<template[\s\S]*?<\/template>/gi, ' ')
+    // Remove scripts and styles (JSON-LD + embedded data already extracted separately)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    // Remove SVG, noscript, iframe — not useful text
+    // Remove non-text blocks
     .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, ' ')
@@ -137,13 +143,135 @@ function stripHtml(html) {
     .replace(/<[^>]+>/g, ' ')
     // Decode common HTML entities
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#?\w+;/g, ' ')
-    // Remove leftover CSS-like fragments: selectors, properties, braces, @-rules
-    .replace(/@[a-zA-Z-]+\s*[^;{]*[;{][^}]*}/g, ' ')
-    .replace(/\b[a-zA-Z-]+\s*:\s*[^;{}\n]{1,120}\s*;/g, ' ')
-    .replace(/[{}]/g, ' ')
+    // Remove only clearly CSS-specific patterns (braces, @-rules) — NOT generic "word: value;" which would destroy German event data
+    .replace(/@[a-zA-Z-]+\s*[^;{]*\{[^}]*\}/g, ' ')
+    .replace(/\{[^}]{0,200}\}/g, ' ')
     // Normalize whitespace
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+// ── Embedded script data extraction ──────────────────────────────────────────
+// For JS-rendered sites (Next.js, Nuxt.js etc.) actual event data may live in
+// embedded JSON blobs that get deleted with <script> tags. Extract BEFORE stripping.
+
+// Heuristic: does an object look like an event/listing item?
+function looksLikeEventObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  const keys = Object.keys(obj).map(k => k.toLowerCase());
+  const hasName = keys.some(k => k === 'name' || k === 'title' || k === 'titel' || k === 'headline');
+  if (!hasName) return false;
+  const hasEventField = keys.some(k =>
+    k.includes('date') || k === 'datum' || k === 'begin' || k === 'beginn' || k === 'von' ||
+    k === 'location' || k === 'ort' || k === 'venue' || k === 'veranstaltungsort' ||
+    k === 'description' || k === 'beschreibung' || k === 'text' || k === 'inhalt'
+  );
+  return hasEventField;
+}
+
+// Recursively search a parsed JSON structure for arrays that look like event listings.
+// counter.n limits total nodes visited to prevent runaway traversal on huge objects.
+function findEventArraysInData(data, depth, counter) {
+  if (!depth) depth = 0;
+  if (!counter) counter = { n: 0 };
+  counter.n++;
+  if (depth > 8 || counter.n > 3000 || !data || typeof data !== 'object') return [];
+
+  if (Array.isArray(data)) {
+    if (data.length >= 2) {
+      const sample = data.slice(0, 5);
+      const eventLike = sample.filter(looksLikeEventObject);
+      if (eventLike.length >= Math.max(1, Math.ceil(sample.length * 0.5))) {
+        return [data.slice(0, 60)];
+      }
+    }
+    for (const item of data.slice(0, 15)) {
+      const found = findEventArraysInData(item, depth + 1, counter);
+      if (found.length > 0) return found;
+    }
+    return [];
+  }
+
+  // Plain object: recurse into values, skipping known non-data keys
+  const SKIP_KEYS = new Set([
+    'html', '__html', 'css', 'src', 'href', 'className', 'style',
+    'key', 'ref', 'children', 'type', 'buildId',
+    'runtimeConfig', 'assetPrefix', 'isFallback',
+  ]);
+  for (const [key, val] of Object.entries(data)) {
+    if (SKIP_KEYS.has(key) || typeof val !== 'object') continue;
+    const found = findEventArraysInData(val, depth + 1, counter);
+    if (found.length > 0) return found;
+  }
+  return [];
+}
+
+// Extract event-like arrays from embedded script tags (Next.js, Nuxt, generic JSON).
+// Must be called on rawHtml BEFORE stripHtml removes <script> blocks.
+function extractEmbeddedScriptData(html) {
+  const results = [];
+
+  // Next.js: <script id="__NEXT_DATA__" type="application/json">
+  const nextMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (nextMatch) {
+    try {
+      const arrays = findEventArraysInData(JSON.parse(nextMatch[1]));
+      for (const arr of arrays) results.push({ source: 'next.js', events: arr });
+    } catch {}
+  }
+
+  // Nuxt.js: window.__NUXT__={...} or __NUXT_DATA__=[...]
+  const nuxtMatch = html.match(/(?:window\.__NUXT__|__NUXT_DATA__)\s*=\s*([\[{][\s\S]{200,}?[\]}])\s*;?\s*<\/script>/i);
+  if (nuxtMatch && results.length < 3) {
+    try {
+      const arrays = findEventArraysInData(JSON.parse(nuxtMatch[1]));
+      for (const arr of arrays) results.push({ source: 'nuxt.js', events: arr });
+    } catch {}
+  }
+
+  // Generic: <script type="application/json"> (not JSON-LD)
+  if (results.length < 3) {
+    const re = /<script[^>]+type=["']application\/json["'](?![^>]*ld\+json)[^>]*>([\s\S]{50,}?)<\/script>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      try {
+        const arrays = findEventArraysInData(JSON.parse(m[1]));
+        for (const arr of arrays) results.push({ source: 'json-script', events: arr });
+        if (results.length >= 3) break;
+      } catch {}
+    }
+  }
+
+  return results; // [{source, events: [...]}]
+}
+
+// Format embedded event arrays as readable lines for the LLM prompt.
+function formatEmbeddedEventsForPrompt(embeddedArrays, maxEvents) {
+  if (!maxEvents) maxEvents = 30;
+  const lines = [];
+  for (const { events } of embeddedArrays) {
+    for (const e of events) {
+      if (lines.length >= maxEvents) break;
+      const parts = [];
+      const name = e.name || e.title || e.titel || e.headline;
+      if (name) parts.push(`Name: ${String(name).slice(0, 120)}`);
+      const desc = e.description || e.beschreibung || e.text || e.inhalt || e.kurztext;
+      if (desc) parts.push(`Beschreibung: ${String(desc).slice(0, 200)}`);
+      const start = e.startDate || e.start_date || e.date || e.datum || e.begin || e.beginn || e.von || e.startdate;
+      if (start) parts.push(`Beginn: ${String(start).slice(0, 30)}`);
+      const end = e.endDate || e.end_date || e.bis || e.end || e.enddate;
+      if (end) parts.push(`Ende: ${String(end).slice(0, 30)}`);
+      const loc = e.location || e.ort || e.venue || e.veranstaltungsort;
+      if (loc) {
+        const locStr = typeof loc === 'string' ? loc : (loc.name || loc.address || loc.adresse || '');
+        if (locStr) parts.push(`Ort: ${String(locStr).slice(0, 120)}`);
+      }
+      const url = e.url || e.link || e.detailUrl || e.detailurl;
+      if (url && /^https?:\/\//.test(url)) parts.push(`URL: ${String(url).slice(0, 200)}`);
+      if (parts.length >= 2) lines.push(parts.join(' | '));
+    }
+  }
+  return lines.join('\n');
 }
 
 // ── JSON-LD extraction ────────────────────────────────────────────────────────
@@ -331,9 +459,10 @@ async function fetchSource(source) {
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const rawHtml = chunks.map(c => decoder.decode(c, { stream: true })).join('') + decoder.decode();
 
-    // Extract JSON-LD structured data before stripping HTML
-    const jsonLdItems  = extractJsonLd(rawHtml);
-    const jsonLdEvents = filterJsonLdEvents(jsonLdItems);
+    // Extract structured data from rawHtml BEFORE stripping removes <script> blocks
+    const jsonLdItems       = extractJsonLd(rawHtml);
+    const jsonLdEvents      = filterJsonLdEvents(jsonLdItems);
+    const embeddedScriptData = extractEmbeddedScriptData(rawHtml);
 
     const text = stripHtml(rawHtml);
     const signals = detectSignals(text);
@@ -361,6 +490,9 @@ async function fetchSource(source) {
       text,                    // included for LLM extraction; stripped before report storage
       jsonLdItems,             // all JSON-LD items (for LLM); stripped before report storage
       jsonLdEvents,            // schema.org Event items only; stripped before report storage
+      embeddedScriptData,      // event arrays from __NEXT_DATA__ etc.; stripped before storage
+      embeddedScriptEventCount: embeddedScriptData.reduce((n, g) => n + g.events.length, 0),
+      embeddedScriptSources: embeddedScriptData.map(g => g.source),
       condensedPreview,        // first 800 chars of condensed text — kept in report for diagnostics
       jsonLdItemCount: jsonLdItems.length,
       jsonLdEventCount: jsonLdEvents.length,
@@ -384,9 +516,9 @@ async function fetchSource(source) {
 }
 
 // ── LLM extraction prompt ─────────────────────────────────────────────────────
-function buildExtractionPrompt(text, city, jsonLdEvents) {
+function buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData) {
   const condensed = condensePipelineText(text, LLM_TEXT_LIMIT);
-  const system = `You extract individual activity and event listings from website text for the city of ${city}.
+  const system = `You extract individual activity and event listings from website content for the city of ${city}.
 
 Rules:
 - Extract EACH distinct activity as a SEPARATE entry in the activities array.
@@ -398,12 +530,21 @@ Rules:
 - Ignore navigation menus, cookie notices, breadcrumbs and footer content.
 - Maximum ${MAX_SUGGESTIONS} activities.`;
 
+  // Prioritise structured data sections — include both JSON-LD and embedded JS data
   const jsonLdSection = (jsonLdEvents && jsonLdEvents.length > 0)
-    ? `\n\n--- STRUCTURED EVENT DATA (JSON-LD, high confidence) ---\n${formatJsonLdEventsForPrompt(jsonLdEvents)}\n--- END STRUCTURED DATA ---\n\n`
+    ? `\n\n--- STRUCTURED EVENT DATA (JSON-LD schema.org, high confidence) ---\n${formatJsonLdEventsForPrompt(jsonLdEvents)}\n--- END JSON-LD ---`
     : '';
 
-  const user = `Extract all individual activities from the following website content.${jsonLdSection}Website text:\n\n${condensed}`;
-  // Return a brief preview of what was sent to the LLM for diagnostics
+  const embeddedText = embeddedScriptData && embeddedScriptData.length > 0
+    ? formatEmbeddedEventsForPrompt(embeddedScriptData)
+    : '';
+  const embeddedSection = embeddedText
+    ? `\n\n--- EMBEDDED PAGE DATA (JavaScript data layer, high confidence) ---\n${embeddedText}\n--- END EMBEDDED DATA ---`
+    : '';
+
+  const structuredSections = jsonLdSection + embeddedSection;
+  const user = `Extract all individual activities from the following website content.${structuredSections}\n\nWebsite text:\n\n${condensed}`;
+
   const condensedPreview = condensed.slice(0, 800);
   return { system, user, condensedPreview };
 }
@@ -424,8 +565,8 @@ function extractJsonFromLLMResponse(raw) {
 }
 
 // ── Call Anthropic API ────────────────────────────────────────────────────────
-async function callAnthropicAPI(text, city, apiKey, jsonLdEvents) {
-  const { system, user, condensedPreview } = buildExtractionPrompt(text, city, jsonLdEvents);
+async function callAnthropicAPI(text, city, apiKey, jsonLdEvents, embeddedScriptData) {
+  const { system, user, condensedPreview } = buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
@@ -652,7 +793,7 @@ exports.handler = async (event) => {
         }
 
         llmCallsUsed++;
-        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey, result.jsonLdEvents);
+        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey, result.jsonLdEvents, result.embeddedScriptData);
         totalInputTokens  += inputTokens;
         totalOutputTokens += outputTokens;
 
@@ -751,8 +892,8 @@ exports.handler = async (event) => {
         + (totalOutputTokens / 1_000_000) * PRICE_OUTPUT_PER_MTOK
       : 0;
 
-    // Strip raw text and large JSON-LD arrays from results before storing
-    const sourceResults = fetchResults.map(({ text: _text, jsonLdItems: _items, jsonLdEvents: _events, ...rest }) => rest);
+    // Strip raw data arrays from results before storing (counts/samples are kept)
+    const sourceResults = fetchResults.map(({ text: _t, jsonLdItems: _i, jsonLdEvents: _e, embeddedScriptData: _s, ...rest }) => rest);
 
     const report = {
       runId,
@@ -797,10 +938,14 @@ exports.handler = async (event) => {
 exports._stripHtml              = stripHtml;
 exports._condensePipelineText   = condensePipelineText;
 exports._detectSignals          = detectSignals;
-exports._extractJsonLd          = extractJsonLd;
-exports._filterJsonLdEvents     = filterJsonLdEvents;
+exports._extractJsonLd               = extractJsonLd;
+exports._filterJsonLdEvents          = filterJsonLdEvents;
 exports._formatJsonLdEventsForPrompt = formatJsonLdEventsForPrompt;
-exports._assessContentQuality   = assessContentQuality;
+exports._assessContentQuality        = assessContentQuality;
+exports._looksLikeEventObject        = looksLikeEventObject;
+exports._findEventArraysInData       = findEventArraysInData;
+exports._extractEmbeddedScriptData   = extractEmbeddedScriptData;
+exports._formatEmbeddedEventsForPrompt = formatEmbeddedEventsForPrompt;
 exports._fetchSource            = fetchSource;
 exports._buildExtractionPrompt  = buildExtractionPrompt;
 exports._extractJsonFromLLMResponse = extractJsonFromLLMResponse;
