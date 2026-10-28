@@ -114,15 +114,27 @@ exports.handler = async (event) => {
 };
 
 function buildTimeBuckets(fromDate, toDate, eventDates) {
-  if (!fromDate || !toDate || !eventDates.length) return [];
+  if (!eventDates.length) return [];
 
-  const from     = new Date(fromDate);
-  const to       = new Date(toDate);
+  // For all-time view (no date filter), derive range from actual event dates
+  let fd = fromDate, td = toDate;
+  if (!fd || !td) {
+    const sorted = [...eventDates].sort();
+    fd = sorted[0];
+    td = sorted[sorted.length - 1];
+  }
+
+  const from     = new Date(fd);
+  const to       = new Date(td);
   const diffDays = Math.ceil((to - from) / 86400000);
+
+  if (diffDays <= 0) {
+    return [{ label: fd, count: eventDates.filter(d => d === fd).length }];
+  }
 
   if (diffDays <= 14) {
     const buckets = [];
-    for (const d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
       buckets.push({ label: d.toISOString().slice(0, 10), count: 0 });
     }
     for (const date of eventDates) {
@@ -134,7 +146,7 @@ function buildTimeBuckets(fromDate, toDate, eventDates) {
 
   if (diffDays <= 92) {
     const buckets = [];
-    for (const ws = new Date(from); ws <= to; ws.setDate(ws.getDate() + 7)) {
+    for (let ws = new Date(from); ws <= to; ws.setDate(ws.getDate() + 7)) {
       const we = new Date(ws); we.setDate(we.getDate() + 6);
       buckets.push({ label: ws.toISOString().slice(0, 10), wsStr: ws.toISOString().slice(0, 10), weStr: we.toISOString().slice(0, 10), count: 0 });
     }

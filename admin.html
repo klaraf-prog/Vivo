@@ -1599,15 +1599,19 @@ function drawAnalyticsCharts() {
   if (_analyticsSubTab === 'overview') {
     const sugs = Object.values(_allSugs);
     if (sugs.length) {
-      mk('chart-overview-pipeline', 'doughnut', {
-        labels: ['Eingereicht', 'Genehmigt', 'Abgelehnt', 'Entwurf'],
-        datasets: [{ data: [
-          sugs.filter(s => s.status === 'submitted').length,
-          sugs.filter(s => s.status === 'approved').length,
-          sugs.filter(s => s.status === 'rejected').length,
-          sugs.filter(s => s.status === 'draft').length,
-        ], backgroundColor: [C.blue, C.green, C.pink, C.muted], borderWidth: 2, borderColor: '#fff' }],
-      });
+      const pipePairs = [
+        ['Eingereicht', sugs.filter(s => s.status === 'submitted').length, C.blue],
+        ['Genehmigt',   sugs.filter(s => s.status === 'approved').length,  C.green],
+        ['Abgelehnt',   sugs.filter(s => s.status === 'rejected').length,  C.pink],
+        ['Entwurf',     sugs.filter(s => s.status === 'draft').length,     C.muted],
+      ].filter(([, v]) => v > 0);
+      if (pipePairs.length) {
+        mk('chart-overview-pipeline', 'doughnut', {
+          labels: pipePairs.map(([l]) => l),
+          datasets: [{ data: pipePairs.map(([, v]) => v),
+            backgroundColor: pipePairs.map(([,, c]) => c), borderWidth: 2, borderColor: '#fff' }],
+        });
+      }
     }
   }
 
@@ -1615,11 +1619,13 @@ function drawAnalyticsCharts() {
     const dabei      = isFiltered ? b2c.rsvps.dabeiPeriod      : b2c.rsvps.dabei;
     const vielleicht = isFiltered ? b2c.rsvps.vielleichtPeriod : b2c.rsvps.vielleicht;
     const nein       = isFiltered ? b2c.rsvps.neinPeriod       : b2c.rsvps.nein;
-    if (dabei + vielleicht + nein > 0) {
+    const rsvpPairs  = [['Dabei', dabei, C.green], ['Vielleicht', vielleicht, C.amber], ['Nein', nein, C.pink]]
+      .filter(([, v]) => v > 0);
+    if (rsvpPairs.length) {
       mk('chart-community-rsvp', 'doughnut', {
-        labels: ['Dabei', 'Vielleicht', 'Nein'],
-        datasets: [{ data: [dabei, vielleicht, nein],
-          backgroundColor: [C.green, C.amber, C.pink], borderWidth: 2, borderColor: '#fff' }],
+        labels: rsvpPairs.map(([l]) => l),
+        datasets: [{ data: rsvpPairs.map(([, v]) => v),
+          backgroundColor: rsvpPairs.map(([,, c]) => c), borderWidth: 2, borderColor: '#fff' }],
       });
     }
   }
@@ -1629,15 +1635,19 @@ function drawAnalyticsCharts() {
     const acts = Object.values(_allActs);
 
     if (sugs.length) {
-      mk('chart-discovery-pipeline', 'doughnut', {
-        labels: ['Eingereicht', 'Genehmigt', 'Abgelehnt', 'Entwurf'],
-        datasets: [{ data: [
-          sugs.filter(s => s.status === 'submitted').length,
-          sugs.filter(s => s.status === 'approved').length,
-          sugs.filter(s => s.status === 'rejected').length,
-          sugs.filter(s => s.status === 'draft').length,
-        ], backgroundColor: [C.blue, C.green, C.pink, C.muted], borderWidth: 2, borderColor: '#fff' }],
-      });
+      const discoPairs = [
+        ['Eingereicht', sugs.filter(s => s.status === 'submitted').length, C.blue],
+        ['Genehmigt',   sugs.filter(s => s.status === 'approved').length,  C.green],
+        ['Abgelehnt',   sugs.filter(s => s.status === 'rejected').length,  C.pink],
+        ['Entwurf',     sugs.filter(s => s.status === 'draft').length,     C.muted],
+      ].filter(([, v]) => v > 0);
+      if (discoPairs.length) {
+        mk('chart-discovery-pipeline', 'doughnut', {
+          labels: discoPairs.map(([l]) => l),
+          datasets: [{ data: discoPairs.map(([, v]) => v),
+            backgroundColor: discoPairs.map(([,, c]) => c), borderWidth: 2, borderColor: '#fff' }],
+        });
+      }
     }
 
     const catCounts = {};
