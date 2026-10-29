@@ -73,8 +73,46 @@ function validateTags(arr) {
   }).slice(0, 5);
 }
 
+/**
+ * Splits tag array into known (max 5, deduped) and unknown.
+ * Returns { valid: string[], unknown: string[] }
+ */
+function splitTags(arr) {
+  if (!Array.isArray(arr)) return { valid: [], unknown: [] };
+  const seen = new Set();
+  const valid = [];
+  const unknown = [];
+  for (const t of arr) {
+    if (typeof t !== 'string' || seen.has(t)) continue;
+    seen.add(t);
+    if (ALL_TAG_IDS.has(t)) {
+      if (valid.length < 5) valid.push(t);
+    } else {
+      unknown.push(t);
+    }
+  }
+  return { valid, unknown };
+}
+
+/**
+ * Validates additional categories.
+ * Only accepts the 8 new CATEGORY_IDS (not legacy).
+ * Removes duplicates. Optionally excludes the primary category.
+ * Returns filtered array, no fixed max.
+ */
+function validateAdditionalCategories(arr, primaryId) {
+  if (!Array.isArray(arr)) return [];
+  const seen = new Set();
+  if (primaryId) seen.add(primaryId);
+  return arr.filter(id => {
+    if (typeof id !== 'string' || !CATEGORY_IDS.has(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 module.exports = {
   CATEGORIES, CATEGORY_IDS, LEGACY_CATEGORY_IDS,
   TAGS_BY_CATEGORY, TAG_LABELS, ALL_TAGS_FLAT, ALL_TAG_IDS,
-  validateCategory, validateTags,
+  validateCategory, validateTags, splitTags, validateAdditionalCategories,
 };

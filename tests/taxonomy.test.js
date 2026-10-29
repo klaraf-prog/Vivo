@@ -10,6 +10,8 @@ const {
   ALL_TAG_IDS,
   validateCategory,
   validateTags,
+  splitTags,
+  validateAdditionalCategories,
 } = require('../netlify/functions/_taxonomy');
 
 describe('CATEGORIES', () => {
@@ -153,5 +155,87 @@ describe('TAGS_BY_CATEGORY', () => {
     for (const tag of ALL_TAGS_FLAT) {
       expect(ALL_TAG_IDS.has(tag)).toBe(true);
     }
+  });
+});
+
+describe('splitTags', () => {
+  test('returns empty valid and unknown for non-array input', () => {
+    expect(splitTags(null)).toEqual({ valid: [], unknown: [] });
+    expect(splitTags('konzert')).toEqual({ valid: [], unknown: [] });
+    expect(splitTags({})).toEqual({ valid: [], unknown: [] });
+  });
+
+  test('separates known from unknown tags', () => {
+    const result = splitTags(['konzert', 'notavalidtag', 'yoga']);
+    expect(result.valid).toContain('konzert');
+    expect(result.valid).toContain('yoga');
+    expect(result.unknown).toContain('notavalidtag');
+  });
+
+  test('caps valid at 5, collects all unknown', () => {
+    const input = ['restaurant', 'cafe', 'brunch', 'konzert', 'theater', 'yoga', 'badtag1', 'badtag2'];
+    const result = splitTags(input);
+    expect(result.valid.length).toBeLessThanOrEqual(5);
+    expect(result.unknown).toContain('badtag1');
+    expect(result.unknown).toContain('badtag2');
+  });
+
+  test('deduplicates tags', () => {
+    const result = splitTags(['konzert', 'konzert', 'yoga', 'unknowntag', 'unknowntag']);
+    expect(result.valid.filter(t => t === 'konzert')).toHaveLength(1);
+    expect(result.unknown.filter(t => t === 'unknowntag')).toHaveLength(1);
+  });
+
+  test('returns empty unknown when all tags are known', () => {
+    const result = splitTags(['konzert', 'yoga']);
+    expect(result.unknown).toHaveLength(0);
+  });
+
+  test('returns empty valid when all tags are unknown', () => {
+    const result = splitTags(['badtag1', 'badtag2']);
+    expect(result.valid).toHaveLength(0);
+    expect(result.unknown).toContain('badtag1');
+  });
+});
+
+describe('validateAdditionalCategories', () => {
+  test('accepts valid new category IDs', () => {
+    const result = validateAdditionalCategories(['kultur_entertainment', 'sport_bewegung'], 'food_drinks');
+    expect(result).toContain('kultur_entertainment');
+    expect(result).toContain('sport_bewegung');
+  });
+
+  test('rejects legacy category IDs', () => {
+    const result = validateAdditionalCategories(['market', 'festival', 'food_drinks'], null);
+    expect(result).not.toContain('market');
+    expect(result).not.toContain('festival');
+    expect(result).toContain('food_drinks');
+  });
+
+  test('rejects the primary category ID', () => {
+    const result = validateAdditionalCategories(['food_drinks', 'sport_bewegung'], 'food_drinks');
+    expect(result).not.toContain('food_drinks');
+    expect(result).toContain('sport_bewegung');
+  });
+
+  test('deduplicates entries', () => {
+    const result = validateAdditionalCategories(['sport_bewegung', 'sport_bewegung', 'yoga_extra'], null);
+    expect(result.filter(id => id === 'sport_bewegung')).toHaveLength(1);
+  });
+
+  test('returns empty array for non-array input', () => {
+    expect(validateAdditionalCategories(null, null)).toEqual([]);
+    expect(validateAdditionalCategories('food_drinks', null)).toEqual([]);
+  });
+
+  test('returns empty array when all are rejected', () => {
+    const result = validateAdditionalCategories(['market', 'festival'], null);
+    expect(result).toHaveLength(0);
+  });
+
+  test('works with no primary ID', () => {
+    const result = validateAdditionalCategories(['food_drinks', 'sport_bewegung'], null);
+    expect(result).toContain('food_drinks');
+    expect(result).toContain('sport_bewegung');
   });
 });

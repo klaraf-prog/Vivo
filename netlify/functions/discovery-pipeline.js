@@ -7,7 +7,7 @@
 // GET:  returns the last 10 pipeline run reports.
 // Env:  ANTHROPIC_API_KEY required for live mode (set in Netlify → Deploy previews scope).
 const { initAdmin, verifyStudioToken, json, makeId, duplicateHash } = require('./_studio-shared');
-const { CATEGORY_IDS, LEGACY_CATEGORY_IDS, ALL_TAGS_FLAT, validateTags } = require('./_taxonomy');
+const { CATEGORY_IDS, LEGACY_CATEGORY_IDS, ALL_TAGS_FLAT, validateTags, splitTags, validateAdditionalCategories } = require('./_taxonomy');
 
 const MAX_SOURCES     = 5;
 const MAX_SUGGESTIONS = 20;
@@ -57,7 +57,13 @@ const EXTRACTION_TOOL = {
             category:          { type: 'string', enum: NEW_CATEGORY_IDS },
             tags: {
               anyOf: [
-                { type: 'array', items: { type: 'string', enum: ALL_TAGS_FLAT }, maxItems: 5 },
+                { type: 'array', items: { type: 'string' }, maxItems: 10, description: 'Up to 5 known tag IDs from controlled vocabulary; unknown tags are stored for review.' },
+                { type: 'null' },
+              ],
+            },
+            additionalCategories: {
+              anyOf: [
+                { type: 'array', items: { type: 'string', enum: NEW_CATEGORY_IDS }, description: 'Optional further categories this activity fits into (besides the primary category).' },
                 { type: 'null' },
               ],
             },
@@ -1035,14 +1041,17 @@ function validateActivity(raw, sourceUrl, sourceName) {
   if (!website) missingFields.push('website');
   if (!providerName) missingFields.push('providerName');
 
-  const tags = validateTags(raw.tags || []);
+  const tagSplit = splitTags(raw.tags || []);
+  const additionalCategories = validateAdditionalCategories(raw.additionalCategories || [], category);
 
   const activity = {
     title,
     tagline,
     description,
     category,
-    tags: tags.length > 0 ? tags : null,
+    tags: tagSplit.valid.length > 0 ? tagSplit.valid : null,
+    unknownTagSuggestions: tagSplit.unknown.length > 0 ? tagSplit.unknown : null,
+    additionalCategories: additionalCategories.length > 0 ? additionalCategories : null,
     eyebrow,
     location,
     lat: null,

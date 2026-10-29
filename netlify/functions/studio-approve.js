@@ -61,6 +61,8 @@ exports.handler = async (event) => {
       sourceAttribution: sug.sourceAttribution || null,
       geoQuality:        sug.geoQuality        || (sug.lat && sug.lng ? 'manual' : 'missing'),
       tags:              sug.tags              || null,
+      additionalCategories: sug.additionalCategories || null,
+      unknownTagSuggestions: sug.unknownTagSuggestions || null,
       suggestionId,
       publishedAt: now,
       publishedBy: actor.uid,

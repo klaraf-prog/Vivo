@@ -217,6 +217,57 @@
                   font-weight: 500; cursor: pointer; transition: border-color .15s, color .15s; }
     .btn-cancel:hover { border-color: var(--pink); color: var(--pink); }
 
+    /* ── EDIT CHIPS (toggle chips for category/tag multi-select) ── */
+    .edit-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; min-height: 32px; }
+    .edit-chip { padding: 4px 10px; border-radius: 50px; font-size: .8rem; font-weight: 500;
+                 cursor: pointer; border: 1.5px solid var(--border); background: var(--bg);
+                 color: var(--muted); transition: all .15s; user-select: none; }
+    .edit-chip.on { border-color: var(--primary-d); background: var(--primary-l); color: var(--primary-d); }
+    .edit-chip.tag-chip { background: var(--card); }
+    .edit-chip.tag-chip .chip-x { margin-left: 4px; opacity: .6; font-size: .75rem; }
+    .tag-results { background: var(--card); border: 1.5px solid var(--border); border-radius: 8px;
+                   padding: 4px 0; margin-top: 4px; max-height: 120px; overflow-y: auto; }
+    .tag-result-item { padding: 5px 10px; font-size: .85rem; cursor: pointer; color: var(--text); }
+    .tag-result-item:hover { background: var(--primary-l); color: var(--primary-d); }
+
+    /* ── QUICK-ASSIGN PANEL ── */
+    .quick-assign { background: var(--card); border-radius: var(--radius); padding: 16px 18px;
+                    margin-bottom: 12px; border: 1.5px solid var(--border); }
+    .quick-assign h4 { font-size: .75rem; font-weight: 700; color: var(--muted);
+                       text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+    .qa-row { margin-bottom: 10px; }
+    .qa-label { font-size: .78rem; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+    .qa-select { padding: 7px 10px; border-radius: 8px; border: 1.5px solid var(--border);
+                 font-size: .875rem; font-family: inherit; background: var(--bg); outline: none;
+                 color: var(--text); transition: border-color .15s; width: 100%; max-width: 320px; }
+    .qa-select:focus { border-color: var(--primary); }
+    .qa-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; min-height: 28px; }
+    .qa-chip { padding: 4px 10px; border-radius: 50px; font-size: .8rem; font-weight: 500;
+               cursor: pointer; border: 1.5px solid var(--border); background: var(--bg);
+               color: var(--muted); transition: all .15s; user-select: none; }
+    .qa-chip.on { border-color: var(--primary-d); background: var(--primary-l); color: var(--primary-d); }
+    .qa-chip.tag { background: var(--primary-l); border-color: var(--primary-d); color: var(--primary-d); }
+    .qa-chip.tag .chip-x { margin-left: 4px; opacity: .7; font-size: .75rem; }
+    .qa-search { padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--border);
+                 font-size: .85rem; font-family: inherit; background: var(--bg); outline: none;
+                 color: var(--text); margin-top: 6px; width: 100%; max-width: 320px; }
+    .qa-search:focus { border-color: var(--primary); }
+    .qa-tag-results { background: var(--card); border: 1.5px solid var(--border); border-radius: 8px;
+                      padding: 4px 0; margin-top: 4px; max-height: 100px; overflow-y: auto;
+                      display: none; max-width: 320px; }
+    .qa-tag-result-item { padding: 5px 10px; font-size: .85rem; cursor: pointer; color: var(--text); }
+    .qa-tag-result-item:hover { background: var(--primary-l); color: var(--primary-d); }
+    .qa-unknown { font-size: .8rem; color: var(--muted); background: #fffbeb; border: 1px solid #fde68a;
+                  border-radius: 6px; padding: 6px 10px; margin-top: 6px; }
+    .qa-actions { display: flex; gap: 9px; align-items: center; margin-top: 12px; }
+    .btn-qa-save { padding: 7px 16px; border-radius: 9px; background: var(--dark); border: none;
+                   color: #fff; font-size: .875rem; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+    .btn-qa-save:hover:not(:disabled) { opacity: .85; }
+    .btn-qa-save:disabled { opacity: .5; cursor: not-allowed; }
+    .qa-status { font-size: .8rem; padding: 4px 8px; border-radius: 6px; display: none; }
+    .qa-status.ok  { background: #D1FAE5; color: #065F46; display: inline-block; }
+    .qa-status.err { background: #FEE2E2; color: #991B1B; display: inline-block; }
+
     /* ── DASHBOARD STATS ── */
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
                  gap: 14px; margin-bottom: 24px; }
@@ -538,6 +589,38 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
+// ── Taxonomy constants (mirrored from _taxonomy.js for browser use) ──
+const _CATS = [
+  {id:'food_drinks',label:'Food & Drinks'},
+  {id:'kultur_entertainment',label:'Kultur & Entertainment'},
+  {id:'sport_bewegung',label:'Sport & Bewegung'},
+  {id:'kreativitaet_workshops',label:'Kreativität & Workshops'},
+  {id:'outdoor_natur',label:'Outdoor & Natur'},
+  {id:'wellness_entspannung',label:'Wellness & Entspannung'},
+  {id:'events_nightlife',label:'Events & Nightlife'},
+  {id:'community_social',label:'Community & Social'},
+];
+const _TAG_LABELS = {
+  restaurant:'Restaurant',cafe:'Café',brunch:'Brunch',tasting:'Tasting',
+  street_food:'Street Food',kochkurs:'Kochkurs',
+  konzert:'Konzert',theater:'Theater',musical:'Musical',comedy:'Comedy',
+  kino:'Kino',ausstellung:'Ausstellung',museum:'Museum',
+  fitness:'Fitness',tanzen:'Tanzen',bouldern:'Bouldern',ballsport:'Ballsport',
+  laufen:'Laufen',wassersport:'Wassersport',
+  toepfern:'Töpfern',malen:'Malen',diy:'DIY',fotografie:'Fotografie',
+  handwerk:'Handwerk',workshop:'Workshop',
+  wandern:'Wandern',radfahren:'Radfahren',picknick:'Picknick',
+  naturerlebnis:'Naturerlebnis',ausflug:'Ausflug',spaziergang:'Spaziergang',
+  spa:'Spa',sauna:'Sauna',massage:'Massage',meditation:'Meditation',
+  yoga:'Yoga',achtsamkeit:'Achtsamkeit',
+  festival_tag:'Festival',party:'Party',weihnachtsmarkt:'Weihnachtsmarkt',
+  stadtfest:'Stadtfest',flohmarkt:'Flohmarkt',club:'Club',
+  meetup:'Meetup',spieleabend:'Spieleabend',stammtisch:'Stammtisch',
+  networking:'Networking',ehrenamt:'Ehrenamt',sprachaustausch:'Sprachaustausch',
+};
+const _ALL_TAG_IDS = new Set(Object.keys(_TAG_LABELS));
+</script>
+<script>
 // ── Firebase init ────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyAuapMaw8Tpw0HC_TlMUvCbw0PPfWOaL-Y",
@@ -843,6 +926,7 @@ async function selectSuggestion(id) {
           ${sug.price ? `<span class="preview-price">${formatPrice(sug.price)}</span>` : ''}
         </div>
       </div>
+      ${canEdit ? _renderQuickAssign(id, 'suggestion', sug) : ''}
       ${canAct ? `
       <div class="action-section" id="action-section">
         <h4>Entscheidung</h4>
@@ -860,8 +944,10 @@ async function selectSuggestion(id) {
           <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
           <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
           <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
-          <div class="edit-field"><label class="edit-label">Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><optgroup label="Neue Kategorien"><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></optgroup><optgroup label="Legacy"><option value="market">market</option><option value="festival">festival</option><option value="concert">concert</option><option value="exhibition">exhibition</option><option value="sport">sport</option><option value="outdoor">outdoor</option><option value="food">food</option><option value="culture">culture</option><option value="family">family</option><option value="nightlife">nightlife</option><option value="other">other</option></optgroup></select></div>
-          <div class="edit-field"><label class="edit-label">Tags (Komma-getrennt, z. B. konzert, outdoor)</label><input class="edit-input" id="ef-tags" placeholder="z. B. konzert, yoga, wandern"></div>
+          <div class="edit-field"><label class="edit-label">Primäre Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></select></div>
+          <div class="edit-field full"><label class="edit-label">Weitere Kategorien</label><div class="edit-chips" id="ef-addcats"><!-- populated by JS --></div></div>
+          <div class="edit-field full"><label class="edit-label">Tags</label><div class="edit-chips" id="ef-tags-chips"><!-- populated by JS --></div><input class="edit-input" id="ef-tags-search" placeholder="Tag suchen…" style="margin-top:6px" oninput="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')"><div class="tag-results" id="ef-tags-results" style="display:none"></div></div>
+          <div class="edit-field full" id="ef-unknown-tags-row" style="display:none"><label class="edit-label">Unbekannte Tags (zur Überprüfung)</label><div id="ef-unknown-tags" style="font-size:12px;color:#888"></div></div>
           <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
           <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
           <div class="edit-field"><label class="edit-label">Anbieter (ID)</label><input class="edit-input" id="ef-providerId"></div>
@@ -975,6 +1061,7 @@ function selectActivity(id) {
           ${act.price ? `<span class="preview-price">${formatPrice(act.price)}</span>` : ''}
         </div>
       </div>
+      ${canEdit ? _renderQuickAssign(id, 'activity', act) : ''}
       ${canEdit ? `
       <div class="edit-section" id="edit-form" style="display:none">
         <h4>✏ Bearbeiten</h4>
@@ -982,8 +1069,10 @@ function selectActivity(id) {
           <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
           <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
           <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
-          <div class="edit-field"><label class="edit-label">Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><optgroup label="Neue Kategorien"><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></optgroup><optgroup label="Legacy"><option value="market">market</option><option value="festival">festival</option><option value="concert">concert</option><option value="exhibition">exhibition</option><option value="sport">sport</option><option value="outdoor">outdoor</option><option value="food">food</option><option value="culture">culture</option><option value="family">family</option><option value="nightlife">nightlife</option><option value="other">other</option></optgroup></select></div>
-          <div class="edit-field"><label class="edit-label">Tags (Komma-getrennt, z. B. konzert, outdoor)</label><input class="edit-input" id="ef-tags" placeholder="z. B. konzert, yoga, wandern"></div>
+          <div class="edit-field"><label class="edit-label">Primäre Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></select></div>
+          <div class="edit-field full"><label class="edit-label">Weitere Kategorien</label><div class="edit-chips" id="ef-addcats"><!-- populated by JS --></div></div>
+          <div class="edit-field full"><label class="edit-label">Tags</label><div class="edit-chips" id="ef-tags-chips"><!-- populated by JS --></div><input class="edit-input" id="ef-tags-search" placeholder="Tag suchen…" style="margin-top:6px" oninput="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')"><div class="tag-results" id="ef-tags-results" style="display:none"></div></div>
+          <div class="edit-field full" id="ef-unknown-tags-row" style="display:none"><label class="edit-label">Unbekannte Tags (zur Überprüfung)</label><div id="ef-unknown-tags" style="font-size:12px;color:#888"></div></div>
           <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
           <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
           <div class="edit-field"><label class="edit-label">Website</label><input class="edit-input" id="ef-website"></div>
@@ -1069,7 +1158,36 @@ function _fillEditForm(target, data) {
   set('ef-title', data.title);   set('ef-tagline', data.tagline); set('ef-eyebrow', data.eyebrow);
   const catEl = document.getElementById('ef-category');
   if (catEl) catEl.value = data.category || '';
-  set('ef-tags', (data.tags || []).join(', '));
+  // Additional categories chips
+  const addCatsEl = document.getElementById('ef-addcats');
+  if (addCatsEl) {
+    const primary = data.category || '';
+    const selected = new Set(data.additionalCategories || []);
+    addCatsEl.innerHTML = _CATS
+      .filter(c => c.id !== primary)
+      .map(c => `<span class="edit-chip${selected.has(c.id) ? ' on' : ''}" data-catid="${c.id}" onclick="this.classList.toggle('on')">${c.label}</span>`)
+      .join('');
+  }
+  // Tags chips
+  const tagsChipsEl = document.getElementById('ef-tags-chips');
+  if (tagsChipsEl) {
+    const currentTags = data.tags || [];
+    tagsChipsEl.innerHTML = currentTags.map(t =>
+      `<span class="edit-chip tag-chip on" data-tagid="${t}">${_TAG_LABELS[t] || t}<span class="chip-x" onclick="event.stopPropagation();this.parentElement.remove()">×</span></span>`
+    ).join('');
+  }
+  // Unknown tags
+  const unknownRow = document.getElementById('ef-unknown-tags-row');
+  const unknownEl = document.getElementById('ef-unknown-tags');
+  if (unknownRow && unknownEl) {
+    const unk = data.unknownTagSuggestions || [];
+    if (unk.length > 0) {
+      unknownEl.textContent = unk.join(', ');
+      unknownRow.style.display = '';
+    } else {
+      unknownRow.style.display = 'none';
+    }
+  }
   set('ef-description', data.description);
   set('ef-providerName', data.providerName);
   if (target === 'suggestion') set('ef-providerId', data.providerId);
@@ -1132,8 +1250,14 @@ async function saveEdit(target, id) {
   if (exRaw) { try { currentSch.exceptions = JSON.parse(exRaw); } catch(e) { /* keep existing */ } }
   fields.schedule = Object.keys(currentSch).length > 0 ? currentSch : null;
   fields.openingHours = str('openingHours');
-  const tagsRaw = str('tags');
-  fields.tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5) : null;
+  // Collect tags from chips
+  const tagsChips = document.querySelectorAll('#ef-tags-chips .edit-chip[data-tagid]');
+  const collectedTags = Array.from(tagsChips).map(el => el.getAttribute('data-tagid')).filter(Boolean);
+  fields.tags = collectedTags.length > 0 ? collectedTags : null;
+  // Collect additional categories from chips
+  const addCatChips = document.querySelectorAll('#ef-addcats .edit-chip.on[data-catid]');
+  const collectedAddCats = Array.from(addCatChips).map(el => el.getAttribute('data-catid')).filter(Boolean);
+  fields.additionalCategories = collectedAddCats.length > 0 ? collectedAddCats : null;
   const imgRaw = getVal('imageUrls');
   fields.imageUrls = imgRaw ? imgRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
   if (target === 'suggestion') {
@@ -1155,6 +1279,182 @@ async function saveEdit(target, id) {
     }, 800);
   } catch (err) {
     showEditResult('err', 'Fehler: ' + err.message);
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Tag search helper for edit form ──────────────────────────────
+function _efTagSearch(query, resultsId, chipsId) {
+  const resultsEl = document.getElementById(resultsId);
+  if (!resultsEl) return;
+  const q = (query || '').toLowerCase().trim();
+  const chipsEl = document.getElementById(chipsId);
+  const currentIds = new Set(
+    chipsEl ? Array.from(chipsEl.querySelectorAll('[data-tagid]')).map(el => el.getAttribute('data-tagid')) : []
+  );
+  const matches = Object.entries(_TAG_LABELS)
+    .filter(([id, label]) => !currentIds.has(id) && (id.includes(q) || label.toLowerCase().includes(q)))
+    .slice(0, 8);
+  if (!q || matches.length === 0) { resultsEl.style.display = 'none'; return; }
+  resultsEl.innerHTML = matches.map(([id, label]) =>
+    `<div class="tag-result-item" onclick="_efTagAdd('${id}','${chipsId}','${resultsId}')">${label}</div>`
+  ).join('');
+  resultsEl.style.display = '';
+}
+function _efTagAdd(tagId, chipsId, resultsId) {
+  const chipsEl = document.getElementById(chipsId);
+  if (!chipsEl) return;
+  const current = Array.from(chipsEl.querySelectorAll('[data-tagid]')).map(el => el.getAttribute('data-tagid'));
+  if (current.includes(tagId) || current.length >= 5) return;
+  const label = _TAG_LABELS[tagId] || tagId;
+  const chip = document.createElement('span');
+  chip.className = 'edit-chip tag-chip on';
+  chip.setAttribute('data-tagid', tagId);
+  chip.innerHTML = `${label}<span class="chip-x" onclick="event.stopPropagation();this.parentElement.remove()">×</span>`;
+  chipsEl.appendChild(chip);
+  const searchEl = document.getElementById(chipsId.replace('-chips', '-search'));
+  if (searchEl) searchEl.value = '';
+  const resultsEl = document.getElementById(resultsId);
+  if (resultsEl) resultsEl.style.display = 'none';
+}
+
+// ── Quick-assign panel ────────────────────────────────────────────
+function _renderQuickAssign(id, type, data) {
+  const cats = _CATS;
+  const primaryId = data.category || '';
+  const addCats = new Set(data.additionalCategories || []);
+  const currentTags = data.tags || [];
+  const unknown = data.unknownTagSuggestions || [];
+
+  const catOptions = cats.map(c =>
+    `<option value="${c.id}"${primaryId === c.id ? ' selected' : ''}>${c.label}</option>`
+  ).join('');
+
+  const addCatChips = cats.map(c =>
+    `<span class="qa-chip${addCats.has(c.id) ? ' on' : ''}" data-qacatid="${c.id}" onclick="_qaToggleCat(this,'qa-cat-${id}')">${c.label}</span>`
+  ).join('');
+
+  const tagChips = currentTags.map(t =>
+    `<span class="qa-chip tag" data-qatagid="${t}">${_TAG_LABELS[t] || t}<span class="chip-x" onclick="event.stopPropagation();this.parentElement.remove()">×</span></span>`
+  ).join('');
+
+  const unknownHtml = unknown.length > 0
+    ? `<div class="qa-unknown">Unbekannte Tag-Vorschläge (LLM): ${unknown.join(', ')}</div>`
+    : '';
+
+  return `<div class="quick-assign" id="qa-${id}">
+    <h4>Kategorien &amp; Tags</h4>
+    <div class="qa-row">
+      <div class="qa-label">Primäre Kategorie</div>
+      <select class="qa-select" id="qa-cat-${id}" onchange="_qaUpdateAddCats('${id}')">
+        <option value="">— wählen —</option>${catOptions}
+      </select>
+    </div>
+    <div class="qa-row">
+      <div class="qa-label">Weitere Kategorien</div>
+      <div class="qa-chips" id="qa-addcats-${id}">${addCatChips}</div>
+    </div>
+    <div class="qa-row">
+      <div class="qa-label">Tags (max. 5)</div>
+      <div class="qa-chips" id="qa-tags-${id}">${tagChips}</div>
+      <input class="qa-search" id="qa-tagsearch-${id}" placeholder="Tag suchen…" oninput="_qaTagSearch('${id}',this.value)">
+      <div class="qa-tag-results" id="qa-tagresults-${id}"></div>
+      ${unknownHtml}
+    </div>
+    <div class="qa-actions">
+      <button class="btn-qa-save" id="qa-btn-${id}" onclick="_saveQuickAssign('${id}','${type}')">Speichern</button>
+      <span class="qa-status" id="qa-status-${id}"></span>
+    </div>
+  </div>`;
+}
+
+function _qaUpdateAddCats(id) {
+  const primarySel = document.getElementById('qa-cat-' + id);
+  const primaryId = primarySel ? primarySel.value : '';
+  const addCatsEl = document.getElementById('qa-addcats-' + id);
+  if (!addCatsEl) return;
+  addCatsEl.querySelectorAll('[data-qacatid]').forEach(chip => {
+    const cid = chip.getAttribute('data-qacatid');
+    if (cid === primaryId) {
+      chip.style.display = 'none';
+      chip.classList.remove('on');
+    } else {
+      chip.style.display = '';
+    }
+  });
+}
+
+function _qaToggleCat(chip, primarySelId) {
+  chip.classList.toggle('on');
+}
+
+function _qaTagSearch(id, query) {
+  const resultsEl = document.getElementById('qa-tagresults-' + id);
+  if (!resultsEl) return;
+  const q = (query || '').toLowerCase().trim();
+  const tagsEl = document.getElementById('qa-tags-' + id);
+  const currentIds = new Set(
+    tagsEl ? Array.from(tagsEl.querySelectorAll('[data-qatagid]')).map(el => el.getAttribute('data-qatagid')) : []
+  );
+  const matches = Object.entries(_TAG_LABELS)
+    .filter(([tid, label]) => !currentIds.has(tid) && (tid.includes(q) || label.toLowerCase().includes(q)))
+    .slice(0, 8);
+  if (!q || matches.length === 0) { resultsEl.style.display = 'none'; return; }
+  resultsEl.innerHTML = matches.map(([tid, label]) =>
+    `<div class="qa-tag-result-item" onclick="_qaTagAdd('${id}','${tid}')">${label}</div>`
+  ).join('');
+  resultsEl.style.display = '';
+}
+
+function _qaTagAdd(id, tagId) {
+  const tagsEl = document.getElementById('qa-tags-' + id);
+  if (!tagsEl) return;
+  const current = Array.from(tagsEl.querySelectorAll('[data-qatagid]')).map(el => el.getAttribute('data-qatagid'));
+  if (current.includes(tagId) || current.length >= 5) return;
+  const label = _TAG_LABELS[tagId] || tagId;
+  const chip = document.createElement('span');
+  chip.className = 'qa-chip tag';
+  chip.setAttribute('data-qatagid', tagId);
+  chip.innerHTML = `${label}<span class="chip-x" onclick="event.stopPropagation();this.parentElement.remove()">×</span>`;
+  tagsEl.appendChild(chip);
+  const searchEl = document.getElementById('qa-tagsearch-' + id);
+  if (searchEl) searchEl.value = '';
+  const resultsEl = document.getElementById('qa-tagresults-' + id);
+  if (resultsEl) resultsEl.style.display = 'none';
+}
+
+async function _saveQuickAssign(id, type) {
+  const btn = document.getElementById('qa-btn-' + id);
+  const statusEl = document.getElementById('qa-status-' + id);
+  if (btn) btn.disabled = true;
+  if (statusEl) { statusEl.className = 'qa-status'; statusEl.textContent = ''; }
+
+  const primarySel = document.getElementById('qa-cat-' + id);
+  const category = primarySel ? (primarySel.value || null) : null;
+
+  const addCatChips = document.querySelectorAll(`#qa-addcats-${id} .qa-chip.on[data-qacatid]`);
+  const additionalCategories = Array.from(addCatChips).map(el => el.getAttribute('data-qacatid')).filter(Boolean);
+
+  const tagChips = document.querySelectorAll(`#qa-tags-${id} [data-qatagid]`);
+  const tags = Array.from(tagChips).map(el => el.getAttribute('data-qatagid')).filter(Boolean);
+
+  const updates = {
+    ...(category !== null ? { category } : {}),
+    additionalCategories: additionalCategories.length > 0 ? additionalCategories : null,
+    tags: tags.length > 0 ? tags : null,
+  };
+
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-update', { target: type, id, ...updates }, _idToken);
+    if (res.error) throw new Error(res.error);
+    if (statusEl) { statusEl.className = 'qa-status ok'; statusEl.textContent = 'Gespeichert ✓'; }
+    const store = type === 'suggestion' ? _allSugs : _allActs;
+    if (store[id]) Object.assign(store[id], updates);
+    toast('Kategorien & Tags gespeichert!');
+  } catch (err) {
+    if (statusEl) { statusEl.className = 'qa-status err'; statusEl.textContent = 'Fehler: ' + err.message; }
+  } finally {
     if (btn) btn.disabled = false;
   }
 }

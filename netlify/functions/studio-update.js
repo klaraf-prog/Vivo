@@ -10,7 +10,7 @@ const SUGGESTION_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls', 'sources',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution', 'missingFields',
-  'geoQuality', 'tags',
+  'geoQuality', 'tags', 'additionalCategories', 'unknownTagSuggestions',
 ];
 
 const ACTIVITY_FIELDS = [
@@ -20,7 +20,7 @@ const ACTIVITY_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution',
-  'geoQuality', 'tags',
+  'geoQuality', 'tags', 'additionalCategories', 'unknownTagSuggestions',
 ];
 
 exports.handler = async (event) => {
@@ -56,6 +56,20 @@ exports.handler = async (event) => {
   if (Object.prototype.hasOwnProperty.call(updates, 'tags')) {
     const { validateTags } = require('./_taxonomy');
     updates.tags = updates.tags ? validateTags(updates.tags) : null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'additionalCategories')) {
+    const { validateAdditionalCategories } = require('./_taxonomy');
+    updates.additionalCategories = updates.additionalCategories
+      ? validateAdditionalCategories(updates.additionalCategories, updates.category || null)
+      : null;
+    if (updates.additionalCategories && updates.additionalCategories.length === 0) {
+      updates.additionalCategories = null;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'unknownTagSuggestions')) {
+    if (!Array.isArray(updates.unknownTagSuggestions)) updates.unknownTagSuggestions = null;
   }
 
   if (Object.keys(updates).length === 0) {
