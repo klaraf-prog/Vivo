@@ -7,6 +7,7 @@
 // GET:  returns the last 10 pipeline run reports.
 // Env:  ANTHROPIC_API_KEY required for live mode (set in Netlify → Deploy previews scope).
 const { initAdmin, verifyStudioToken, json, makeId, duplicateHash } = require('./_studio-shared');
+const { CATEGORY_IDS, LEGACY_CATEGORY_IDS, ALL_TAGS_FLAT, validateTags } = require('./_taxonomy');
 
 const MAX_SOURCES     = 5;
 const MAX_SUGGESTIONS = 20;
@@ -29,6 +30,13 @@ const VALID_CATEGORIES = [
   'outdoor', 'food', 'culture', 'family', 'nightlife', 'other',
 ];
 
+// New v2 category IDs for LLM extraction (stable, German-language taxonomy)
+const NEW_CATEGORY_IDS = [
+  'food_drinks', 'kultur_entertainment', 'sport_bewegung',
+  'kreativitaet_workshops', 'outdoor_natur', 'wellness_entspannung',
+  'events_nightlife', 'community_social',
+];
+
 // Tool schema forces structured output — no JSON.parse needed.
 const EXTRACTION_TOOL = {
   name: 'extract_activities',
@@ -46,7 +54,13 @@ const EXTRACTION_TOOL = {
           properties: {
             title:             { type: 'string' },
             description:       { type: 'string' },
-            category:          { type: 'string', enum: VALID_CATEGORIES },
+            category:          { type: 'string', enum: NEW_CATEGORY_IDS },
+            tags: {
+              anyOf: [
+                { type: 'array', items: { type: 'string', enum: ALL_TAGS_FLAT }, maxItems: 5 },
+                { type: 'null' },
+              ],
+            },
             tagline:           { type: ['string', 'null'] },
             eyebrow:           { type: ['string', 'null'] },
             providerName:      { type: ['string', 'null'] },
@@ -967,7 +981,7 @@ function validateActivity(raw, sourceUrl, sourceName) {
   // Required fields
   if (!raw.title || typeof raw.title !== 'string' || raw.title.trim().length === 0) errors.push('title missing');
   if (!raw.description || typeof raw.description !== 'string' || raw.description.trim().length === 0) errors.push('description missing');
-  if (!raw.category || !VALID_CATEGORIES.includes(raw.category)) errors.push(`invalid category: ${raw.category}`);
+  if (!raw.category || (!CATEGORY_IDS.has(raw.category) && !LEGACY_CATEGORY_IDS.has(raw.category))) errors.push(`invalid category: ${raw.category}`);
 
   if (errors.length > 0) return { valid: false, errors };
 
@@ -1021,11 +1035,14 @@ function validateActivity(raw, sourceUrl, sourceName) {
   if (!website) missingFields.push('website');
   if (!providerName) missingFields.push('providerName');
 
+  const tags = validateTags(raw.tags || []);
+
   const activity = {
     title,
     tagline,
     description,
     category,
+    tags: tags.length > 0 ? tags : null,
     eyebrow,
     location,
     lat: null,

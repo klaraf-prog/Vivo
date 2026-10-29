@@ -10,7 +10,7 @@ const SUGGESTION_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls', 'sources',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution', 'missingFields',
-  'geoQuality',
+  'geoQuality', 'tags',
 ];
 
 const ACTIVITY_FIELDS = [
@@ -20,7 +20,7 @@ const ACTIVITY_FIELDS = [
   'price', 'schedule', 'bookingUrl', 'imageUrls',
   'operatingPeriod', 'openingHours', 'exceptionalHours',
   'sourceAttribution',
-  'geoQuality',
+  'geoQuality', 'tags',
 ];
 
 exports.handler = async (event) => {
@@ -51,6 +51,11 @@ exports.handler = async (event) => {
         updates[field] = fields[field] ?? null;
       }
     }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'tags')) {
+    const { validateTags } = require('./_taxonomy');
+    updates.tags = updates.tags ? validateTags(updates.tags) : null;
   }
 
   if (Object.keys(updates).length === 0) {

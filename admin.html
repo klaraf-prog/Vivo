@@ -860,7 +860,8 @@ async function selectSuggestion(id) {
           <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
           <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
           <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
-          <div class="edit-field"><label class="edit-label">Kategorie</label><input class="edit-input" id="ef-category"></div>
+          <div class="edit-field"><label class="edit-label">Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><optgroup label="Neue Kategorien"><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></optgroup><optgroup label="Legacy"><option value="market">market</option><option value="festival">festival</option><option value="concert">concert</option><option value="exhibition">exhibition</option><option value="sport">sport</option><option value="outdoor">outdoor</option><option value="food">food</option><option value="culture">culture</option><option value="family">family</option><option value="nightlife">nightlife</option><option value="other">other</option></optgroup></select></div>
+          <div class="edit-field"><label class="edit-label">Tags (Komma-getrennt, z. B. konzert, outdoor)</label><input class="edit-input" id="ef-tags" placeholder="z. B. konzert, yoga, wandern"></div>
           <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
           <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
           <div class="edit-field"><label class="edit-label">Anbieter (ID)</label><input class="edit-input" id="ef-providerId"></div>
@@ -981,7 +982,8 @@ function selectActivity(id) {
           <div class="edit-field full"><label class="edit-label">Titel</label><input class="edit-input" id="ef-title"></div>
           <div class="edit-field full"><label class="edit-label">Tagline</label><input class="edit-input" id="ef-tagline"></div>
           <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
-          <div class="edit-field"><label class="edit-label">Kategorie</label><input class="edit-input" id="ef-category"></div>
+          <div class="edit-field"><label class="edit-label">Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><optgroup label="Neue Kategorien"><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></optgroup><optgroup label="Legacy"><option value="market">market</option><option value="festival">festival</option><option value="concert">concert</option><option value="exhibition">exhibition</option><option value="sport">sport</option><option value="outdoor">outdoor</option><option value="food">food</option><option value="culture">culture</option><option value="family">family</option><option value="nightlife">nightlife</option><option value="other">other</option></optgroup></select></div>
+          <div class="edit-field"><label class="edit-label">Tags (Komma-getrennt, z. B. konzert, outdoor)</label><input class="edit-input" id="ef-tags" placeholder="z. B. konzert, yoga, wandern"></div>
           <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
           <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
           <div class="edit-field"><label class="edit-label">Website</label><input class="edit-input" id="ef-website"></div>
@@ -1065,7 +1067,10 @@ function closeEditForm() {
 function _fillEditForm(target, data) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val != null) ? val : ''; };
   set('ef-title', data.title);   set('ef-tagline', data.tagline); set('ef-eyebrow', data.eyebrow);
-  set('ef-category', data.category); set('ef-description', data.description);
+  const catEl = document.getElementById('ef-category');
+  if (catEl) catEl.value = data.category || '';
+  set('ef-tags', (data.tags || []).join(', '));
+  set('ef-description', data.description);
   set('ef-providerName', data.providerName);
   if (target === 'suggestion') set('ef-providerId', data.providerId);
   set('ef-website', data.website); set('ef-instagram', data.instagram); set('ef-bookingUrl', data.bookingUrl);
@@ -1099,7 +1104,7 @@ async function saveEdit(target, id) {
   const str = k => getVal(k)?.trim() || null;
   const fields = {
     title: str('title'), tagline: str('tagline'), eyebrow: str('eyebrow'),
-    category: str('category'), description: str('description'),
+    category: (()=>{ const el=document.getElementById('ef-category'); return el&&el.value?el.value:null; })(), description: str('description'),
     providerName: str('providerName'), website: str('website'),
     instagram: str('instagram'), bookingUrl: str('bookingUrl'),
     city: str('city'), district: str('district'),
@@ -1127,6 +1132,8 @@ async function saveEdit(target, id) {
   if (exRaw) { try { currentSch.exceptions = JSON.parse(exRaw); } catch(e) { /* keep existing */ } }
   fields.schedule = Object.keys(currentSch).length > 0 ? currentSch : null;
   fields.openingHours = str('openingHours');
+  const tagsRaw = str('tags');
+  fields.tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5) : null;
   const imgRaw = getVal('imageUrls');
   fields.imageUrls = imgRaw ? imgRaw.split('\n').map(u => u.trim()).filter(Boolean) : null;
   if (target === 'suggestion') {
