@@ -79,7 +79,16 @@ const EXTRACTION_TOOL = {
               anyOf: [
                 {
                   type: 'object', required: ['address'],
-                  properties: { address: { type: 'string' } },
+                  properties: {
+                    address: {
+                      type: 'string',
+                      description: 'Specific venue name OR street address (Straße + Hausnummer, optional PLZ). NEVER set to just the city name. Null if only the city is known.',
+                    },
+                    venueName: {
+                      type: ['string', 'null'],
+                      description: 'Named venue or place, e.g. "Kölner Dom", "MediaPark", "Friesenplatz". Null if not mentioned or if address already contains the venue name.',
+                    },
+                  },
                   additionalProperties: false,
                 },
                 { type: 'null' },
@@ -780,6 +789,12 @@ Rules:
 - Ignore navigation menus, cookie notices, breadcrumbs and footer content.
 - Maximum ${MAX_SUGGESTIONS} activities.
 
+location field — fill only when a specific location is mentioned beyond the city:
+- location.address: the most specific address available — street address (Straße + Hausnummer), named square (Platz), or venue name. NEVER set to just the city ("Köln") — leave location null if only the city is known.
+- location.venueName: named venue separate from the street address, e.g. "Kölner Dom", "Rheinauhafen", "MediaPark", "Friesenplatz". Null if not mentioned or already in address.
+- Examples: {"address": "Hansaring 97, 50670 Köln", "venueName": "Alte Kantine"}, {"address": "Friesenplatz, Köln", "venueName": null}, {"address": "Domkloster 4", "venueName": "Kölner Dom"}.
+- If no specific location is stated beyond the city, set location to null.
+
 schedule field — populate when temporal data is explicitly stated for the specific activity:
 - dates: one or more concrete dates (ISO-8601), with optional HH:MM start/end times.
 - period: a continuous date range (festival, exhibition running from–to).
@@ -1014,6 +1029,9 @@ function validateActivity(raw, sourceUrl, sourceName) {
   let location = null;
   if (raw.location && typeof raw.location === 'object' && typeof raw.location.address === 'string' && raw.location.address.trim()) {
     location = { address: raw.location.address.trim().slice(0, 300) };
+    if (typeof raw.location.venueName === 'string' && raw.location.venueName.trim()) {
+      location.venueName = raw.location.venueName.trim().slice(0, 200);
+    }
   }
 
   // operatingPeriod: { from: YYYY-MM-DD, to: YYYY-MM-DD } or null

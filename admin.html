@@ -1377,27 +1377,70 @@ function _efTagAdd(tagId, chipsId, resultsId) {
 }
 
 // ── Geo section ───────────────────────────────────────────────────
+// Returns true when addr appears to be just a city name (no venue/street info).
+function _isCityOnlyAddr(addr, city) {
+  if (!addr) return false;
+  const a = addr.trim();
+  // Has a house number → specific enough
+  if (/\d/.test(a)) return false;
+  // Contains a venue/street keyword → specific enough
+  if (/platz|straße|strasse|str\.|allee|weg|gasse|ring|damm|ufer|park|dom|museum|halle|arena|theater|galerie|center|centrum|haus|hof|hafen|markt|feld|berg|dorf/i.test(a)) return false;
+  // Matches city name exactly (with optional country suffix)
+  const cityNorm = (city || '').trim().toLowerCase();
+  const aNorm = a.toLowerCase();
+  if (cityNorm && (aNorm === cityNorm || aNorm.startsWith(cityNorm + ',') || aNorm.startsWith(cityNorm + ' '))) return true;
+  // Short address with no comma (single-word or city-country pair) is likely city-only
+  if (a.length <= 30 && !a.includes(',')) return true;
+  return false;
+}
+
 function _renderGeoSection(id, type, data) {
-  const addr = data.location?.address || data.city || '';
+  const storedAddr = data.location?.address || '';
+  const venueName  = data.location?.venueName || '';
+  const cityFallback = data.city || '';
+  // Best pre-fill: venueName if different from addr, then addr, then city
+  const bestQuery = venueName || storedAddr || cityFallback;
   const hasCoords = (data.lat != null && data.lng != null && isFinite(data.lat) && isFinite(data.lng));
+
   const coordsHtml = hasCoords
-    ? `<div class="geo-status ok">✓ Koordinaten gespeichert: ${Number(data.lat).toFixed(5)}, ${Number(data.lng).toFixed(5)}</div>`
+    ? `<div class="geo-status ok">✓ Koordinaten: ${Number(data.lat).toFixed(5)}, ${Number(data.lng).toFixed(5)} <span style="font-size:.75rem">(${esc(data.geoQuality || 'manuell')})</span></div>`
     : `<div class="geo-status none">Noch keine Koordinaten gespeichert.</div>`;
-  const addrHtml = addr
-    ? `<div class="geo-addr">Suchanfrage: <strong>${esc(addr)}</strong></div>
-       <button class="btn-save" style="font-size:.82rem;padding:6px 14px" data-geocode-addr="${esc(addr)}" data-geocode-hascoords="${hasCoords}" onclick="_geocodeSearch('${esc(id)}','${esc(type)}',this.dataset.geocodeAddr,this.dataset.geocodeHascoords==='true')">📍 Standort suchen</button>`
-    : `<div class="geo-addr" style="font-style:italic">Keine Adresse vorhanden – Adresse im Bearbeiten-Formular ergänzen.</div>`;
+
+  const cityOnly = _isCityOnlyAddr(storedAddr || cityFallback, cityFallback);
+  const cityWarnHtml = cityOnly
+    ? `<div class="geo-warn">⚠ Gespeicherte Adresse enthält nur den Stadtnamen – das ergibt lediglich den Stadtmittelpunkt. Bitte unten den konkreten Veranstaltungsort oder die Straße eingeben.</div>`
+    : (storedAddr ? '' : `<div class="geo-warn">⚠ Keine Adresse gespeichert. Suchanfrage manuell eingeben.</div>`);
+
+  const inputRow = `<div class="qa-label" style="margin-top:8px">Suchanfrage (editierbar)</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input class="qa-select" id="geo-query-${esc(id)}" type="text" value="${esc(bestQuery)}"
+             placeholder="Veranstaltungsort, Straße, Platz + Stadt…" style="flex:1;min-width:180px;max-width:none">
+      <button class="btn-save" style="font-size:.82rem;padding:6px 14px;flex-shrink:0"
+              onclick="_geocodeSearch('${esc(id)}','${esc(type)}',${hasCoords})">📍 Suchen</button>
+    </div>`;
+
   return `<div class="geo-section">
     <h4>Standort &amp; Koordinaten</h4>
     ${coordsHtml}
-    ${addrHtml}
+    ${cityWarnHtml}
+    ${inputRow}
     <div id="geo-results-${esc(id)}" style="display:none;margin-top:10px"></div>
   </div>`;
 }
 
-async function _geocodeSearch(id, type, address, hasExisting) {
+// Nominatim types that indicate a broad administrative area, not a specific venue
+const _GEO_CITY_TYPES = new Set(['city','town','village','municipality','administrative','county','state','country','boundary']);
+
+async function _geocodeSearch(id, type, hasExisting) {
+  const inputEl = document.getElementById('geo-query-' + id);
+  const address = inputEl ? inputEl.value.trim() : '';
   const resultsDiv = document.getElementById('geo-results-' + id);
   if (!resultsDiv) return;
+  if (!address || address.length < 2) {
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = '<div style="font-size:.82rem;color:var(--pink)">Bitte eine Suchanfrage eingeben.</div>';
+    return;
+  }
   resultsDiv.style.display = 'block';
   resultsDiv.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Suche läuft…</div>';
   try {
@@ -1406,19 +1449,25 @@ async function _geocodeSearch(id, type, address, hasExisting) {
     if (res.error) throw new Error(res.error);
     const candidates = res.candidates || [];
     if (candidates.length === 0) {
-      resultsDiv.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Keine Ergebnisse für diese Adresse.</div>';
+      resultsDiv.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Keine Ergebnisse gefunden. Suchanfrage anpassen?</div>';
       return;
     }
-    const warnHtml = hasExisting
+    const replaceWarn = hasExisting
       ? `<div class="geo-warn">⚠ Vorhandene Koordinaten werden ersetzt. Bitte sorgfältig prüfen.</div>`
       : '';
-    resultsDiv.innerHTML = `<div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Kandidaten – Auswählen &amp; bestätigen</div>${warnHtml}` +
-      candidates.map((c, i) =>
-        `<div class="geo-candidate" id="geo-cand-${id}-${i}" onclick="_geocodeSelectCandidate('${esc(id)}','${esc(type)}',${c.lat},${c.lng},${i},${!!hasExisting})">
-          <div class="geo-candidate-name">${esc(c.displayName)}</div>
+    resultsDiv.innerHTML =
+      `<div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Kandidaten – Auswählen &amp; bestätigen</div>${replaceWarn}` +
+      candidates.map((c, i) => {
+        const isBroad = _GEO_CITY_TYPES.has(c.type);
+        const broadBadge = isBroad
+          ? `<span style="font-size:.72rem;background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;margin-left:4px">Stadtgebiet – ungenauer Standort</span>`
+          : '';
+        return `<div class="geo-candidate" id="geo-cand-${id}-${i}"
+            onclick="_geocodeSelectCandidate('${esc(id)}','${esc(type)}',${c.lat},${c.lng},${i},${!!hasExisting})">
+          <div class="geo-candidate-name">${esc(c.displayName)}${broadBadge}</div>
           <div class="geo-candidate-coords">${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}${c.type ? ' · ' + esc(c.type) : ''}</div>
-        </div>`
-      ).join('');
+        </div>`;
+      }).join('');
   } catch (err) {
     resultsDiv.innerHTML = `<div style="font-size:.82rem;color:var(--pink)">Fehler: ${esc(err.message)}</div>`;
   }
@@ -1427,20 +1476,29 @@ async function _geocodeSearch(id, type, address, hasExisting) {
 function _geocodeSelectCandidate(id, type, lat, lng, idx, hasExisting) {
   const resultsDiv = document.getElementById('geo-results-' + id);
   if (!resultsDiv) return;
-  // Highlight selected candidate
   resultsDiv.querySelectorAll('.geo-candidate').forEach(el => el.classList.remove('selected'));
   const sel = document.getElementById(`geo-cand-${id}-${idx}`);
   if (sel) sel.classList.add('selected');
-  const label = sel ? sel.querySelector('.geo-candidate-name')?.textContent || '' : '';
-  // Remove existing confirm panel if any
+  // Strip country suffix from display name for a cleaner address suggestion
+  const rawLabel = sel ? (sel.querySelector('.geo-candidate-name')?.textContent || '') : '';
+  const addrSuggestion = rawLabel.replace(/,\s*Deutschland\s*$/i, '').trim();
   const existing = document.getElementById('geo-confirm-' + id);
   if (existing) existing.remove();
   const overwriteWarn = hasExisting
     ? `<div class="geo-warn">⚠ Bestehende Koordinaten werden überschrieben.</div>`
     : '';
   const confirmHtml = `<div class="geo-confirm" id="geo-confirm-${esc(id)}">
-    <p><strong>Koordinaten speichern?</strong><br>${esc(label)}<br><span style="color:var(--muted)">${lat.toFixed(6)}, ${lng.toFixed(6)}</span></p>
+    <p><strong>Koordinaten speichern?</strong><br><span style="color:var(--muted)">${lat.toFixed(6)}, ${lng.toFixed(6)}</span></p>
     ${overwriteWarn}
+    <div style="margin:8px 0">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer">
+        <input type="checkbox" id="geo-save-addr-${esc(id)}" checked style="width:16px;height:16px;cursor:pointer">
+        <span>Adresse aktualisieren</span>
+      </label>
+      <input class="qa-select" id="geo-addr-input-${esc(id)}" type="text" value="${esc(addrSuggestion)}"
+             style="margin-top:6px;width:100%;box-sizing:border-box" placeholder="Konkrete Adresse oder Veranstaltungsort">
+      <div style="font-size:.75rem;color:var(--muted);margin-top:4px">Nur das Adressfeld wird aktualisiert – Stadt und Stadtteil bleiben unverändert.</div>
+    </div>
     <div class="geo-confirm-actions">
       <button class="btn-save" style="font-size:.82rem;padding:6px 14px" onclick="_geocodeSave('${esc(id)}','${esc(type)}',${lat},${lng})">✓ Speichern</button>
       <button class="btn-cancel" style="font-size:.82rem;padding:6px 14px" onclick="document.getElementById('geo-results-${esc(id)}').style.display='none'">Abbrechen</button>
@@ -1452,11 +1510,22 @@ function _geocodeSelectCandidate(id, type, lat, lng, idx, hasExisting) {
 async function _geocodeSave(id, type, lat, lng) {
   try {
     await refreshIdToken();
-    const res = await callFunction('studio-update', { target: type, id, lat, lng, geoQuality: 'manual' }, _idToken);
+    const saveAddr = document.getElementById('geo-save-addr-' + id)?.checked;
+    const addrInput = document.getElementById('geo-addr-input-' + id)?.value?.trim();
+    const payload = { target: type, id, lat, lng, geoQuality: 'manual' };
+    if (saveAddr && addrInput) payload.location = { address: addrInput };
+    const res = await callFunction('studio-update', payload, _idToken);
     if (res.error) throw new Error(res.error);
-    // Update in-memory cache so the re-rendered panel shows the new coords
     const cache = type === 'activity' ? _allActs : _allSugs;
-    if (cache[id]) { cache[id].lat = lat; cache[id].lng = lng; cache[id].geoQuality = 'manual'; }
+    if (cache[id]) {
+      cache[id].lat = lat;
+      cache[id].lng = lng;
+      cache[id].geoQuality = 'manual';
+      if (saveAddr && addrInput) {
+        if (!cache[id].location) cache[id].location = {};
+        cache[id].location.address = addrInput;
+      }
+    }
     toast('Koordinaten gespeichert ✓');
     if (type === 'activity') selectActivity(id);
     else selectSuggestion(id);
