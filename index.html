@@ -514,15 +514,15 @@ function _profileTab() {
         <div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">${_currentUser && _currentUser.photoURL ? `<img src="${esc(_currentUser.photoURL)}" style="width:58px;height:58px;border-radius:50%;object-fit:cover" alt="">` : _avatarLetter()}</div>
         <div><h2 style="margin:0">${esc(name)}</h2><div class="sub">${esc(email)}</div></div>
       </div>
-      <h2 style="margin:24px 0 3px">Good things are on the horizon.</h2>
-      <p class="sub">Your little corner of someday ✳</p>
+      <h2 style="margin:24px 0 3px">${_t('prof_good_things')}</h2>
+      <p class="sub">${_t('prof_corner')}</p>
     </div>
     ${_userData && _userData._error ? `<div class="warn" style="margin-bottom:12px">⚠ ${esc(_userData._message || 'Soziale Daten konnten nicht geladen werden.')}</div>` : ''}
-    <div class="between"><h2 class="section">Your profile</h2><button class="chip" onclick="set({settings:true})">⚙ Settings</button></div>
+    <div class="between"><h2 class="section">${_t('prof_your_profile')}</h2><button class="chip" onclick="set({settings:true})">${_t('prof_settings_btn')}</button></div>
     ${segment('profileTab',['Saved','Spaces','Friends','Activity'])}
     <div style="margin-top:18px">
       ${S.profileTab==='Saved'
-        ? `<h2 class="section">Your someday list</h2><div class="grid2">${A.filter(a=>(S.saved[a.id]||[]).includes('Just for me')).map(a=>card(a,true)).join('')}</div>`
+        ? `<h2 class="section">${_t('prof_someday_list')}</h2><div class="grid2">${A.filter(a=>(S.saved[a.id]||[]).includes('Just for me')).map(a=>card(a,true)).join('')}</div>`
         : S.profileTab==='Spaces'
           ? (() => {
               const sl = (_userData && _userData.spaces)
@@ -695,7 +695,7 @@ function _homeTab() {
 
   // Section A: Greeting
   const greeting = `<div class="home-greeting">
-    <div class="eyebrow" style="color:#b7cbbd">YOUR DAY ✳</div>
+    <div class="eyebrow" style="color:#b7cbbd">${_t('home_eyebrow')}</div>
     <h1 style="margin:8px 0 4px;font-size:28px;letter-spacing:-1px;line-height:1.1">Hi, ${esc(name)}.</h1>
     <p class="sub" style="color:#b7cbbd;margin:0">${esc(dateStr)}</p>
   </div>`;
@@ -719,7 +719,7 @@ function _homeTab() {
           <div class="home-rsvp-row" onclick="event.stopPropagation()">${rsvpBtns}</div>
         </div>`;
       }).join('');
-      attentionSection = `<div class="home-section" style="color:#c0392b">Needs your attention <span style="background:#fce0e8;color:#8b3d59;border-radius:20px;padding:3px 9px;font-size:12px">${pending.length}</span></div>${cards}`;
+      attentionSection = `<div class="home-section" style="color:#c0392b">${_t('home_attention')} <span style="background:#fce0e8;color:#8b3d59;border-radius:20px;padding:3px 9px;font-size:12px">${pending.length}</span></div>${cards}`;
     }
   }
 
@@ -742,24 +742,24 @@ function _homeTab() {
             <div class="small" style="margin-top:4px">${esc(e.date)}${e.start ? ' · ' + formatHour(e.start) : ''}${e.owner && e.owner !== 'Personal' ? ' · ' + esc(e.owner) : ''}</div>
           </button>`;
         }).join('')
-      : '<div class="empty">Nothing coming up yet.</div>';
-    comingSection = `<div class="home-section">Coming up</div>${upCards}`;
+      : `<div class="empty">${_t('home_no_upcoming')}</div>`;
+    comingSection = `<div class="home-section">${_t('home_coming_up')}</div>${upCards}`;
   } else {
-    comingSection = `<div class="home-section">Coming up</div><div class="empty">Sign in to see your upcoming events.</div>`;
+    comingSection = `<div class="home-section">${_t('home_coming_up')}</div><div class="empty">${_t('home_no_auth')}</div>`;
   }
 
   // Section D: Quick actions
-  const quickActions = `<div class="home-section">Quick actions</div>
+  const quickActions = `<div class="home-section">${_t('home_quick')}</div>
     <div class="home-qa">
       <button class="home-qa-btn" onclick="openCreate('personal')">
         <span class="home-qa-icon">📅</span>
-        <div class="home-qa-label">Create plan</div>
-        <div class="small">Add to your calendar</div>
+        <div class="home-qa-label">${_t('home_create_plan')}</div>
+        <div class="small">${_t('home_create_plan_sub')}</div>
       </button>
       <button class="home-qa-btn" onclick="nav('Discover')">
         <span class="home-qa-icon">✳</span>
-        <div class="home-qa-label">Explore ideas</div>
-        <div class="small">Find new experiences</div>
+        <div class="home-qa-label">${_t('home_explore')}</div>
+        <div class="small">${_t('home_explore_sub')}</div>
       </button>
     </div>`;
 
@@ -807,7 +807,7 @@ function _authCalendar() {
     `<span style="color:${(owners[t]||[])[1]||'#333'}">●</span> ${esc(t)}</button>`;
   const pendInvites = _pendingInvites();
   const inviteSection = pendInvites.length ? `
-    <h2 class="section" style="color:#c0392b">Pending invitations (${pendInvites.length})</h2>
+    <h2 class="section" style="color:#c0392b">${_t('cal_pending')} (${pendInvites.length})</h2>
     <div class="stack" style="margin-bottom:20px">
       ${pendInvites.map(({id, event:ev}) => `
         <div class="rowcard"><div class="between"><div>
@@ -822,7 +822,7 @@ function _authCalendar() {
   const SLOT_H = 50;
   const weekView = () => `<div class="calendar-scroll"><div class="calendar">
     <div class="cal-head">${days.map((d,i) =>
-      `<button class="cal-day" onclick="openCreate('personal','','${d}')">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}<br>${Number(d.slice(-2))}</button>`
+      `<button class="cal-day" onclick="openCreate('personal','','${d}')">${(_t('cal_days')||['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])[i]}<br>${Number(d.slice(-2))}</button>`
     ).join('')}</div>
     ${Array.from({length:14},(_,i) => `<div class="cal-time" style="top:${i*SLOT_H}px">${i+8}:00</div>`).join('')}
     ${Array.from({length:7}, (_,i) => `<div class="cal-line" style="left:${i*100/7}%"></div>`).join('')}
@@ -847,7 +847,7 @@ function _authCalendar() {
       i < offset ? '' : new Date(Date.UTC(firstDay.getUTCFullYear(), firstDay.getUTCMonth(), i-offset+1)).toISOString().slice(0,10)
     );
     return `<div class="monthgrid">
-      ${['M','T','W','T','F','S','S'].map(d => `<div class="small" style="text-align:center">${d}</div>`).join('')}
+      ${(_t('cal_days_short')||['M','T','W','T','F','S','S']).map(d => `<div class="small" style="text-align:center">${d}</div>`).join('')}
       ${cells.map(d => `<div class="monthcell" onclick="${d ? `openCreate('personal','','${d}')` : ''}">
         ${d ? Number(d.slice(-2)) : ''}
         ${es.filter(e => e.date === d).slice(0,3).map(e => {
@@ -859,18 +859,18 @@ function _authCalendar() {
     </div>`;
   };
   const signedInNote = isReal
-    ? `<p class="footnote">Showing your Firebase events. Local plans also shown. Demo events hidden.</p>`
-    : `<p class="footnote">Calendar showing demo events. <button class="chip" onclick="nav('Profile')">Sign in</button> to see your real events.</p>`;
+    ? `<p class="footnote">${_t('cal_footnote')}</p>`
+    : `<p class="footnote">${_t('cal_demo')}</p>`;
   return `<div class="content">
-    <div class="between"><h1 class="headline">Calendar</h1>${segment('calView',['Week','Month'])}</div>
+    <div class="between"><h1 class="headline">${_t('cal_title')}</h1>${segment('calView',['Week','Month'])}</div>
     <div class="toggle">${Object.keys(owners).map(toggleChip).join('')}</div>
     <div class="between" style="margin:20px 0">
       <button class="chip" onclick="set({week:S.week-1})">←</button>
-      <button class="chip" onclick="set({week:0})" style="font-size:11px">Today</button>
+      <button class="chip" onclick="set({week:0})" style="font-size:11px">${_t('cal_today')}</button>
       <strong>${label}</strong>
       <button class="chip" onclick="set({week:S.week+1})">→</button>
     </div>
-    ${button('+ New event', "openCreate('personal')", 'secondary full')}
+    ${button(_t('cal_new_event'), "openCreate('personal')", 'secondary full')}
     <div style="height:15px"></div>
     ${S.calView === 'Week' ? weekView() : monthView()}
     ${inviteSection}
