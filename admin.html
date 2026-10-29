@@ -268,6 +268,19 @@
     .qa-status.ok  { background: #D1FAE5; color: #065F46; display: inline-block; }
     .qa-status.err { background: #FEE2E2; color: #991B1B; display: inline-block; }
 
+    /* ── TAG MANAGEMENT ── */
+    .tag-mgmt-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .tag-list { display:flex; flex-direction:column; gap:8px; }
+    .tag-row { background:var(--card); border-radius:var(--radius); padding:12px 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border:1px solid var(--border); }
+    .tag-row.inactive { opacity:.45; }
+    .tag-id { font-family:monospace; font-size:.8rem; color:var(--muted); min-width:120px; }
+    .tag-label-display { font-weight:600; flex:1; min-width:100px; }
+    .tag-badge { font-size:.65rem; font-weight:700; padding:2px 6px; border-radius:4px; background:#e5e7eb; color:#374151; }
+    .tag-badge.custom { background:#dbeafe; color:#1d4ed8; }
+    .tag-synonyms { width:100%; font-size:.75rem; color:var(--muted); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .tag-actions { display:flex; gap:4px; }
+    .tag-edit-form { background:var(--card); border-radius:var(--radius); padding:16px; margin-bottom:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; border:1px solid var(--border); }
+    .tag-edit-form input { padding:7px 10px; border:1px solid var(--border); border-radius:7px; font-size:.875rem; background:var(--bg); color:var(--text); }
     /* ── DASHBOARD STATS ── */
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
                  gap: 14px; margin-bottom: 24px; }
@@ -475,6 +488,9 @@
       <button class="nav-item" id="nav-users"     onclick="showTab('users')">
         <span class="nav-icon">◉</span> Nutzer
       </button>
+      <button class="nav-item" id="nav-tags"      onclick="showTab('tags');loadTagCatalog()">
+        <span class="nav-icon">⊛</span> Tags
+      </button>
       <button class="nav-item" id="nav-settings"  onclick="showTab('settings')">
         <span class="nav-icon">⚙</span> Einstellungen
       </button>
@@ -564,6 +580,13 @@
       <div class="tab-panel" id="tab-users">
         <div class="scroll-content">
           <div id="users-content"><p style="color:var(--muted)">Lade Nutzer…</p></div>
+        </div>
+      </div>
+
+      <!-- TAGS -->
+      <div class="tab-panel" id="tab-tags">
+        <div class="scroll-content">
+          <div id="tag-mgmt-container"><p style="color:var(--muted)">Lade…</p></div>
         </div>
       </div>
 
@@ -702,10 +725,11 @@ function showAdmin() {
   document.getElementById('admin-app').style.display    = 'block';
   document.getElementById('top-user-email').textContent = _me.email || '';
   document.getElementById('top-user-role').textContent  = _role;
-  // Restrict Nutzer/Einstellungen to superadmin
+  // Restrict Nutzer/Einstellungen/Tags to superadmin
   if (_role !== 'superadmin') {
     document.getElementById('nav-users').style.display    = 'none';
     document.getElementById('nav-settings').style.display = 'none';
+    document.getElementById('nav-tags').style.display     = 'none';
   }
   // Researcher only sees Vorschläge
   if (_role === 'researcher') {
@@ -946,7 +970,7 @@ async function selectSuggestion(id) {
           <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
           <div class="edit-field"><label class="edit-label">Primäre Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></select></div>
           <div class="edit-field full"><label class="edit-label">Weitere Kategorien</label><div class="edit-chips" id="ef-addcats"><!-- populated by JS --></div></div>
-          <div class="edit-field full"><label class="edit-label">Tags</label><div class="edit-chips" id="ef-tags-chips"><!-- populated by JS --></div><input class="edit-input" id="ef-tags-search" placeholder="Tag suchen…" style="margin-top:6px" oninput="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')"><div class="tag-results" id="ef-tags-results" style="display:none"></div></div>
+          <div class="edit-field full"><label class="edit-label">Tags</label><div class="edit-chips" id="ef-tags-chips"><!-- populated by JS --></div><input class="edit-input" id="ef-tags-search" placeholder="Tag suchen…" style="margin-top:6px" oninput="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')" onfocus="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')" onblur="setTimeout(()=>{const r=document.getElementById('ef-tags-results');if(r)r.style.display='none';},200)"><div class="tag-results" id="ef-tags-results" style="display:none"></div></div>
           <div class="edit-field full" id="ef-unknown-tags-row" style="display:none"><label class="edit-label">Unbekannte Tags (zur Überprüfung)</label><div id="ef-unknown-tags" style="font-size:12px;color:#888"></div></div>
           <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
           <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
@@ -1071,7 +1095,7 @@ function selectActivity(id) {
           <div class="edit-field"><label class="edit-label">Eyebrow</label><input class="edit-input" id="ef-eyebrow"></div>
           <div class="edit-field"><label class="edit-label">Primäre Kategorie</label><select class="edit-select" id="ef-category"><option value="">— wählen —</option><option value="food_drinks">Food &amp; Drinks</option><option value="kultur_entertainment">Kultur &amp; Entertainment</option><option value="sport_bewegung">Sport &amp; Bewegung</option><option value="kreativitaet_workshops">Kreativität &amp; Workshops</option><option value="outdoor_natur">Outdoor &amp; Natur</option><option value="wellness_entspannung">Wellness &amp; Entspannung</option><option value="events_nightlife">Events &amp; Nightlife</option><option value="community_social">Community &amp; Social</option></select></div>
           <div class="edit-field full"><label class="edit-label">Weitere Kategorien</label><div class="edit-chips" id="ef-addcats"><!-- populated by JS --></div></div>
-          <div class="edit-field full"><label class="edit-label">Tags</label><div class="edit-chips" id="ef-tags-chips"><!-- populated by JS --></div><input class="edit-input" id="ef-tags-search" placeholder="Tag suchen…" style="margin-top:6px" oninput="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')"><div class="tag-results" id="ef-tags-results" style="display:none"></div></div>
+          <div class="edit-field full"><label class="edit-label">Tags</label><div class="edit-chips" id="ef-tags-chips"><!-- populated by JS --></div><input class="edit-input" id="ef-tags-search" placeholder="Tag suchen…" style="margin-top:6px" oninput="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')" onfocus="_efTagSearch(this.value,'ef-tags-results','ef-tags-chips')" onblur="setTimeout(()=>{const r=document.getElementById('ef-tags-results');if(r)r.style.display='none';},200)"><div class="tag-results" id="ef-tags-results" style="display:none"></div></div>
           <div class="edit-field full" id="ef-unknown-tags-row" style="display:none"><label class="edit-label">Unbekannte Tags (zur Überprüfung)</label><div id="ef-unknown-tags" style="font-size:12px;color:#888"></div></div>
           <div class="edit-field full"><label class="edit-label">Beschreibung</label><textarea class="edit-textarea" id="ef-description"></textarea></div>
           <div class="edit-field"><label class="edit-label">Anbieter (Name)</label><input class="edit-input" id="ef-providerName"></div>
@@ -1293,9 +1317,13 @@ function _efTagSearch(query, resultsId, chipsId) {
     chipsEl ? Array.from(chipsEl.querySelectorAll('[data-tagid]')).map(el => el.getAttribute('data-tagid')) : []
   );
   const matches = Object.entries(_TAG_LABELS)
-    .filter(([id, label]) => !currentIds.has(id) && (id.includes(q) || label.toLowerCase().includes(q)))
-    .slice(0, 8);
-  if (!q || matches.length === 0) { resultsEl.style.display = 'none'; return; }
+    .filter(([id, label]) => !currentIds.has(id) && (!q || id.includes(q) || label.toLowerCase().includes(q)))
+    .slice(0, 10);
+  if (matches.length === 0) {
+    resultsEl.innerHTML = q ? `<div class="tag-result-item" style="color:var(--muted);cursor:default">Tag nicht vorhanden</div>` : '';
+    resultsEl.style.display = q ? '' : 'none';
+    return;
+  }
   resultsEl.innerHTML = matches.map(([id, label]) =>
     `<div class="tag-result-item" onclick="_efTagAdd('${id}','${chipsId}','${resultsId}')">${label}</div>`
   ).join('');
@@ -1357,7 +1385,7 @@ function _renderQuickAssign(id, type, data) {
     <div class="qa-row">
       <div class="qa-label">Tags (max. 5)</div>
       <div class="qa-chips" id="qa-tags-${id}">${tagChips}</div>
-      <input class="qa-search" id="qa-tagsearch-${id}" placeholder="Tag suchen…" oninput="_qaTagSearch('${id}',this.value)">
+      <input class="qa-search" id="qa-tagsearch-${id}" placeholder="Tag suchen…" oninput="_qaTagSearch('${id}',this.value)" onfocus="_qaTagSearch('${id}',this.value)" onblur="setTimeout(()=>{const r=document.getElementById('qa-tagresults-${id}');if(r)r.style.display='none';},200)">
       <div class="qa-tag-results" id="qa-tagresults-${id}"></div>
       ${unknownHtml}
     </div>
@@ -1397,9 +1425,13 @@ function _qaTagSearch(id, query) {
     tagsEl ? Array.from(tagsEl.querySelectorAll('[data-qatagid]')).map(el => el.getAttribute('data-qatagid')) : []
   );
   const matches = Object.entries(_TAG_LABELS)
-    .filter(([tid, label]) => !currentIds.has(tid) && (tid.includes(q) || label.toLowerCase().includes(q)))
-    .slice(0, 8);
-  if (!q || matches.length === 0) { resultsEl.style.display = 'none'; return; }
+    .filter(([tid, label]) => !currentIds.has(tid) && (!q || tid.includes(q) || label.toLowerCase().includes(q)))
+    .slice(0, 10);
+  if (matches.length === 0) {
+    resultsEl.innerHTML = q ? `<div class="qa-tag-result-item" style="color:var(--muted);cursor:default">Tag nicht vorhanden</div>` : '';
+    resultsEl.style.display = q ? '' : 'none';
+    return;
+  }
   resultsEl.innerHTML = matches.map(([tid, label]) =>
     `<div class="qa-tag-result-item" onclick="_qaTagAdd('${id}','${tid}')">${label}</div>`
   ).join('');
@@ -1410,7 +1442,12 @@ function _qaTagAdd(id, tagId) {
   const tagsEl = document.getElementById('qa-tags-' + id);
   if (!tagsEl) return;
   const current = Array.from(tagsEl.querySelectorAll('[data-qatagid]')).map(el => el.getAttribute('data-qatagid'));
-  if (current.includes(tagId) || current.length >= 5) return;
+  if (current.includes(tagId)) return;
+  if (current.length >= 5) {
+    const statusEl = document.getElementById('qa-status-' + id);
+    if (statusEl) { statusEl.className = 'qa-status err'; statusEl.textContent = 'Maximal 5 Tags erlaubt'; setTimeout(()=>{ if(statusEl.textContent==='Maximal 5 Tags erlaubt') statusEl.textContent=''; },2000); }
+    return;
+  }
   const label = _TAG_LABELS[tagId] || tagId;
   const chip = document.createElement('span');
   chip.className = 'qa-chip tag';
@@ -1457,6 +1494,134 @@ async function _saveQuickAssign(id, type) {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+// ── Tag management tab ───────────────────────────────────────────
+let _tagCatalog = {};
+
+async function loadTagCatalog() {
+  const container = document.getElementById('tag-mgmt-container');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--muted)">Lade Tag-Katalog…</p>';
+  try {
+    const res = await callFunction('studio-tags', null, _idToken, 'GET');
+    if (res.tags) {
+      _tagCatalog = {};
+      for (const t of res.tags) _tagCatalog[t.id] = t;
+    }
+    // Seed from baseline for display even if endpoint is unavailable
+    for (const [id, label] of Object.entries(_TAG_LABELS)) {
+      if (!_tagCatalog[id]) _tagCatalog[id] = { id, label, synonyms: [], active: true, baseline: true };
+    }
+  } catch {
+    for (const [id, label] of Object.entries(_TAG_LABELS)) {
+      _tagCatalog[id] = _tagCatalog[id] || { id, label, synonyms: [], active: true, baseline: true };
+    }
+  }
+  _renderTagManagement();
+}
+
+function _renderTagManagement() {
+  const container = document.getElementById('tag-mgmt-container');
+  if (!container) return;
+  const active = Object.values(_tagCatalog).filter(t => t.active !== false).sort((a,b) => a.label.localeCompare(b.label,'de'));
+  const inactive = Object.values(_tagCatalog).filter(t => t.active === false).sort((a,b) => a.label.localeCompare(b.label,'de'));
+  const all = [...active, ...inactive];
+  container.innerHTML = `
+    <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:18px">Tag-Verwaltung</h2>
+    <div class="tag-mgmt-header">
+      <span style="color:var(--muted);font-size:.875rem">${active.length} aktive Tags · ${inactive.length} deaktiviert</span>
+      <button class="btn-primary" onclick="_showNewTagForm()">+ Neuen Tag anlegen</button>
+    </div>
+    <div class="tag-edit-form" id="new-tag-form" style="display:none">
+      <input id="ntf-id" placeholder="ID (nur a-z, 0-9, _)" style="width:180px" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')">
+      <input id="ntf-label" placeholder="Anzeigename (z.B. Wintermarkt)" style="width:200px">
+      <button class="btn-primary" style="padding:7px 14px;font-size:.85rem" onclick="_createTag()">Anlegen</button>
+      <button class="btn-sm" onclick="document.getElementById('new-tag-form').style.display='none'">Abbrechen</button>
+      <span id="ntf-status" style="font-size:.8rem"></span>
+    </div>
+    <div class="tag-list">
+      ${all.map(t => `
+        <div class="tag-row${t.active===false?' inactive':''}" id="tagrow-${t.id}">
+          <span class="tag-id">${esc(t.id)}</span>
+          <span class="tag-label-display">${esc(t.label)}</span>
+          <span class="tag-badge${t.baseline?'':' custom'}">${t.baseline?'Basis':'Custom'}</span>
+          <div class="tag-actions">
+            <button class="btn-sm" onclick="_editTagLabel('${t.id}')">✏ Label</button>
+            <button class="btn-sm" onclick="_editSynonyms('${t.id}')">⇄ Aliase</button>
+            ${t.active !== false
+              ? `<button class="btn-sm" onclick="_deactivateTag('${t.id}')">Deaktivieren</button>`
+              : `<button class="btn-sm" onclick="_reactivateTag('${t.id}')">Aktivieren</button>`
+            }
+          </div>
+          <div class="tag-synonyms">
+            Aliase: <span>${(t.synonyms||[]).length > 0 ? t.synonyms.map(s=>esc(s)).join(', ') : '–'}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function _showNewTagForm() {
+  const f = document.getElementById('new-tag-form');
+  if (f) { f.style.display = ''; document.getElementById('ntf-id').focus(); }
+}
+
+async function _createTag() {
+  const id = (document.getElementById('ntf-id').value || '').trim();
+  const label = (document.getElementById('ntf-label').value || '').trim();
+  const statusEl = document.getElementById('ntf-status');
+  if (!id || !label) { statusEl.textContent = 'ID und Anzeigename erforderlich'; return; }
+  if (!/^[a-z][a-z0-9_]{0,39}$/.test(id)) { statusEl.textContent = 'Ungültige ID (a-z, dann a-z/0-9/_, max 40)'; return; }
+  await refreshIdToken();
+  const res = await callFunction('studio-tags', { action: 'upsert', id, label }, _idToken);
+  if (res.ok) {
+    document.getElementById('ntf-id').value = '';
+    document.getElementById('ntf-label').value = '';
+    statusEl.textContent = '';
+    document.getElementById('new-tag-form').style.display = 'none';
+    _TAG_LABELS[id] = label;
+    _ALL_TAG_IDS.add(id);
+    await loadTagCatalog();
+  } else { statusEl.textContent = res.error || 'Fehler'; }
+}
+
+async function _editTagLabel(tagId) {
+  const t = _tagCatalog[tagId];
+  if (!t) return;
+  const newLabel = prompt(`Anzeigename für "${esc(tagId)}" ändern:`, t.label);
+  if (!newLabel || newLabel.trim() === t.label) return;
+  await refreshIdToken();
+  const res = await callFunction('studio-tags', { action: 'upsert', id: tagId, label: newLabel.trim(), synonyms: t.synonyms || [] }, _idToken);
+  if (res.ok) { _TAG_LABELS[tagId] = newLabel.trim(); await loadTagCatalog(); }
+  else alert(res.error || 'Fehler');
+}
+
+async function _editSynonyms(tagId) {
+  const t = _tagCatalog[tagId];
+  if (!t) return;
+  const input = prompt(`Aliase für "${esc(t.label)}" (kommagetrennt, leer zum Löschen):`, (t.synonyms||[]).join(', '));
+  if (input === null) return;
+  const synonyms = input.split(',').map(s => s.trim()).filter(Boolean);
+  await refreshIdToken();
+  const res = await callFunction('studio-tags', { action: 'upsert', id: tagId, label: t.label, synonyms }, _idToken);
+  if (res.ok) await loadTagCatalog();
+  else alert(res.error || 'Fehler');
+}
+
+async function _deactivateTag(tagId) {
+  if (!confirm(`Tag "${esc(tagId)}" deaktivieren?\nEr bleibt in bestehenden Aktivitäten erhalten, kann aber nicht mehr neu zugewiesen werden.`)) return;
+  await refreshIdToken();
+  const res = await callFunction('studio-tags', { action: 'deactivate', id: tagId }, _idToken);
+  if (res.ok) await loadTagCatalog();
+  else alert(res.error || 'Fehler');
+}
+
+async function _reactivateTag(tagId) {
+  await refreshIdToken();
+  const res = await callFunction('studio-tags', { action: 'reactivate', id: tagId }, _idToken);
+  if (res.ok) await loadTagCatalog();
+  else alert(res.error || 'Fehler');
 }
 
 // ── Users tab ─────────────────────────────────────────────────────
@@ -1618,12 +1783,13 @@ async function refreshIdToken() {
   if (!_me) return;
   _idToken = await _me.getIdToken(true);
 }
-async function callFunction(name, body, idToken) {
-  const res = await fetch(`/.netlify/functions/${name}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-    body: JSON.stringify(body),
-  });
+async function callFunction(name, body, idToken, method='POST') {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(idToken ? {'Authorization': `Bearer ${idToken}`} : {}) },
+  };
+  if (method !== 'GET' && body != null) opts.body = JSON.stringify(body);
+  const res = await fetch(`/.netlify/functions/${name}`, opts);
   return res.json();
 }
 function esc(s) {

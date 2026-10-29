@@ -54,8 +54,34 @@ exports.handler = async (event) => {
   }
 
   if (Object.prototype.hasOwnProperty.call(updates, 'tags')) {
-    const { validateTags } = require('./_taxonomy');
-    updates.tags = updates.tags ? validateTags(updates.tags) : null;
+    if (updates.tags) {
+      const { ALL_TAG_IDS } = require('./_taxonomy');
+      // Load custom tags from Firebase to extend the controlled vocabulary
+      let customTagIds = new Set();
+      try {
+        const catSnap = await initAdmin().database().ref('/config/tagCatalog').once('value');
+        const catalog = catSnap.val() || {};
+        for (const [cid, entry] of Object.entries(catalog)) {
+          if (entry.active !== false) customTagIds.add(cid);
+        }
+      } catch (_) {}
+      const merged = new Set([...ALL_TAG_IDS, ...customTagIds]);
+      const seen = new Set();
+      const valid = [];
+      const unknown = [];
+      for (const t of (Array.isArray(updates.tags) ? updates.tags : [])) {
+        if (typeof t !== 'string' || seen.has(t)) continue;
+        seen.add(t);
+        if (merged.has(t)) { if (valid.length < 5) valid.push(t); }
+        else unknown.push(t);
+      }
+      updates.tags = valid.length > 0 ? valid : null;
+      if (unknown.length > 0 && !Object.prototype.hasOwnProperty.call(updates, 'unknownTagSuggestions')) {
+        updates.unknownTagSuggestions = unknown;
+      }
+    } else {
+      updates.tags = null;
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(updates, 'additionalCategories')) {
