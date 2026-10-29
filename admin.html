@@ -230,6 +230,29 @@
     .tag-result-item { padding: 5px 10px; font-size: .85rem; cursor: pointer; color: var(--text); }
     .tag-result-item:hover { background: var(--primary-l); color: var(--primary-d); }
 
+    /* ── GEO SECTION ── */
+    .geo-section { background: var(--card); border-radius: var(--radius); padding: 16px 18px;
+                   margin-bottom: 12px; border: 1.5px solid var(--border); }
+    .geo-section h4 { font-size: .75rem; font-weight: 700; color: var(--muted);
+                      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+    .geo-status { font-size: .8rem; margin-bottom: 8px; }
+    .geo-status.ok  { color: #059669; }
+    .geo-status.none { color: var(--muted); }
+    .geo-addr { font-size: .82rem; color: var(--muted); margin-bottom: 10px; }
+    .geo-candidate { background: var(--bg); border: 1.5px solid var(--border);
+                     border-radius: 8px; padding: 9px 12px; margin-bottom: 6px;
+                     cursor: pointer; font-size: .82rem; transition: border-color .15s; }
+    .geo-candidate:hover { border-color: var(--primary); }
+    .geo-candidate.selected { background: var(--primary-l); border-color: var(--primary-d); }
+    .geo-candidate-name { font-weight: 600; margin-bottom: 2px; }
+    .geo-candidate-coords { font-size: .78rem; color: var(--muted); }
+    .geo-confirm { background: #ECFDF5; border: 1.5px solid #6EE7B7; border-radius: 8px;
+                   padding: 12px 14px; margin-top: 10px; font-size: .85rem; }
+    .geo-confirm p { margin: 0 0 8px; }
+    .geo-warn { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 6px;
+                padding: 7px 10px; font-size: .78rem; color: #92400E; margin-bottom: 8px; }
+    .geo-confirm-actions { display: flex; gap: 8px; }
+
     /* ── QUICK-ASSIGN PANEL ── */
     .quick-assign { background: var(--card); border-radius: var(--radius); padding: 16px 18px;
                     margin-bottom: 12px; border: 1.5px solid var(--border); }
@@ -950,6 +973,7 @@ async function selectSuggestion(id) {
           ${sug.price ? `<span class="preview-price">${formatPrice(sug.price)}</span>` : ''}
         </div>
       </div>
+      ${canEdit ? _renderGeoSection(id, 'suggestion', sug) : ''}
       ${canEdit ? _renderQuickAssign(id, 'suggestion', sug) : ''}
       ${canAct ? `
       <div class="action-section" id="action-section">
@@ -1085,6 +1109,7 @@ function selectActivity(id) {
           ${act.price ? `<span class="preview-price">${formatPrice(act.price)}</span>` : ''}
         </div>
       </div>
+      ${canEdit ? _renderGeoSection(id, 'activity', act) : ''}
       ${canEdit ? _renderQuickAssign(id, 'activity', act) : ''}
       ${canEdit ? `
       <div class="edit-section" id="edit-form" style="display:none">
@@ -1349,6 +1374,95 @@ function _efTagAdd(tagId, chipsId, resultsId) {
   if (searchEl) searchEl.value = '';
   const resultsEl = document.getElementById(resultsId);
   if (resultsEl) resultsEl.style.display = 'none';
+}
+
+// ── Geo section ───────────────────────────────────────────────────
+function _renderGeoSection(id, type, data) {
+  const addr = data.location?.address || data.city || '';
+  const hasCoords = (data.lat != null && data.lng != null && isFinite(data.lat) && isFinite(data.lng));
+  const coordsHtml = hasCoords
+    ? `<div class="geo-status ok">✓ Koordinaten gespeichert: ${Number(data.lat).toFixed(5)}, ${Number(data.lng).toFixed(5)}</div>`
+    : `<div class="geo-status none">Noch keine Koordinaten gespeichert.</div>`;
+  const addrHtml = addr
+    ? `<div class="geo-addr">Suchanfrage: <strong>${esc(addr)}</strong></div>
+       <button class="btn-save" style="font-size:.82rem;padding:6px 14px" data-geocode-addr="${esc(addr)}" data-geocode-hascoords="${hasCoords}" onclick="_geocodeSearch('${esc(id)}','${esc(type)}',this.dataset.geocodeAddr,this.dataset.geocodeHascoords==='true')">📍 Standort suchen</button>`
+    : `<div class="geo-addr" style="font-style:italic">Keine Adresse vorhanden – Adresse im Bearbeiten-Formular ergänzen.</div>`;
+  return `<div class="geo-section">
+    <h4>Standort &amp; Koordinaten</h4>
+    ${coordsHtml}
+    ${addrHtml}
+    <div id="geo-results-${esc(id)}" style="display:none;margin-top:10px"></div>
+  </div>`;
+}
+
+async function _geocodeSearch(id, type, address, hasExisting) {
+  const resultsDiv = document.getElementById('geo-results-' + id);
+  if (!resultsDiv) return;
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Suche läuft…</div>';
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-geocode', { query: address }, _idToken);
+    if (res.error) throw new Error(res.error);
+    const candidates = res.candidates || [];
+    if (candidates.length === 0) {
+      resultsDiv.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Keine Ergebnisse für diese Adresse.</div>';
+      return;
+    }
+    const warnHtml = hasExisting
+      ? `<div class="geo-warn">⚠ Vorhandene Koordinaten werden ersetzt. Bitte sorgfältig prüfen.</div>`
+      : '';
+    resultsDiv.innerHTML = `<div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Kandidaten – Auswählen &amp; bestätigen</div>${warnHtml}` +
+      candidates.map((c, i) =>
+        `<div class="geo-candidate" id="geo-cand-${id}-${i}" onclick="_geocodeSelectCandidate('${esc(id)}','${esc(type)}',${c.lat},${c.lng},${i},${!!hasExisting})">
+          <div class="geo-candidate-name">${esc(c.displayName)}</div>
+          <div class="geo-candidate-coords">${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}${c.type ? ' · ' + esc(c.type) : ''}</div>
+        </div>`
+      ).join('');
+  } catch (err) {
+    resultsDiv.innerHTML = `<div style="font-size:.82rem;color:var(--pink)">Fehler: ${esc(err.message)}</div>`;
+  }
+}
+
+function _geocodeSelectCandidate(id, type, lat, lng, idx, hasExisting) {
+  const resultsDiv = document.getElementById('geo-results-' + id);
+  if (!resultsDiv) return;
+  // Highlight selected candidate
+  resultsDiv.querySelectorAll('.geo-candidate').forEach(el => el.classList.remove('selected'));
+  const sel = document.getElementById(`geo-cand-${id}-${idx}`);
+  if (sel) sel.classList.add('selected');
+  const label = sel ? sel.querySelector('.geo-candidate-name')?.textContent || '' : '';
+  // Remove existing confirm panel if any
+  const existing = document.getElementById('geo-confirm-' + id);
+  if (existing) existing.remove();
+  const overwriteWarn = hasExisting
+    ? `<div class="geo-warn">⚠ Bestehende Koordinaten werden überschrieben.</div>`
+    : '';
+  const confirmHtml = `<div class="geo-confirm" id="geo-confirm-${esc(id)}">
+    <p><strong>Koordinaten speichern?</strong><br>${esc(label)}<br><span style="color:var(--muted)">${lat.toFixed(6)}, ${lng.toFixed(6)}</span></p>
+    ${overwriteWarn}
+    <div class="geo-confirm-actions">
+      <button class="btn-save" style="font-size:.82rem;padding:6px 14px" onclick="_geocodeSave('${esc(id)}','${esc(type)}',${lat},${lng})">✓ Speichern</button>
+      <button class="btn-cancel" style="font-size:.82rem;padding:6px 14px" onclick="document.getElementById('geo-results-${esc(id)}').style.display='none'">Abbrechen</button>
+    </div>
+  </div>`;
+  resultsDiv.insertAdjacentHTML('beforeend', confirmHtml);
+}
+
+async function _geocodeSave(id, type, lat, lng) {
+  try {
+    await refreshIdToken();
+    const res = await callFunction('studio-update', { target: type, id, lat, lng, geoQuality: 'manual' }, _idToken);
+    if (res.error) throw new Error(res.error);
+    // Update in-memory cache so the re-rendered panel shows the new coords
+    const cache = type === 'activity' ? _allActs : _allSugs;
+    if (cache[id]) { cache[id].lat = lat; cache[id].lng = lng; cache[id].geoQuality = 'manual'; }
+    toast('Koordinaten gespeichert ✓');
+    if (type === 'activity') selectActivity(id);
+    else selectSuggestion(id);
+  } catch (err) {
+    toast('Fehler beim Speichern: ' + err.message);
+  }
 }
 
 // ── Quick-assign panel ────────────────────────────────────────────
