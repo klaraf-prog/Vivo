@@ -7,14 +7,68 @@
 let A=[{id:'pottery',name:'Pottery & painting',title:'Make something with your hands.',provider:'Studio Clay',category:'Creative',location:'Ehrenfeld',price:'€35',lat:50.9496,lng:6.9197,img:'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=1100&q=85',tag:'GET CREATIVE'},{id:'supper',name:'The supper club',title:'Good food. Better company.',provider:'The Supper Table',category:'Food',location:'Belgisches Viertel',price:'€45',lat:50.9416,lng:6.9324,img:'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1100&q=85',tag:'AROUND THE TABLE'},{id:'yoga',name:'Sunday yoga',title:'Slow mornings, good energy.',provider:'Flow Studio',category:'Wellness',location:'Südstadt',price:'€18',lat:50.9195,lng:6.9573,img:'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1100&q=85',tag:'SLOW DOWN'},{id:'run',name:'Social run & coffee',title:'Find your people, one run at a time.',provider:'Cologne Run Club',category:'Sport',location:'Rheinauhafen',price:'Free',lat:50.927,lng:6.965,img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1100&q=85',tag:'MOVE TOGETHER'}];
 const store='someday-pwa-v1',initial={tab:'Home',page:'home',category:'All',search:'',map:false,selected:'pottery',space:'Weekend Crew',spaceTab:'Ideas',profileTab:'Saved',saved:{pottery:['Weekend Crew','Just for me'],yoga:['Just for me']},plans:[],week:0,calView:'Week',layers:['Personal','Weekend Crew','Run Club'],date:'2026-10-23',choices:['2026-10-23','2026-10-24'],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[]};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>set({tab:t,page:'home',sheet:false,settings:false});
 let _lang=localStorage.getItem('someday-lang')||'de';
-const _i18n={de:{discover:'Entdecken',search_ph:'Suche nach Erlebnissen…',explore:'Erkunden',map_view:'Karte',back:'← Zurück',save_someday:'♡ Merken für Someday',all_cats:'Alle',lang_section:'Sprache',sign_out:'Abmelden',cal_label:'Kalenderverbindungen',acct_label:'Konto',data_label:'Deine Daten',export_btn:'⬇ Daten exportieren',delete_btn:'Konto löschen',no_results:'Keine Ergebnisse. Andere Suche versuchen.',settings_back:'← Profil',settings_title:'Einstellungen'},en:{discover:'Discover',search_ph:'Search experiences…',explore:'Explore',map_view:'Map',back:'← Back',save_someday:'♡ Save for someday',all_cats:'All',lang_section:'Language',sign_out:'Sign out',cal_label:'Calendar connections',acct_label:'Account',data_label:'Your data',export_btn:'⬇ Export my data',delete_btn:'Delete my account',no_results:'No experiences found. Try another search.',settings_back:'← Profile',settings_title:'Settings'}};
+const _i18n={
+de:{
+  discover:'Entdecken',search_ph:'Suche nach Erlebnissen…',explore:'Erkunden',map_view:'Karte',
+  back:'← Zurück',save_someday:'♡ Merken für Someday',all_cats:'Alle',
+  lang_section:'Sprache',sign_out:'Abmelden',cal_label:'Kalenderverbindungen',
+  acct_label:'Konto',data_label:'Deine Daten',export_btn:'⬇ Daten exportieren',
+  delete_btn:'Konto löschen',no_results:'Keine Ergebnisse. Andere Suche versuchen.',
+  settings_back:'← Profil',settings_title:'Einstellungen',
+  nav_home:'Home',nav_discover:'Entdecken',nav_calendar:'Kalender',nav_spaces:'Spaces',nav_profile:'Profil',
+  home_eyebrow:'DEIN TAG ✳',home_coming_up:'Demnächst',home_attention:'Ausstehend',
+  home_quick:'Schnellzugriff',home_create_plan:'Plan erstellen',home_create_plan_sub:'Zum Kalender hinzufügen',
+  home_explore:'Ideen entdecken',home_explore_sub:'Neue Erlebnisse finden',
+  home_no_upcoming:'Noch nichts geplant.',home_no_auth:'Anmelden, um deine Events zu sehen.',
+  cal_title:'Kalender',cal_today:'Heute',cal_new_event:'+ Neues Event',
+  cal_days:['Mo','Di','Mi','Do','Fr','Sa','So'],cal_days_short:['M','D','M','D','F','S','S'],
+  cal_pending:'Ausstehende Einladungen',
+  cal_footnote:'Kalenderfarben zeigen die Zugehörigkeit. Gruppenmaßnahmen sind keine Buchungen. Google/Apple-Verbindungen sind im Demo nicht aktiv.',
+  cal_demo:'Demo-Kalender aktiv. Anmelden für eigene Events.',
+  prof_your_profile:'Dein Profil',prof_settings_btn:'⚙ Einstellungen',
+  prof_saved:'Gemerkt',prof_spaces:'Spaces',prof_friends:'Freunde',prof_activity:'Aktivität',
+  prof_someday_list:'Deine Someday-Liste',prof_good_things:'Gutes liegt vor dir.',prof_corner:'Dein kleines Someday-Eck ✳',
+  prof_no_groups:'Noch keine Gruppen.',prof_no_saved:'Noch nichts gemerkt.',
+  spaces_eyebrow:'GEMEINSAM BESSER ✳',spaces_headline:'Eure Leute.<br>Eure Pläne.',
+  spaces_create:'+ Gruppenplan erstellen',spaces_no_plans:'Noch keine Pläne.',
+  spaces_back:'← Alle Spaces',spaces_good_ahead:'Gutes steht bevor.',
+  free:'Kostenlos',donation:'Spende'
+},
+en:{
+  discover:'Discover',search_ph:'Search experiences…',explore:'Explore',map_view:'Map',
+  back:'← Back',save_someday:'♡ Save for someday',all_cats:'All',
+  lang_section:'Language',sign_out:'Sign out',cal_label:'Calendar connections',
+  acct_label:'Account',data_label:'Your data',export_btn:'⬇ Export my data',
+  delete_btn:'Delete my account',no_results:'No experiences found. Try another search.',
+  settings_back:'← Profile',settings_title:'Settings',
+  nav_home:'Home',nav_discover:'Discover',nav_calendar:'Calendar',nav_spaces:'Spaces',nav_profile:'Profile',
+  home_eyebrow:'YOUR DAY ✳',home_coming_up:'Coming up',home_attention:'Needs your attention',
+  home_quick:'Quick actions',home_create_plan:'Create plan',home_create_plan_sub:'Add to your calendar',
+  home_explore:'Explore ideas',home_explore_sub:'Find new experiences',
+  home_no_upcoming:'Nothing coming up yet.',home_no_auth:'Sign in to see your upcoming events.',
+  cal_title:'Calendar',cal_today:'Today',cal_new_event:'+ New event',
+  cal_days:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],cal_days_short:['M','T','W','T','F','S','S'],
+  cal_pending:'Pending invitations',
+  cal_footnote:'Calendar ownership uses color. Group plans are not bookings. Connections to Google/Apple are not active in this demo.',
+  cal_demo:'Showing demo events. Sign in to see your real events.',
+  prof_your_profile:'Your profile',prof_settings_btn:'⚙ Settings',
+  prof_saved:'Saved',prof_spaces:'Spaces',prof_friends:'Friends',prof_activity:'Activity',
+  prof_someday_list:'Your someday list',prof_good_things:'Good things are on the horizon.',prof_corner:'Your little corner of someday ✳',
+  prof_no_groups:'No groups yet.',prof_no_saved:'Nothing saved yet.',
+  spaces_eyebrow:'BETTER TOGETHER ✳',spaces_headline:'Your people.<br>Your plans.',
+  spaces_create:'+ Create group plan',spaces_no_plans:'No plans yet.',
+  spaces_back:'← All Spaces',spaces_good_ahead:'Good things ahead.',
+  free:'Free',donation:'Donation'
+}};
 function _t(k){return(_i18n[_lang]||_i18n.de)[k]||k}
 function _setLang(l){_lang=l;localStorage.setItem('someday-lang',l);render()}
 const _CAT_LABELS={food_drinks:'🍕 Food & Drinks',kultur_entertainment:'🎭 Kultur & Entertainment',sport_bewegung:'🤸 Sport & Bewegung',kreativitaet_workshops:'🎨 Kreativität & Workshops',outdoor_natur:'🌿 Outdoor & Natur',wellness_entspannung:'🧘 Wellness & Entspannung',events_nightlife:'🎉 Events & Nightlife',community_social:'🫶 Community & Social'};
 function _catLabel(id){return _CAT_LABELS[id]||(id?id.replace(/_/g,' '):'')}
-const openActivity=id=>set({selected:id,page:'activity'});const goBack=()=>set({page:S.page==='session'?'provider':S.page==='provider'?'activity':S.page==='planning'?'space':'home',sheet:false});const button=(label,fn,cls='')=>`<button class="btn ${cls}" onclick="${fn}">${label}</button>`;const header=()=>`<header class="header"><button onclick="nav('Discover')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow"><span class="loc">COLOGNE ⌖</span><button class="avatar" onclick="nav('Profile')">${_avatarLetter()}</button></div></header>`;const bottom=()=>`<nav class="bottom">${[['Home','⌂'],['Discover','⌕'],['Calendar','▦'],['Spaces','♧'],['Profile','◉']].map(([t,ic])=>`<button class="nav ${S.tab===t?'active':''}" onclick="nav('${t}')"><span class="sym">${ic}</span>${t}</button>`).join('')}</nav>`;const filters=()=>`<div class="filters"><button class="chip ${S.category==='All'?'on':''}" onclick="set({category:'All'},false)">${_t('all_cats')}</button>${Object.entries(_CAT_LABELS).map(([id,label])=>`<button class="chip ${S.category===id?'on':''}" onclick="set({category:'${id}'},false)">${label}</button>`).join('')}</div>`;const filtered=()=>A.filter(a=>(S.category==='All'||a.category?.toLowerCase()===S.category.toLowerCase()||(a.additionalCategories||[]).some(c=>c.toLowerCase()===S.category.toLowerCase()))&&(`${a.name} ${a.title} ${a.provider} ${a.location}`.toLowerCase().includes(S.search.toLowerCase())));
+const openActivity=id=>set({selected:id,page:'activity'});const goBack=()=>set({page:S.page==='session'?'provider':S.page==='provider'?'activity':S.page==='planning'?'space':'home',sheet:false});const button=(label,fn,cls='')=>`<button class="btn ${cls}" onclick="${fn}">${label}</button>`;const header=()=>`<header class="header"><button onclick="nav('Discover')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow"><span class="loc">COLOGNE ⌖</span><button class="avatar" onclick="nav('Profile')">${_avatarLetter()}</button></div></header>`;const _NAV_KEYS=[['Home','⌂'],['Discover','⌕'],['Calendar','▦'],['Spaces','♧'],['Profile','◉']];
+const _NAV_LABEL={Home:'nav_home',Discover:'nav_discover',Calendar:'nav_calendar',Spaces:'nav_spaces',Profile:'nav_profile'};
+const bottom=()=>`<nav class="bottom">${_NAV_KEYS.map(([t,ic])=>`<button class="nav ${S.tab===t?'active':''}" onclick="nav('${t}')"><span class="sym">${ic}</span>${_t(_NAV_LABEL[t])||t}</button>`).join('')}</nav>`;const filters=()=>`<div class="filters"><button class="chip ${S.category==='All'?'on':''}" onclick="set({category:'All'},false)">${_t('all_cats')}</button>${Object.entries(_CAT_LABELS).map(([id,label])=>`<button class="chip ${S.category===id?'on':''}" onclick="set({category:'${id}'},false)">${label}</button>`).join('')}</div>`;const filtered=()=>A.filter(a=>(S.category==='All'||a.category?.toLowerCase()===S.category.toLowerCase()||(a.additionalCategories||[]).some(c=>c.toLowerCase()===S.category.toLowerCase()))&&(`${a.name} ${a.title} ${a.provider} ${a.location}`.toLowerCase().includes(S.search.toLowerCase())));
 const card=(a,compact=false)=>{const saveBtn=`<button class="iconbtn" style="flex-shrink:0;width:36px;height:36px;font-size:19px" onclick="openSave('${a.id}')">${(S.saved[a.id]||[]).length?'♥':'+'}</button>`;if(compact){return `<article class="card"><div onclick="openActivity('${a.id}')" style="cursor:pointer">${_photoHtml(a,130)}<div class="card-body"><div class="eyebrow" style="font-size:10px">${esc(_catLabel(a.category))}</div><div class="card-title" style="font-size:14px">${esc(a.name)}</div></div></div><div class="between" style="padding:0 12px 10px">${saveBtn}</div></article>`;}return `<article class="card" style="margin-bottom:10px"><div style="display:flex;gap:12px;padding:12px;align-items:center"><div onclick="openActivity('${a.id}')" style="cursor:pointer;width:80px;height:80px;flex-shrink:0;border-radius:10px;overflow:hidden">${_photoHtml(a,80)}</div><div onclick="openActivity('${a.id}')" style="cursor:pointer;flex:1;min-width:0"><div class="eyebrow" style="font-size:10px;margin-bottom:2px">${esc(_catLabel(a.category))}</div><div class="card-title" style="font-size:15px;line-height:1.25;margin:0 0 3px">${esc(a.name)}</div>${a.title?`<div class="meta" style="font-size:12px">${esc(a.title)}</div>`:''}<div class="between" style="margin-top:4px"><span class="meta" style="font-size:12px">⌖ ${esc(a.location)}</span><strong style="font-size:12px">${a.price}</strong></div>${_cardScheduleHint(a)}</div>${saveBtn}</div></article>`;};
-const discovery=()=>`<div class=”content”><h1 class=”headline” style=”margin:4px 0 14px”>${_t('discover')}</h1><input id=”search” class=”search” placeholder=”${_t('search_ph')}” value=”${esc(S.search)}” oninput=”S.search=this.value;save();refreshDiscovery()”>${filters()}<div class=”switch” aria-label=”Discover view”><button class=”${!S.map?'on':''}” onclick=”set({map:false},false)”>${_t('explore')}</button><button class=”${S.map?'on':''}” onclick=”set({map:true},false)”>${_t('map_view')}</button></div>${S.map?`<div id=”realmap” class=”realmap” aria-label=”Interactive activity map of Cologne”></div><div id=”map-info”></div><p class=”footnote”>Interactive OpenStreetMap · Provider locations are approximate demo locations, not verified addresses.</p>`:`<h2 class=”section”>Worth leaving the house for.</h2><div id=”results”>${resultCards()}</div>`}</div>`;function resultCards(){let arr=filtered();return arr.length?arr.map(a=>card(a)).join(''):`<div class=”empty”>${_t('no_results')}</div>`}function refreshDiscovery(){if(S.map)drawPins();else if($('results'))$('results').innerHTML=resultCards()}
+const discovery=()=>`<div class=”content”><h1 class=”headline” style=”margin:0 0 12px”>${_t('discover')}</h1><input id=”search” class=”search” style=”display:block;width:100%” placeholder=”${_t('search_ph')}” value=”${esc(S.search)}” oninput=”S.search=this.value;save();refreshDiscovery()”>${filters()}<div class=”switch” style=”margin:14px 0 16px” aria-label=”Discover view”><button class=”${!S.map?'on':''}” onclick=”set({map:false},false)”>${_t('explore')}</button><button class=”${S.map?'on':''}” onclick=”set({map:true},false)”>${_t('map_view')}</button></div>${S.map?`<div id=”realmap” class=”realmap” aria-label=”Interactive activity map of Cologne”></div><div id=”map-info”></div><p class=”footnote”>Interactive OpenStreetMap · Provider locations are approximate demo locations, not verified addresses.</p>`:`<h2 class=”section”>Worth leaving the house for.</h2><div id=”results”>${resultCards()}</div>`}</div>`;function resultCards(){let arr=filtered();return arr.length?arr.map(a=>card(a)).join(''):`<div class=”empty”>${_t('no_results')}</div>`}function refreshDiscovery(){if(S.map)drawPins();else if($('results'))$('results').innerHTML=resultCards()}
 // Category → pin colour (consistent, no index overflow)
 const _PIN_COLORS={food_drinks:'#ffe566',kultur_entertainment:'#f6a2b4',sport_bewegung:'#b8e0ff',kreativitaet_workshops:'#d9caff',outdoor_natur:'#c8f7c5',wellness_entspannung:'#ffd9b3',events_nightlife:'#ef6b82',community_social:'#65db70'};
 function _pinColor(a){return _PIN_COLORS[a.category]||'#65db70'}
@@ -72,9 +126,9 @@ function _fmtScheduleDetail(a){const parts=[];const DAY={mo:'Mo',di:'Di',mi:'Mi'
 
 // Renders activity hero image or a branded green placeholder when no image is available.
 // Handles null/empty src and broken URLs (onerror). Used in card() and detail().
-function _buildPh(name,sub,h){return`<div style="width:100%;height:${h}px;background:linear-gradient(160deg,#183b28,#2d6a4f);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;box-sizing:border-box;flex-shrink:0"><span style="font-size:20px;opacity:.5">✳</span><span style="color:#fff;font-size:14px;font-weight:800;text-align:center;line-height:1.3;max-width:90%;overflow:hidden;word-break:break-word">${esc(name)}</span>${sub?`<span style="color:#a8e6b4;font-size:11px;font-weight:700;text-align:center;max-width:90%">${esc(sub)}</span>`:''}</div>`}
+function _buildPh(name,sub,h){if(h<=100){return`<div style="width:100%;height:${h}px;background:linear-gradient(160deg,#183b28,#2d6a4f);display:flex;align-items:center;justify-content:center;font-size:${Math.round(h*0.36)}px;flex-shrink:0">✳</div>`}return`<div style="width:100%;height:${h}px;background:linear-gradient(160deg,#183b28,#2d6a4f);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;box-sizing:border-box;flex-shrink:0"><span style="font-size:20px;opacity:.5">✳</span><span style="color:#fff;font-size:14px;font-weight:800;text-align:center;line-height:1.3;max-width:90%;overflow:hidden;word-break:break-word">${esc(name)}</span>${sub?`<span style="color:#a8e6b4;font-size:11px;font-weight:700;text-align:center;max-width:90%">${esc(sub)}</span>`:''}</div>`}
 function _imgErr(el){const n=el.getAttribute('data-fbk')||'',t=el.getAttribute('data-fbt')||'',l=el.getAttribute('data-fbl')||'',h=+el.getAttribute('data-h')||180;el.outerHTML=_buildPh(n,[t,l].filter(Boolean).join(' · '),h)}
-function _photoHtml(a,h){const tag=a.tag||a.category||'',loc=a.location||'',sub=[tag,loc].filter(Boolean).join(' · ');if(!a.img)return _buildPh(a.name,sub,h);return`<img class="photo" style="height:${h}px;object-fit:cover" src="${esc(a.img)}" alt="${esc(a.name)}" loading="lazy" data-fbk="${esc(a.name)}" data-fbt="${esc(tag)}" data-fbl="${esc(loc)}" data-h="${h}" onerror="_imgErr(this)">`}
+function _photoHtml(a,h){const tag=a.tag||a.category||'',loc=a.location||'',sub=[tag,loc].filter(Boolean).join(' · ');if(!a.img){if(h<=100){const em=(_CAT_LABELS[a.category]||'').split(' ')[0]||'✳';return`<div style="width:100%;height:100%;background:linear-gradient(160deg,#183b28,#2d6a4f);display:flex;align-items:center;justify-content:center;font-size:${Math.round(h*0.36)}px">${em}</div>`}return _buildPh(a.name,sub,h)}return`<img class="photo" style="height:${h}px;object-fit:cover" src="${esc(a.img)}" alt="${esc(a.name)}" loading="lazy" data-fbk="${esc(a.name)}" data-fbt="${esc(tag)}" data-fbl="${esc(loc)}" data-h="${h}" onerror="_imgErr(this)">`}
 
 // Schedule display helpers for discovery cards (inlined from _schedule-display.js logic).
 function _berlDate(){const d=new Date();const iso=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Berlin'}).format(d);const[y,m,day]=iso.split('-').map(Number);const wd=['so','mo','di','mi','do','fr','sa'][new Date(Date.UTC(y,m-1,day,12)).getUTCDay()];return{iso,wd}}
@@ -94,7 +148,12 @@ function _toActivity(key, d) {
     title: d.tagline || '',
     provider: d.providerName || d.city || '',
     category: d.category || 'Other',
-    location: (d.location && typeof d.location === 'object' ? (d.location.venueName || d.location.address || '') : (typeof d.location === 'string' ? d.location : '')) || d.district || d.city || '',
+    location: (() => {
+      const vn = d.location && typeof d.location === 'object' ? d.location.venueName || '' : '';
+      const city = d.city || '';
+      if (vn) return city ? `${vn} · ${city}` : vn;
+      return d.district || city || (typeof d.location === 'string' ? d.location : '');
+    })(),
     price: _fmtPrice(d.price),
     lat: d.lat || null,
     lng: d.lng || null,
