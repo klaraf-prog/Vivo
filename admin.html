@@ -253,8 +253,8 @@
                  color: var(--text); margin-top: 6px; width: 100%; max-width: 320px; }
     .qa-search:focus { border-color: var(--primary); }
     .qa-tag-results { background: var(--card); border: 1.5px solid var(--border); border-radius: 8px;
-                      padding: 4px 0; margin-top: 4px; max-height: 100px; overflow-y: auto;
-                      display: none; max-width: 320px; }
+                      padding: 4px 0; margin-top: 4px; max-height: 180px; overflow-y: auto;
+                      max-width: 320px; position: relative; z-index: 50; }
     .qa-tag-result-item { padding: 5px 10px; font-size: .85rem; cursor: pointer; color: var(--text); }
     .qa-tag-result-item:hover { background: var(--primary-l); color: var(--primary-d); }
     .qa-unknown { font-size: .8rem; color: var(--muted); background: #fffbeb; border: 1px solid #fde68a;
@@ -1316,18 +1316,23 @@ function _efTagSearch(query, resultsId, chipsId) {
   const currentIds = new Set(
     chipsEl ? Array.from(chipsEl.querySelectorAll('[data-tagid]')).map(el => el.getAttribute('data-tagid')) : []
   );
-  const matches = Object.entries(_TAG_LABELS)
+  const allLabels = { ..._TAG_LABELS };
+  for (const [tid, t] of Object.entries(_tagCatalog || {})) {
+    if (t.active !== false && !allLabels[tid]) allLabels[tid] = t.label;
+  }
+  const matches = Object.entries(allLabels)
     .filter(([id, label]) => !currentIds.has(id) && (!q || id.includes(q) || label.toLowerCase().includes(q)))
-    .slice(0, 10);
+    .sort((a, b) => a[1].localeCompare(b[1], 'de'))
+    .slice(0, 12);
   if (matches.length === 0) {
-    resultsEl.innerHTML = q ? `<div class="tag-result-item" style="color:var(--muted);cursor:default">Tag nicht vorhanden</div>` : '';
-    resultsEl.style.display = q ? '' : 'none';
+    resultsEl.innerHTML = q ? `<div class="tag-result-item" style="color:var(--muted);cursor:default;font-style:italic">„${q}" — Tag nicht vorhanden</div>` : '';
+    resultsEl.style.display = q ? 'block' : 'none';
     return;
   }
   resultsEl.innerHTML = matches.map(([id, label]) =>
-    `<div class="tag-result-item" onclick="_efTagAdd('${id}','${chipsId}','${resultsId}')">${label}</div>`
+    `<div class="tag-result-item" onmousedown="event.preventDefault();_efTagAdd('${id}','${chipsId}','${resultsId}')" ontouchend="event.preventDefault();_efTagAdd('${id}','${chipsId}','${resultsId}')">${label}</div>`
   ).join('');
-  resultsEl.style.display = '';
+  resultsEl.style.display = 'block';
 }
 function _efTagAdd(tagId, chipsId, resultsId) {
   const chipsEl = document.getElementById(chipsId);
@@ -1385,8 +1390,8 @@ function _renderQuickAssign(id, type, data) {
     <div class="qa-row">
       <div class="qa-label">Tags (max. 5)</div>
       <div class="qa-chips" id="qa-tags-${id}">${tagChips}</div>
-      <input class="qa-search" id="qa-tagsearch-${id}" placeholder="Tag suchen…" oninput="_qaTagSearch('${id}',this.value)" onfocus="_qaTagSearch('${id}',this.value)" onblur="setTimeout(()=>{const r=document.getElementById('qa-tagresults-${id}');if(r)r.style.display='none';},200)">
-      <div class="qa-tag-results" id="qa-tagresults-${id}"></div>
+      <input class="qa-search" id="qa-tagsearch-${id}" placeholder="Tag suchen…" oninput="_qaTagSearch('${id}',this.value)" onfocus="_qaTagSearch('${id}',this.value)" onblur="_qaTagHide('${id}')">
+      <div class="qa-tag-results" id="qa-tagresults-${id}" style="display:none"></div>
       ${unknownHtml}
     </div>
     <div class="qa-actions">
@@ -1416,6 +1421,14 @@ function _qaToggleCat(chip, primarySelId) {
   chip.classList.toggle('on');
 }
 
+function _qaTagHide(id) {
+  // Delay hiding so mousedown/touchend on a result item fires first
+  setTimeout(() => {
+    const r = document.getElementById('qa-tagresults-' + id);
+    if (r) r.style.display = 'none';
+  }, 300);
+}
+
 function _qaTagSearch(id, query) {
   const resultsEl = document.getElementById('qa-tagresults-' + id);
   if (!resultsEl) return;
@@ -1424,18 +1437,25 @@ function _qaTagSearch(id, query) {
   const currentIds = new Set(
     tagsEl ? Array.from(tagsEl.querySelectorAll('[data-qatagid]')).map(el => el.getAttribute('data-qatagid')) : []
   );
-  const matches = Object.entries(_TAG_LABELS)
+  // Merge baseline labels with any custom tags loaded into _tagCatalog
+  const allLabels = { ..._TAG_LABELS };
+  for (const [tid, t] of Object.entries(_tagCatalog || {})) {
+    if (t.active !== false && !allLabels[tid]) allLabels[tid] = t.label;
+  }
+  const matches = Object.entries(allLabels)
     .filter(([tid, label]) => !currentIds.has(tid) && (!q || tid.includes(q) || label.toLowerCase().includes(q)))
-    .slice(0, 10);
+    .sort((a, b) => a[1].localeCompare(b[1], 'de'))
+    .slice(0, 12);
   if (matches.length === 0) {
-    resultsEl.innerHTML = q ? `<div class="qa-tag-result-item" style="color:var(--muted);cursor:default">Tag nicht vorhanden</div>` : '';
-    resultsEl.style.display = q ? '' : 'none';
+    resultsEl.innerHTML = q ? `<div class="qa-tag-result-item" style="color:var(--muted);cursor:default;font-style:italic">„${q}" — Tag nicht vorhanden</div>` : '';
+    resultsEl.style.display = q ? 'block' : 'none';
     return;
   }
+  // Use onmousedown+ontouchend with preventDefault to fire before blur
   resultsEl.innerHTML = matches.map(([tid, label]) =>
-    `<div class="qa-tag-result-item" onclick="_qaTagAdd('${id}','${tid}')">${label}</div>`
+    `<div class="qa-tag-result-item" onmousedown="event.preventDefault();_qaTagAdd('${id}','${tid}')" ontouchend="event.preventDefault();_qaTagAdd('${id}','${tid}')">${label}</div>`
   ).join('');
-  resultsEl.style.display = '';
+  resultsEl.style.display = 'block';
 }
 
 function _qaTagAdd(id, tagId) {
