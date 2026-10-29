@@ -533,7 +533,7 @@ function _profileTab() {
                 : [];
               return sl.length
                 ? sl.map(({ id, name }) => `<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${esc(name)}',spaceId:'${id}',page:'space',spaceTab:'Events'})"><strong>${esc(name)}</strong><span>→</span></button>`).join('')
-                : '<div class="empty">No groups yet.</div>';
+                : `<div class="empty">${_t('prof_no_groups')}</div>`;
             })()
           : S.profileTab==='Friends'
           ? (() => {
