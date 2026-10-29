@@ -9,7 +9,7 @@ const store='someday-pwa-v1',initial={tab:'Home',page:'home',category:'All',sear
 let _lang=localStorage.getItem('someday-lang')||'de';
 const _i18n={
 de:{
-  discover:'Entdecken',search_ph:'Suche nach Erlebnissen…',explore:'Erkunden',map_view:'Karte',
+  discover:'Entdecken',search_ph:'Aktivitäten suchen …',explore:'Erkunden',map_view:'Karte',
   back:'← Zurück',save_someday:'♡ Merken für Someday',all_cats:'Alle',
   lang_section:'Sprache',sign_out:'Abmelden',cal_label:'Kalenderverbindungen',
   acct_label:'Konto',data_label:'Deine Daten',export_btn:'⬇ Daten exportieren',
@@ -35,7 +35,7 @@ de:{
   free:'Kostenlos',donation:'Spende'
 },
 en:{
-  discover:'Discover',search_ph:'Search experiences…',explore:'Explore',map_view:'Map',
+  discover:'Discover',search_ph:'Search activities …',explore:'Explore',map_view:'Map',
   back:'← Back',save_someday:'♡ Save for someday',all_cats:'All',
   lang_section:'Language',sign_out:'Sign out',cal_label:'Calendar connections',
   acct_label:'Account',data_label:'Your data',export_btn:'⬇ Export my data',
@@ -68,7 +68,7 @@ const openActivity=id=>set({selected:id,page:'activity'});const goBack=()=>set({
 const _NAV_LABEL={Home:'nav_home',Discover:'nav_discover',Calendar:'nav_calendar',Spaces:'nav_spaces',Profile:'nav_profile'};
 const bottom=()=>`<nav class="bottom">${_NAV_KEYS.map(([t,ic])=>`<button class="nav ${S.tab===t?'active':''}" onclick="nav('${t}')"><span class="sym">${ic}</span>${_t(_NAV_LABEL[t])||t}</button>`).join('')}</nav>`;const filters=()=>`<div class="filters"><button class="chip ${S.category==='All'?'on':''}" onclick="set({category:'All'},false)">${_t('all_cats')}</button>${Object.entries(_CAT_LABELS).map(([id,label])=>`<button class="chip ${S.category===id?'on':''}" onclick="set({category:'${id}'},false)">${label}</button>`).join('')}</div>`;const filtered=()=>A.filter(a=>(S.category==='All'||a.category?.toLowerCase()===S.category.toLowerCase()||(a.additionalCategories||[]).some(c=>c.toLowerCase()===S.category.toLowerCase()))&&(`${a.name} ${a.title} ${a.provider} ${a.location}`.toLowerCase().includes(S.search.toLowerCase())));
 const card=(a,compact=false)=>{const saveBtn=`<button class="iconbtn" style="flex-shrink:0;width:36px;height:36px;font-size:19px" onclick="openSave('${a.id}')">${(S.saved[a.id]||[]).length?'♥':'+'}</button>`;if(compact){return `<article class="card"><div onclick="openActivity('${a.id}')" style="cursor:pointer">${_photoHtml(a,130)}<div class="card-body"><div class="eyebrow" style="font-size:10px">${esc(_catLabel(a.category))}</div><div class="card-title" style="font-size:14px">${esc(a.name)}</div></div></div><div class="between" style="padding:0 12px 10px">${saveBtn}</div></article>`;}return `<article class="card" style="margin-bottom:10px"><div style="display:flex;gap:12px;padding:12px;align-items:center"><div onclick="openActivity('${a.id}')" style="cursor:pointer;width:80px;height:80px;flex-shrink:0;border-radius:10px;overflow:hidden">${_photoHtml(a,80)}</div><div onclick="openActivity('${a.id}')" style="cursor:pointer;flex:1;min-width:0"><div class="eyebrow" style="font-size:10px;margin-bottom:2px">${esc(_catLabel(a.category))}</div><div class="card-title" style="font-size:15px;line-height:1.25;margin:0 0 3px">${esc(a.name)}</div>${a.title?`<div class="meta" style="font-size:12px">${esc(a.title)}</div>`:''}<div class="between" style="margin-top:4px"><span class="meta" style="font-size:12px">⌖ ${esc(a.location)}</span><strong style="font-size:12px">${a.priceData?_fmtPrice(a.priceData):a.price}</strong></div>${_cardScheduleHint(a)}</div>${saveBtn}</div></article>`;};
-const discovery=()=>`<div class=”content”><h1 class=”headline” style=”margin:0 0 12px”>${_t('discover')}</h1><input id=”search” class=”search” style=”display:block;width:100%” placeholder=”${_t('search_ph')}” value=”${esc(S.search)}” oninput=”S.search=this.value;save();refreshDiscovery()”>${filters()}<div class=”switch” style=”margin:14px 0 16px” aria-label=”Discover view”><button class=”${!S.map?'on':''}” onclick=”set({map:false},false)”>${_t('explore')}</button><button class=”${S.map?'on':''}” onclick=”set({map:true},false)”>${_t('map_view')}</button></div>${S.map?`<div id=”realmap” class=”realmap” aria-label=”Interactive activity map of Cologne”></div><div id=”map-info”></div><p class=”footnote”>Interactive OpenStreetMap · Provider locations are approximate demo locations, not verified addresses.</p>`:`<h2 class=”section”>Worth leaving the house for.</h2><div id=”results”>${resultCards()}</div>`}</div>`;function resultCards(){let arr=filtered();return arr.length?arr.map(a=>card(a)).join(''):`<div class=”empty”>${_t('no_results')}</div>`}function refreshDiscovery(){if(S.map)drawPins();else if($('results'))$('results').innerHTML=resultCards()}
+const discovery=()=>`<div class="content"><h1 class="headline" style="margin:0 0 12px">${_t('discover')}</h1><input id="search" class="search" style="display:block;width:100%" placeholder="${_t('search_ph')}" value="${esc(S.search)}" oninput="S.search=this.value;save();refreshDiscovery()">${filters()}<div class="switch" style="margin:14px 0 16px" aria-label="Discover view"><button class="${!S.map?'on':''}" onclick="set({map:false},false)">${_t('explore')}</button><button class="${S.map?'on':''}" onclick="set({map:true},false)">${_t('map_view')}</button></div>${S.map?`<div id="realmap" class="realmap" aria-label="Interactive activity map of Cologne"></div><div id="map-info"></div><p class="footnote">Interactive OpenStreetMap · Provider locations are approximate demo locations, not verified addresses.</p>`:`<h2 class="section">Worth leaving the house for.</h2><div id="results">${resultCards()}</div>`}</div>`;function resultCards(){let arr=filtered();return arr.length?arr.map(a=>card(a)).join(''):`<div class="empty">${_t('no_results')}</div>`}function refreshDiscovery(){if(S.map)drawPins();else if($('results'))$('results').innerHTML=resultCards()}
 // Category → pin colour (consistent, no index overflow)
 const _PIN_COLORS={food_drinks:'#ffe566',kultur_entertainment:'#f6a2b4',sport_bewegung:'#b8e0ff',kreativitaet_workshops:'#d9caff',outdoor_natur:'#c8f7c5',wellness_entspannung:'#ffd9b3',events_nightlife:'#ef6b82',community_social:'#65db70'};
 function _pinColor(a){return _PIN_COLORS[a.category]||'#65db70'}
@@ -152,6 +152,16 @@ function _toActivity(key, d) {
       const vn = d.location && typeof d.location === 'object' ? d.location.venueName || '' : '';
       const city = d.city || '';
       if (vn) return city ? `${vn} · ${city}` : vn;
+      // Try to extract a venue name from the first token of the Nominatim address.
+      // Only use it when the token has no digits (rules out "Hansaring 97") and is
+      // meaningfully long, so we never show a bare street number in cards.
+      const addr = d.location && typeof d.location === 'object' ? d.location.address || '' : '';
+      if (addr) {
+        const first = addr.split(',')[0].trim();
+        if (first && first.length > 3 && !/\d/.test(first) && first.toLowerCase() !== city.toLowerCase()) {
+          return city ? `${first} · ${city}` : first;
+        }
+      }
       return d.district || city || (typeof d.location === 'string' ? d.location : '');
     })(),
     price: _fmtPrice(d.price),
