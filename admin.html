@@ -879,6 +879,7 @@ async function selectSuggestion(id) {
           <div class="edit-field"><label class="edit-label">Zeitraum bis (JJJJ-MM-TT)</label><input class="edit-input" id="ef-period-to" type="date"></div>
           <div class="edit-field full"><label class="edit-label">Öffnungszeiten (Freitext)</label><input class="edit-input" id="ef-openingHours" placeholder="z. B. Mo–Fr 11–21 Uhr, Sa–So 11–22 Uhr"></div>
           <div class="edit-field full"><label class="edit-label">Reguläre Öffnungszeiten (JSON, z. B. [{"days":["mo","di"],"open":"11:00","close":"21:00"}])</label><textarea class="edit-textarea" id="ef-regularHours" rows="3" placeholder='[{"days":["mo","di","mi","do","fr"],"open":"11:00","close":"21:00"}]'></textarea></div>
+          <div class="edit-field full"><label class="edit-label">Abweichende Zeiten / Schließtage (JSON, z. B. [{"date":"2026-12-25","closed":true}])</label><textarea class="edit-textarea" id="ef-exceptions" rows="3" placeholder='[{"date":"2026-12-25","closed":true},{"date":"2026-12-31","open":"11:00","close":"18:00"}]'></textarea></div>
           <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
           <div class="edit-field full"><label class="edit-label">Quellen (eine URL pro Zeile)</label><textarea class="edit-textarea" id="ef-sources"></textarea></div>
         </div>
@@ -998,6 +999,7 @@ function selectActivity(id) {
           <div class="edit-field"><label class="edit-label">Zeitraum bis (JJJJ-MM-TT)</label><input class="edit-input" id="ef-period-to" type="date"></div>
           <div class="edit-field full"><label class="edit-label">Öffnungszeiten (Freitext)</label><input class="edit-input" id="ef-openingHours" placeholder="z. B. Mo–Fr 11–21 Uhr, Sa–So 11–22 Uhr"></div>
           <div class="edit-field full"><label class="edit-label">Reguläre Öffnungszeiten (JSON, z. B. [{"days":["mo","di"],"open":"11:00","close":"21:00"}])</label><textarea class="edit-textarea" id="ef-regularHours" rows="3" placeholder='[{"days":["mo","di","mi","do","fr"],"open":"11:00","close":"21:00"}]'></textarea></div>
+          <div class="edit-field full"><label class="edit-label">Abweichende Zeiten / Schließtage (JSON, z. B. [{"date":"2026-12-25","closed":true}])</label><textarea class="edit-textarea" id="ef-exceptions" rows="3" placeholder='[{"date":"2026-12-25","closed":true},{"date":"2026-12-31","open":"11:00","close":"18:00"}]'></textarea></div>
           <div class="edit-field full"><label class="edit-label">Bild-URLs (eine pro Zeile)</label><textarea class="edit-textarea" id="ef-imageUrls"></textarea></div>
         </div>
         <div class="edit-actions">
@@ -1080,6 +1082,8 @@ function _fillEditForm(target, data) {
   set('ef-openingHours', data.openingHours || '');
   const rhEl = document.getElementById('ef-regularHours');
   if (rhEl) rhEl.value = sch.regularHours ? JSON.stringify(sch.regularHours, null, 2) : '';
+  const exEl = document.getElementById('ef-exceptions');
+  if (exEl) exEl.value = sch.exceptions ? JSON.stringify(sch.exceptions, null, 2) : '';
   set('ef-imageUrls', (data.imageUrls || []).join('\n'));
   if (target === 'suggestion') set('ef-sources', (data.sources || []).join('\n'));
 }
@@ -1119,6 +1123,8 @@ async function saveEdit(target, id) {
   if (pfrom && pto) currentSch.period = { from: pfrom, to: pto };
   const rhRaw = getVal('regularHours')?.trim();
   if (rhRaw) { try { currentSch.regularHours = JSON.parse(rhRaw); } catch(e) { /* keep existing */ } }
+  const exRaw = getVal('exceptions')?.trim();
+  if (exRaw) { try { currentSch.exceptions = JSON.parse(exRaw); } catch(e) { /* keep existing */ } }
   fields.schedule = Object.keys(currentSch).length > 0 ? currentSch : null;
   fields.openingHours = str('openingHours');
   const imgRaw = getVal('imageUrls');
