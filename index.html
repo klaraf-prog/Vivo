@@ -1,8 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fafbf7"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="someday"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""><title>someday. — make it happen</title><style>
 :root{--green:#65db70;--dark:#183b28;--muted:#68786d;--bg:#fafbf7;--line:#e6eae3;--pink:#ef6b82}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--dark);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.45}#app{max-width:600px;margin:auto;min-height:100dvh;padding-bottom:calc(83px + env(safe-area-inset-bottom))}.header{position:sticky;top:0;z-index:20;background:#fafbf7f5;backdrop-filter:blur(16px);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f2ec}.logo{font-weight:900;font-size:27px;letter-spacing:-1.8px;color:#1388ff}.loc{font-size:11px;font-weight:800;color:#287e43;background:#e6f8e5;padding:9px 12px;border-radius:100px}.avatar{background:var(--dark);color:white;width:36px;height:36px;border-radius:50%;border:0;font-weight:700}.hrow{display:flex;align-items:center;gap:10px}.content{padding:22px 18px}.eyebrow{color:#289c4e;font-size:11px;letter-spacing:1.2px;font-weight:850;text-transform:uppercase}.headline{font-size:32px;line-height:1.08;letter-spacing:-1.4px;margin:9px 0 10px;font-weight:850}.sub{color:var(--muted);font-size:14px;line-height:1.5}.hero{background:var(--green);border-radius:21px;padding:23px;margin-bottom:20px}.hero h1{font-size:30px;letter-spacing:-1.2px;line-height:1.08;margin:9px 0}.search,.field{border:1px solid var(--line);background:white;border-radius:14px;padding:13px 15px;width:100%;outline:none;color:var(--dark)}.search:focus,.field:focus{border-color:#51c965}.filters{display:flex;gap:8px;overflow:auto;margin:14px 0 20px;scrollbar-width:none}.chip{white-space:nowrap;border:1px solid #dfe5dd;background:white;border-radius:40px;padding:9px 15px;color:var(--dark);font-size:13px;font-weight:650}.chip.on{background:#d9f7d9;border-color:#59d66a}.section{font-size:20px;letter-spacing:-.6px;font-weight:800;margin:24px 0 14px}.card{border:1px solid var(--line);border-radius:19px;background:white;overflow:hidden;margin-bottom:17px}.photo{width:100%;height:210px;object-fit:cover;display:block;background:#dcebd9}.card-body{padding:15px 17px}.card-title{font-size:21px;line-height:1.2;letter-spacing:-.55px;font-weight:800;margin:5px 0}.meta{font-size:13px;color:var(--muted);line-height:1.6}.between{display:flex;justify-content:space-between;align-items:center;gap:12px}.iconbtn{border:0;background:#e4f8e1;border-radius:50%;height:40px;width:40px;color:var(--dark);font-size:22px;flex-shrink:0}.btn{background:var(--green);color:var(--dark);border:0;border-radius:13px;padding:14px 18px;font-size:14px;font-weight:800;min-height:47px}.btn.secondary{background:white;border:1px solid #d9e3d8}.btn.dark{background:var(--dark);color:white}.btn.full{width:100%}.stack{display:grid;gap:11px}.rowcard{background:white;border:1px solid var(--line);border-radius:15px;padding:16px;text-align:left;width:100%;color:var(--dark)}.rowcard.selected{background:#e4f9df;border-color:#5bdb6c}.tag{display:inline-block;background:#e4f8e1;color:#27663d;padding:6px 10px;border-radius:30px;font-size:11px;font-weight:800}.tag.pink{background:#fce0e8;color:#8b3d59}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);max-width:600px;width:100%;height:calc(73px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);z-index:30}.nav{border:0;background:none;color:#919b94;font-size:10px;font-weight:650;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}.nav .sym{font-size:22px}.nav.active{color:#226d3b}.nav.active .sym{color:#238e46}.bell-wrap{position:relative;display:inline-flex}.bell-badge{position:absolute;top:-4px;right:-6px;background:#ef6b82;color:white;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:grid;place-items:center;line-height:1;padding:0 3px}.home-greeting{background:var(--dark);color:white;border-radius:20px;padding:22px;margin-bottom:20px}.home-greeting .sub{color:#b7cbbd}.home-section{font-size:17px;letter-spacing:-.4px;font-weight:800;margin:22px 0 12px}.home-invite{background:white;border:1px solid var(--line);border-radius:15px;padding:15px;margin-bottom:10px}.home-rsvp-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.home-rsvp-btn{border:1px solid #d9e3d8;background:white;border-radius:30px;padding:7px 14px;font-size:12px;font-weight:750;color:var(--dark)}.home-rsvp-btn.active{background:#d9f7d9;border-color:#59d66a;color:#183b28}.home-upcoming{background:white;border:1px solid var(--line);border-radius:15px;padding:14px 15px;margin-bottom:10px;text-align:left;width:100%;color:var(--dark)}.home-qa{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}.home-qa-btn{background:white;border:1px solid var(--line);border-radius:16px;padding:18px 14px;text-align:left;color:var(--dark)}.home-qa-icon{font-size:24px;margin-bottom:8px;display:block}.home-qa-label{font-size:13px;font-weight:750}.seg{display:flex;background:#f0f1ec;padding:4px;border-radius:13px;gap:3px}.seg button{flex:1;border:0;background:none;padding:10px 12px;border-radius:10px;font-weight:700;color:#69746c}.seg button.active{background:white;color:var(--dark);box-shadow:0 1px 4px #0000000d}.back{border:0;background:none;color:#277c42;font-weight:750;padding:0;margin:0 0 17px}.sheetbg{position:fixed;inset:0;background:#102f1c70;z-index:40;display:flex;align-items:flex-end;justify-content:center}.sheet{background:var(--bg);width:min(600px,100%);border-radius:25px 25px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));max-height:90dvh;overflow:auto}.calendar-scroll{overflow-x:auto;background:white;border:1px solid var(--line);border-radius:12px}.calendar{position:relative;min-width:520px;height:720px;background:repeating-linear-gradient(to bottom,#fff 0px,#fff 49px,#e9ece6 50px);margin-left:37px;margin-top:38px}.cal-head{display:grid;grid-template-columns:repeat(7,1fr);position:absolute;top:-38px;width:100%;height:38px}.cal-day{border:0;border-left:1px solid #e9ece6;background:white;font-size:12px;font-weight:700}.cal-line{position:absolute;top:0;bottom:0;width:1px;background:#edf0ea}.cal-time{position:absolute;left:-37px;font-size:10px;color:#839087;transform:translateY(-6px)}.cal-event{position:absolute;border:0;border-left:3px solid;border-radius:5px;text-align:left;padding:4px;font-size:10px;font-weight:700;overflow:hidden;line-height:1.25}.monthgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}.monthcell{min-height:65px;background:white;border:1px solid #eef0ea;border-radius:4px;padding:4px;font-size:12px;overflow:hidden}.monthlabel{font-size:9px;line-height:1.2;padding:3px;margin-top:3px;border-radius:3px;cursor:pointer}.toggle{display:flex;gap:7px;flex-wrap:wrap}.toggle button{border:1px solid #e0e5dc;background:white;border-radius:40px;padding:8px 10px;font-size:11px;font-weight:750}.toggle button.on{background:#e3f7e0;border-color:#66d776}.mutedbox{background:#e7f7e4;border-radius:14px;padding:16px}.warn{background:#fff2d8;color:#795b2b;border-radius:12px;padding:13px;font-size:13px}.small{font-size:12px;color:var(--muted)}.empty{background:white;border:1px dashed #cddbcc;border-radius:16px;padding:25px;text-align:center}.profiletop{background:var(--dark);color:white;border-radius:20px;padding:23px;margin-bottom:20px}.profiletop .sub{color:#b7cbbd}h2{letter-spacing:-.6px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid2 .photo{height:120px}.grid2 .card-title{font-size:15px}.footnote{font-size:11px;color:#88958b;margin-top:20px;line-height:1.5}.switch{display:grid;grid-template-columns:1fr 1fr;background:#e9eee7;border-radius:14px;padding:4px;margin:16px 0}.switch button{border:0;background:transparent;padding:12px;border-radius:11px;color:#617168;font-weight:800}.switch button.on{background:white;color:var(--dark);box-shadow:0 1px 5px #00000013}.realmap{height:min(60vh,490px);min-height:340px;border-radius:18px;overflow:hidden;border:1px solid #dfe8dc}.mapinfo{margin-top:12px;background:white;border:1px solid var(--line);border-radius:15px;overflow:hidden}.mapinfo img{width:92px;height:92px;object-fit:cover}.mapbadge{background:var(--green);border:2px solid var(--dark);border-radius:50%;width:35px;height:35px;display:grid;place-items:center;font-size:16px;box-shadow:0 2px 8px #0002}.createfloat{position:fixed;bottom:calc(85px + env(safe-area-inset-bottom));right:max(calc((100vw - 580px)/2),18px);z-index:29;border:0;background:var(--dark);color:white;border-radius:50%;height:53px;width:53px;font-size:32px;box-shadow:0 5px 20px #153b283d}.formlabel{font-size:12px;font-weight:800;margin:10px 0 6px;display:block}.checks{display:grid;gap:8px}.checkrow{display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14px}.checkrow input{accent-color:#36ad52;width:19px;height:19px}.pill{font-size:11px;font-weight:800;padding:5px 9px;border-radius:20px;background:#e3f8e2}.leaflet-container{font-family:inherit}.leaflet-popup-content-wrapper{border-radius:13px}.leaflet-popup-content{font-size:13px}
+.poll-divider{border-top:1.5px solid var(--line);margin:8px 0}.poll-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px}.poll-toggle-label strong{font-size:.9375rem;font-weight:600;color:var(--dark);display:block}.poll-opt-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}.poll-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}.poll-card.i-voted{border-color:#f0b429;background:#FFF8EC}.poll-card.confirmed{border-color:#5CB87A;background:#F0FAF4}.poll-card-head{display:flex;align-items:center;justify-content:space-between}.poll-card-date{font-weight:600;font-size:.9375rem}.poll-card-votes{font-size:.875rem;color:var(--muted)}.poll-bar-wrap{background:var(--bg);border-radius:6px;height:6px;margin-top:8px}.poll-bar{background:#f0b429;border-radius:6px;height:6px;transition:width .3s}.poll-opt-remove{flex-shrink:0;background:none;border:none;color:var(--pink);font-size:1.25rem;cursor:pointer}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 let A=[{id:'pottery',name:'Pottery & painting',title:'Make something with your hands.',provider:'Studio Clay',category:'Creative',location:'Ehrenfeld',price:'€35',lat:50.9496,lng:6.9197,img:'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=1100&q=85',tag:'GET CREATIVE'},{id:'supper',name:'The supper club',title:'Good food. Better company.',provider:'The Supper Table',category:'Food',location:'Belgisches Viertel',price:'€45',lat:50.9416,lng:6.9324,img:'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1100&q=85',tag:'AROUND THE TABLE'},{id:'yoga',name:'Sunday yoga',title:'Slow mornings, good energy.',provider:'Flow Studio',category:'Wellness',location:'Südstadt',price:'€18',lat:50.9195,lng:6.9573,img:'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1100&q=85',tag:'SLOW DOWN'},{id:'run',name:'Social run & coffee',title:'Find your people, one run at a time.',provider:'Cologne Run Club',category:'Sport',location:'Rheinauhafen',price:'Free',lat:50.927,lng:6.965,img:'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1100&q=85',tag:'MOVE TOGETHER'}];
 const store='someday-pwa-v1',initial={tab:'Home',page:'home',category:'All',search:'',map:false,selected:'pottery',space:'Weekend Crew',spaceTab:'Ideas',profileTab:'Saved',saved:{pottery:['Weekend Crew','Just for me'],yoga:['Just for me']},plans:[],week:0,calView:'Week',layers:['Personal','Weekend Crew','Run Club'],date:'2026-10-23',choices:['2026-10-23','2026-10-24'],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[]};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>set({tab:t,page:'home',sheet:false,settings:false});
@@ -32,7 +34,12 @@ de:{
   spaces_eyebrow:'GEMEINSAM BESSER ✳',spaces_headline:'Eure Leute.<br>Eure Pläne.',
   spaces_create:'+ Gruppenplan erstellen',spaces_no_plans:'Noch keine Pläne.',
   spaces_back:'← Alle Spaces',spaces_good_ahead:'Gutes steht bevor.',
-  free:'Kostenlos',donation:'Spende'
+  free:'Kostenlos',donation:'Spende',
+  poll_toggle_label:'Termin abstimmen lassen',poll_toggle_sub:'Mehrere Datums-Optionen zur Wahl stellen',
+  poll_add_option:'+ Datum-Option hinzufügen',poll_date_open:'Datum offen',
+  poll_vote_as:'Abstimmen als…',poll_voted:'✓ Abgestimmt',poll_vote_btn:'Abstimmen',
+  poll_confirm_btn:'Termin bestätigen ✓',poll_section_title:'Termin abstimmen',
+  poll_confirmed_toast:'Termin bestätigt! Alle werden benachrichtigt.'
 },
 en:{
   discover:'Discover',search_ph:'Search activities …',explore:'Explore',map_view:'Map',
@@ -58,7 +65,12 @@ en:{
   spaces_eyebrow:'BETTER TOGETHER ✳',spaces_headline:'Your people.<br>Your plans.',
   spaces_create:'+ Create group plan',spaces_no_plans:'No plans yet.',
   spaces_back:'← All Spaces',spaces_good_ahead:'Good things ahead.',
-  free:'Free',donation:'Donation'
+  free:'Free',donation:'Donation',
+  poll_toggle_label:'Find a time together',poll_toggle_sub:'Offer multiple date options to vote on',
+  poll_add_option:'+ Add date option',poll_date_open:'Date open',
+  poll_vote_as:'Vote as…',poll_voted:'✓ Voted',poll_vote_btn:'Vote',
+  poll_confirm_btn:'Confirm this date ✓',poll_section_title:'Date poll',
+  poll_confirmed_toast:'Date confirmed! Everyone has been notified.'
 }};
 function _t(k){return(_i18n[_lang]||_i18n.de)[k]||k}
 function _setLang(l){_lang=l;localStorage.setItem('someday-lang',l);render()}
@@ -109,8 +121,8 @@ function planCard(p){return `<button class="rowcard" style="margin-bottom:10px" 
 const calOwners={'Personal':['#f9dce6','#b34d76'],'Weekend Crew':['#d8f5d5','#268547'],'Run Club':['#e7dffa','#7863bc']};function calEvents(){return [{id:'dentist',date:'2026-10-21',start:10,end:11,title:'Dentist',owner:'Personal'},{id:'dinner',date:'2026-10-23',start:19,end:20,title:'Dinner with Leo',owner:'Personal'},{id:'run',date:'2026-10-24',start:9,end:10.5,title:'Social run',owner:'Run Club'},...S.plans.flatMap(p=>(p.spaces||[p.space]).map(space=>({id:p.id,date:p.date,start:Number((p.start||'18:30').split(':')[0])+Number((p.start||'18:30').split(':')[1])/60,end:Number((p.end||'20:30').split(':')[0])+Number((p.end||'20:30').split(':')[1])/60,title:p.title,owner:space})))].filter(e=>e.owner in calOwners)}function calendar(){const _t=new Date(),_dow=(_t.getUTCDay()+6)%7,_m=new Date(Date.UTC(_t.getUTCFullYear(),_t.getUTCMonth(),_t.getUTCDate()-_dow));let start=new Date(Date.UTC(_m.getUTCFullYear(),_m.getUTCMonth(),_m.getUTCDate()+7*S.week)),days=Array.from({length:7},(_,i)=>{let d=new Date(start);d.setUTCDate(start.getUTCDate()+i);return d.toISOString().slice(0,10)}),es=calEvents().filter(e=>S.layers.includes(e.owner));let label=`${days[0].slice(5)} – ${days[6].slice(5)} · ${start.getUTCFullYear()}`;return `<div class="content"><div class="between"><h1 class="headline">Calendar</h1>${segment('calView',['Week','Month'])}</div><div class="toggle">${Object.keys(calOwners).map(t=>`<button class="${S.layers.includes(t)?'on':''}" onclick="toggleLayer('${t}')"><span style="color:${calOwners[t][1]}">●</span> ${t}</button>`).join('')}</div><div class="between" style="margin:20px 0"><button class="chip" onclick="set({week:S.week-1})">←</button><strong>${label}</strong><button class="chip" onclick="set({week:S.week+1})">→</button></div>${button('+ New event',"openCreate('personal')",'secondary full')}<div style="height:15px"></div>${S.calView==='Week'?`<div class="calendar-scroll"><div class="calendar"><div class="cal-head">${days.map((d,i)=>`<button class="cal-day" onclick="openCreate('personal','', '${d}')">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}<br>${Number(d.slice(-2))}</button>`).join('')}</div>${Array.from({length:14},(_,i)=>`<div class="cal-time" style="top:${i*50}px">${i+8}:00</div>`).join('')}${Array.from({length:7},(_,i)=>`<div class="cal-line" style="left:${i*100/7}%"></div>`).join('')}${es.filter(e=>days.includes(e.date)&&e.start>=8&&e.start<22).map(e=>{let col=days.indexOf(e.date),overlap=es.filter(f=>f!==e&&f.date===e.date&&f.start<e.end&&f.end>e.start),side=overlap.length&&e.start>=overlap[0].start?1:0,w=overlap.length?6.8:13.6;return `<button class="cal-event" onclick="openEvent('${e.id}')" style="left:calc(${col*100/7+side*6.8}% + 2px);width:calc(${w}% - 3px);top:${(e.start-8)*50}px;height:${Math.max(25,(e.end-e.start)*50-2)}px;background:${calOwners[e.owner][0]};border-color:${calOwners[e.owner][1]};color:${calOwners[e.owner][1]}">${esc(e.title)}<br>${formatHour(e.start)}</button>`}).join('')}</div></div>`:`<div class="monthgrid">${['M','T','W','T','F','S','S'].map(d=>`<div class="small" style="text-align:center">${d}</div>`).join('')}${(()=>{let first=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),1)),offset=(first.getUTCDay()+6)%7,month=first.getUTCMonth(),cells=Array.from({length:offset+new Date(Date.UTC(first.getUTCFullYear(),month+1,0)).getUTCDate()},(_,i)=>i<offset?'':new Date(Date.UTC(first.getUTCFullYear(),month,i-offset+1)).toISOString().slice(0,10));return cells.map(d=>`<div class="monthcell" onclick="${d?`openCreate('personal','','${d}')`:''}">${d?Number(d.slice(-2)):''}${es.filter(e=>e.date===d).slice(0,3).map(e=>`<div class="monthlabel" onclick="event.stopPropagation();openEvent('${e.id}')" style="background:${calOwners[e.owner][0]};color:${calOwners[e.owner][1]}">${esc(e.title)}</div>`).join('')}</div>`).join('')})()}</div>`}<p class="footnote">Calendar ownership uses color. Group plans are not bookings. Connections to Google/Apple are not active in this demo.</p></div>`}function formatHour(n){return `${String(Math.floor(n)).padStart(2,'0')}:${n%1?'30':'00'}`}function toggleLayer(t){S.layers=S.layers.includes(t)?S.layers.filter(x=>x!==t):[...S.layers,t];save();render()}function openEvent(id){set({eventId:id,page:'event'})}const eventPage=()=>{let e=calEvents().find(x=>String(x.id)===String(S.eventId)),p=S.plans.find(p=>String(p.id)===String(S.eventId));if(!e)return `<div class="content">Event not found. ${button('Back',"nav('Calendar')")}</div>`;return `<div class="content"><button class="back" onclick="nav('Calendar')">← Calendar</button><div class="eyebrow">${esc(e.owner)}</div><h1 class="headline">${esc(e.title)}</h1><div class="mutedbox"><strong>${esc(e.date)}</strong><p>${formatHour(e.start)} – ${formatHour(e.end)}</p><span class="small">${p?esc(p.status):'Sample calendar event'}</span>${p&&p.location?`<p>${esc(p.location)}</p>`:''}${p&&p.description?`<p>${esc(p.description)}</p>`:''}</div>${p?`<div class="stack" style="margin-top:15px">${button('Edit event',`openEdit('${p.id}')`,'secondary full')}${button('Share event',`sharePlan('${p.id}')`,'secondary full')}</div>${p.space!=='Personal'?`<h2 class="section">Your RSVP</h2><div class="toggle">${['Going','Maybe',"Can't"].map(r=>`<button class="${p.rsvp===r?'on':''}" onclick="updateRsvp('${p.id}','${r}')">${r}</button>`).join('')}</div>`:''}<div class="warn" style="margin-top:16px">${p.booked?'Marked booked (demo).':'Not booked. A plan is not a reservation.'}</div>${button(p.booked?'Undo booking status':'Mark booked (demo)',`toggleBooked('${p.id}')`,'secondary full')}${button('Delete event',`deletePlan('${p.id}')`,'secondary full')}`:''}</div>`};function updateRsvp(id,r){let p=S.plans.find(p=>String(p.id)===String(id));if(p)p.rsvp=r;save();render()}function toggleBooked(id){let p=S.plans.find(p=>String(p.id)===String(id));if(p)p.booked=!p.booked;save();render()}function deletePlan(id){if(!confirm('Delete this event?'))return;S.plans=S.plans.filter(p=>String(p.id)!==String(id));set({page:'home'})}function sharePlan(id){let p=S.plans.find(p=>String(p.id)===String(id));if(!p)return;let msg=`${p.title} · ${p.date} ${p.start||''} · ${p.location||''} — planned on someday.`;if(navigator.share)navigator.share({title:p.title,text:msg}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(msg).then(()=>alert('Event details copied.'));else prompt('Copy event details:',msg)}
 const profile=()=>`<div class="content">${S.settings?`<button class="back" onclick="set({settings:false})">← Profile</button><h1 class="headline">Settings</h1><h2 class="section">Calendar connections</h2>${['Google','Apple','Outlook'].map(c=>`<button class="rowcard between" style="margin-bottom:10px" onclick="toggleConnection('${c}')"><strong>${c} Calendar</strong><span>${S.connections.includes(c)?'Demo enabled ✓':'Demo off'}</span></button>`).join('')}<p class="footnote">No actual calendar account is connected. These are preview toggles only.</p>`:`<div class="profiletop"><div class="hrow"><div class="avatar" style="display:grid;place-items:center;width:58px;height:58px;background:#65db70;color:#183b28;font-size:23px">K</div><div><h2 style="margin:0">Klara</h2><div class="sub">Cologne · 2 Spaces</div></div></div><h2 style="margin:24px 0 3px">Good things are on the horizon.</h2><p class="sub">Your little corner of someday ✳</p></div><div class="between"><h2 class="section">Your profile</h2><button class="chip" onclick="set({settings:true})">⚙ Settings</button></div>${segment('profileTab',['Saved','Spaces','Activity'])}<div style="margin-top:18px">${S.profileTab==='Saved'?`<h2 class="section">Your someday list</h2><div class="grid2">${A.filter(a=>(S.saved[a.id]||[]).includes('Just for me')).map(a=>card(a,true)).join('')}</div>`:S.profileTab==='Spaces'?['Weekend Crew','Run Club'].map(t=>`<button class="rowcard between" style="margin-bottom:10px" onclick="set({tab:'Spaces',space:'${t}',page:'space'})"><strong>${t}</strong><span>→</span></button>`).join(''):`<div class="mutedbox">${S.plans.length} plans created in this demo.</div>`}</div>`}</div>`;function toggleConnection(c){S.connections=S.connections.includes(c)?S.connections.filter(x=>x!==c):[...S.connections,c];save();render()}
 // Create / edit custom personal events, multi-Space group plans, and undated ideas.
-function openCreate(type='personal',ideaId='',date=''){let idea=(S.ideas||[]).find(x=>String(x.id)===String(ideaId));D={id:null,kind:type,title:idea?.title||'',description:idea?.description||'',location:'',date:date||new Date().toISOString().slice(0,10),start:'18:00',end:'20:00',spaces:type==='group'?[S.space||'Weekend Crew']:[],method:'quick',options:[],step:'form',sourceIdea:ideaId||null};set({sheet:'create'},false)}function openEdit(id){let p=S.plans.find(p=>String(p.id)===String(id));if(!p)return;D={id:p.id,kind:p.space==='Personal'?'personal':'group',title:p.title,description:p.description||'',location:p.location||'',date:p.date,start:p.start||'18:00',end:p.end||'20:00',spaces:[...(p.spaces||[p.space])].filter(x=>x!=='Personal'),method:p.method||'quick',options:p.options||[],step:'form'};set({sheet:'create'},false)}function updateD(key,val){D[key]=val}function toggleDspace(t){D.spaces=D.spaces.includes(t)?D.spaces.filter(x=>x!==t):[...D.spaces,t];render()}function changeKind(k){D.kind=k;if(k==='group'&&!D.spaces.length)D.spaces=[S.space||'Weekend Crew'];render()}function saveCustom(){let title=($('d-title')?.value||D.title||'').trim();if(!title){alert('Please add a title.');return}D.title=title;D.description=$('d-desc')?.value||D.description;D.location=$('d-location')?.value||D.location;if(D.kind==='idea'){if(!D.spaces.length){alert('Choose at least one Space.');return}S.ideas=S.ideas||[];S.ideas.push({id:Date.now(),title:D.title,description:D.description,spaces:[...D.spaces]});set({sheet:false,tab:'Spaces',page:'space',space:D.spaces[0],spaceTab:'Ideas'});return}D.date=$('d-date')?.value||D.date;D.start=$('d-start')?.value||D.start;D.end=$('d-end')?.value||D.end;if(!D.date||!D.start||!D.end||D.end<=D.start){alert('Please choose a valid date and end time after the start.');return}if(D.kind==='group'&&!D.spaces.length){alert('Choose at least one Space.');return}if(D.kind==='group'&&D.method==='poll'&&!D.id&&D.step!=='poll'){D.step='poll';D.options=[D.date];render();return}commitCustom()}function commitCustom(){let p={id:D.id||Date.now(),title:D.title,description:D.description,location:D.location,date:D.date,start:D.start,end:D.end,space:D.kind==='personal'?'Personal':D.spaces[0],spaces:D.kind==='personal'?['Personal']:[...D.spaces],status:D.kind==='personal'?'Personal':D.method==='poll'?'Finding a time':'Proposed',rsvp:D.kind==='personal'?'Going':'Maybe',booked:false,custom:true,method:D.method,options:[...D.options]};let index=S.plans.findIndex(x=>String(x.id)===String(D.id));if(index>=0)S.plans[index]={...S.plans[index],...p};else S.plans.push(p);set({sheet:false,tab:D.kind==='personal'?'Calendar':'Spaces',page:D.kind==='personal'?'home':'space',space:D.kind==='personal'?S.space:D.spaces[0],spaceTab:'Plans'})}function addPollDate(){let d=$('poll-date')?.value;if(d&&!D.options.includes(d)){D.options.push(d);render()}}function removePollDate(d){D.options=D.options.filter(x=>x!==d);render()}
-function createSheet(){return `<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">${D.id?'EDIT EVENT':'CREATE SOMETHING ✳'}</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">${D.id?'Make a change.':D.step==='poll'?'Find a time together.':'Make it happen.'}</h1>${D.step==='poll'?`<p class="sub">Add candidate dates for your group. This creates a planning proposal, not a confirmed booking. Availability responses are demo-only.</p><div class="stack">${D.options.map(x=>`<div class="rowcard between"><strong>${esc(x)}</strong><button class="chip" onclick="removePollDate('${x}')">Remove</button></div>`).join('')}<label class="formlabel">Another date</label><input id="poll-date" type="date" class="field" value="${esc(D.date)}">${button('+ Add date','addPollDate()','secondary full')}${button('Create date poll →','commitCustom()','full')}</div>`:`<div class="switch" style="grid-template-columns:repeat(3,1fr)"><button class="${D.kind==='personal'?'on':''}" onclick="changeKind('personal')">Personal</button><button class="${D.kind==='group'?'on':''}" onclick="changeKind('group')">Group plan</button><button class="${D.kind==='idea'?'on':''}" onclick="changeKind('idea')">Idea</button></div><label class="formlabel">Title *</label><input class="field" id="d-title" placeholder="Dinner with friends, movie night…" value="${esc(D.title)}" oninput="updateD('title',this.value)"><label class="formlabel">Description (optional)</label><textarea class="field" id="d-desc" rows="2" placeholder="What's the plan?" oninput="updateD('description',this.value)">${esc(D.description)}</textarea>${D.kind!=='idea'?`<label class="formlabel">Location (optional)</label><input class="field" id="d-location" placeholder="Where?" value="${esc(D.location)}" oninput="updateD('location',this.value)"><label class="formlabel">Date</label><input class="field" id="d-date" type="date" value="${esc(D.date)}" onchange="updateD('date',this.value)"><div class="hrow"><div style="flex:1;min-width:0"><label class="formlabel">Start</label><input class="field" id="d-start" type="time" value="${esc(D.start)}" onchange="updateD('start',this.value)"></div><div style="flex:1;min-width:0"><label class="formlabel">End</label><input class="field" id="d-end" type="time" value="${esc(D.end)}" onchange="updateD('end',this.value)"></div></div>`:''}${D.kind!=='personal'?`<label class="formlabel">${D.kind==='idea'?'Save idea to Spaces':'Share with Spaces'}</label><div class="checks">${(_spaceFormTargets().length?_spaceFormTargets().map(({name:t})=>`<label class="checkrow"><input type="checkbox" ${D.spaces.includes(t)?'checked':''} onchange="toggleDspace('${t}')">${esc(t)}</label>`).join(''):'<p class="sub" style="color:#c0392b">No groups yet. <button onclick="nav(\'Spaces\')" style="border:0;background:none;color:#277c42;font-weight:700;cursor:pointer">Create one →</button></p>')}</div>`:''}${D.kind==='group'&&!D.id?`<label class="formlabel">How should we plan?</label><div class="stack"><label class="checkrow"><input type="radio" name="method" ${D.method==='quick'?'checked':''} onchange="D.method='quick'">Suggest this date · friends RSVP</label><label class="checkrow"><input type="radio" name="method" ${D.method==='poll'?'checked':''} onchange="D.method='poll'">Find a time together · date poll</label></div>`:''}<div style="height:16px"></div>${button(D.kind==='idea'?'Save idea →':D.kind==='personal'?'Save to my calendar →':D.method==='poll'&&!D.id?'Continue to date options →':'Create group plan →','saveCustom()','full')}<p class="footnote">Events and ideas are stored on this device only. Sharing a plan with Spaces does not send real invitations yet.</p>`}</div></div>`}
+function openCreate(type='personal',ideaId='',date=''){let idea=(S.ideas||[]).find(x=>String(x.id)===String(ideaId));D={id:null,kind:type,title:idea?.title||'',description:idea?.description||'',location:'',date:date||new Date().toISOString().slice(0,10),start:'18:00',end:'20:00',spaces:type==='group'?[S.space||'Weekend Crew']:[],method:'quick',options:[],step:'form',sourceIdea:ideaId||null};set({sheet:'create'},false)}function openEdit(id){let p=S.plans.find(p=>String(p.id)===String(id));if(!p)return;D={id:p.id,kind:p.space==='Personal'?'personal':'group',title:p.title,description:p.description||'',location:p.location||'',date:p.date,start:p.start||'18:00',end:p.end||'20:00',spaces:[...(p.spaces||[p.space])].filter(x=>x!=='Personal'),method:p.method||'quick',options:p.options||[],step:'form'};set({sheet:'create'},false)}function updateD(key,val){D[key]=val}function toggleDspace(t){D.spaces=D.spaces.includes(t)?D.spaces.filter(x=>x!==t):[...D.spaces,t];render()}function changeKind(k){D.kind=k;if(k==='group'&&!D.spaces.length)D.spaces=[S.space||'Weekend Crew'];render()}function saveCustom(){let title=($('d-title')?.value||D.title||'').trim();if(!title){alert('Please add a title.');return}D.title=title;D.description=$('d-desc')?.value||D.description;D.location=$('d-location')?.value||D.location;if(D.kind==='idea'){if(!D.spaces.length){alert('Choose at least one Space.');return}S.ideas=S.ideas||[];S.ideas.push({id:Date.now(),title:D.title,description:D.description,spaces:[...D.spaces]});set({sheet:false,tab:'Spaces',page:'space',space:D.spaces[0],spaceTab:'Ideas'});return}D.date=$('d-date')?.value||D.date;D.start=$('d-start')?.value||D.start;D.end=$('d-end')?.value||D.end;if(!D.date||!D.start||!D.end||D.end<=D.start){alert('Please choose a valid date and end time after the start.');return}if(D.kind==='group'&&!D.spaces.length){alert('Choose at least one Space.');return}if(D.kind==='group'&&D.method==='poll'&&!D.id&&D.step!=='poll'){D.step='poll';_pollOptions=[];render();setTimeout(renderPollOptions,0);return}commitCustom()}function commitCustom(){let p={id:D.id||Date.now(),title:D.title,description:D.description,location:D.location,date:D.date,start:D.start,end:D.end,space:D.kind==='personal'?'Personal':D.spaces[0],spaces:D.kind==='personal'?['Personal']:[...D.spaces],status:D.kind==='personal'?'Personal':D.method==='poll'?'Finding a time':'Proposed',rsvp:D.kind==='personal'?'Going':'Maybe',booked:false,custom:true,method:D.method,options:[...D.options]};let index=S.plans.findIndex(x=>String(x.id)===String(D.id));if(index>=0)S.plans[index]={...S.plans[index],...p};else S.plans.push(p);set({sheet:false,tab:D.kind==='personal'?'Calendar':'Spaces',page:D.kind==='personal'?'home':'space',space:D.kind==='personal'?S.space:D.spaces[0],spaceTab:'Plans'})}function addPollDate(){let d=$('poll-date')?.value;if(d&&!D.options.includes(d)){D.options.push(d);render()}}function removePollDate(d){D.options=D.options.filter(x=>x!==d);render()}
+function createSheet(){return `<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">${D.id?'EDIT EVENT':'CREATE SOMETHING ✳'}</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">${D.id?'Make a change.':D.step==='poll'?'Find a time together.':'Make it happen.'}</h1>${D.step==='poll'?`<p class="sub">Füge Terminoptionen hinzu. Die Gruppe kann abstimmen, du bestätigst den Termin.</p><div id="poll-options-list"></div>${button(_t('poll_add_option'),'addPollOption()','secondary full')}<div style="height:16px"></div>${button('Umfrage erstellen →','commitCustom()','full')}`:`<div class="switch" style="grid-template-columns:repeat(3,1fr)"><button class="${D.kind==='personal'?'on':''}" onclick="changeKind('personal')">Personal</button><button class="${D.kind==='group'?'on':''}" onclick="changeKind('group')">Group plan</button><button class="${D.kind==='idea'?'on':''}" onclick="changeKind('idea')">Idea</button></div><label class="formlabel">Title *</label><input class="field" id="d-title" placeholder="Dinner with friends, movie night…" value="${esc(D.title)}" oninput="updateD('title',this.value)"><label class="formlabel">Description (optional)</label><textarea class="field" id="d-desc" rows="2" placeholder="What's the plan?" oninput="updateD('description',this.value)">${esc(D.description)}</textarea>${D.kind!=='idea'?`<label class="formlabel">Location (optional)</label><input class="field" id="d-location" placeholder="Where?" value="${esc(D.location)}" oninput="updateD('location',this.value)"><label class="formlabel">Date</label><input class="field" id="d-date" type="date" value="${esc(D.date)}" onchange="updateD('date',this.value)"><div class="hrow"><div style="flex:1;min-width:0"><label class="formlabel">Start</label><input class="field" id="d-start" type="time" value="${esc(D.start)}" onchange="updateD('start',this.value)"></div><div style="flex:1;min-width:0"><label class="formlabel">End</label><input class="field" id="d-end" type="time" value="${esc(D.end)}" onchange="updateD('end',this.value)"></div></div>`:''}${D.kind!=='personal'?`<label class="formlabel">${D.kind==='idea'?'Save idea to Spaces':'Share with Spaces'}</label><div class="checks">${(_spaceFormTargets().length?_spaceFormTargets().map(({name:t})=>`<label class="checkrow"><input type="checkbox" ${D.spaces.includes(t)?'checked':''} onchange="toggleDspace('${t}')">${esc(t)}</label>`).join(''):'<p class="sub" style="color:#c0392b">No groups yet. <button onclick="nav(\'Spaces\')" style="border:0;background:none;color:#277c42;font-weight:700;cursor:pointer">Create one →</button></p>')}</div>`:''}${D.kind==='group'&&!D.id?`<label class="formlabel">How should we plan?</label><div class="stack"><label class="checkrow"><input type="radio" name="method" ${D.method==='quick'?'checked':''} onchange="D.method='quick'">Suggest this date · friends RSVP</label><label class="checkrow"><input type="radio" name="method" ${D.method==='poll'?'checked':''} onchange="D.method='poll'">Find a time together · date poll</label></div>`:''}<div style="height:16px"></div>${button(D.kind==='idea'?'Save idea →':D.kind==='personal'?'Save to my calendar →':D.method==='poll'&&!D.id?'Continue to date options →':'Create group plan →','saveCustom()','full')}<p class="footnote">Events and ideas are stored on this device only. Sharing a plan with Spaces does not send real invitations yet.</p>`}</div></div>`}
 function render(){if(mapInstance){mapInstance.remove();mapInstance=null;mapMarkers=[]}let p=S.page==='home'?({Discover:discovery,Calendar:calendar,Spaces:spaces,Profile:profile}[S.tab]||discovery)():({activity:detail,provider,session,space,planning,event:eventPage,booking:()=>`<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>`}[S.page]||discovery)();$('app').innerHTML=header()+p+bottom()+(S.page==='home'&&(S.tab==='Calendar'||S.tab==='Spaces')?'<button class="createfloat" aria-label="Create event" onclick="openCreate(S.tab===\'Calendar\'?\'personal\':\'group\')">+</button>':'')+(S.sheet?(S.sheet==='save'?saveSheet():createSheet()):'');if(S.map&&S.tab==='Discover'&&S.page==='home')setTimeout(initMap,0)}
 // ── Firebase activity integration ─────────────────────────────────────────
 // Activities are loaded via the /.netlify/functions/activities endpoint.
@@ -217,15 +229,19 @@ const _fbConfig = {
 
 let _fbApp  = null;
 let _fbAuth = null;
+let _db     = null; // Firebase RTDB instance (for poll votes)
 let _currentUser = null; // Firebase User or null
 let _userData    = null; // { uid, profile, userEvents, userSpaces } or null
 let _authReady   = false;
+let _pollEnabled = false;
+let _pollOptions = []; // [{date:'', time:''}]
 
 function _initFirebaseAuth() {
   if (_fbAuth) return _fbAuth;
   try {
     _fbApp  = firebase.initializeApp(_fbConfig, 'pwa-auth');
     _fbAuth = firebase.auth(_fbApp);
+    _db     = firebase.database(_fbApp);
 
     const isLocal = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
     if (isLocal) _fbAuth.useEmulator('http://127.0.0.1:9099');
@@ -582,6 +598,249 @@ function _profileTab() {
   </div>`;
 }
 
+// ── Poll helpers ─────────────────────────────────────────────────────────────
+
+function _fmtPollDate(date, time) {
+  if (!date) return _t('poll_date_open');
+  try {
+    const d = new Date(date + 'T00:00:00');
+    const loc = _lang === 'de' ? 'de-DE' : 'en-GB';
+    const ds = d.toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' });
+    return time ? ds + ', ' + time : ds;
+  } catch { return date + (time ? ' ' + time : ''); }
+}
+
+function _pollToast(msg) {
+  let el = document.getElementById('poll-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'poll-toast';
+    el.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#183b28;color:#fff;padding:10px 18px;border-radius:30px;font-size:14px;font-weight:700;z-index:999;pointer-events:none;opacity:0;transition:opacity .2s';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 3000);
+}
+
+function getPollSessionId() {
+  let id = localStorage.getItem('vivo_poll_sid');
+  if (!id) {
+    id = 'a_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+    localStorage.setItem('vivo_poll_sid', id);
+  }
+  return id;
+}
+
+function getVoterKey() {
+  if (_currentUser && !_currentUser.isAnonymous) return _currentUser.uid;
+  return localStorage.getItem('vivo_anon_uid') || getPollSessionId();
+}
+
+function togglePollSection(on) {
+  _pollEnabled = on;
+  const sec = document.getElementById('poll-section');
+  if (sec) sec.style.display = on ? 'block' : 'none';
+  const dtCard = document.getElementById('ev-datetime-card');
+  if (dtCard) dtCard.style.opacity = on ? '.4' : '';
+  if (on && _pollOptions.length === 0) {
+    _pollOptions.push({ date: '', time: '' });
+    _pollOptions.push({ date: '', time: '' });
+  }
+  renderPollOptions();
+}
+
+function addPollOption() {
+  _pollOptions.push({ date: '', time: '' });
+  renderPollOptions();
+}
+
+function removePollOption(idx) {
+  _pollOptions.splice(idx, 1);
+  renderPollOptions();
+}
+
+function renderPollOptions() {
+  const list = document.getElementById('poll-options-list');
+  if (!list) return;
+  list.innerHTML = _pollOptions.map((opt, i) => `
+    <div class="poll-opt-row">
+      <div style="flex:2">
+        <label class="formlabel">Datum ${i + 1}</label>
+        <input type="date" value="${esc(opt.date || '')}" oninput="_pollOptions[${i}].date=this.value"
+          class="field" style="margin:0">
+      </div>
+      <div style="flex:1.2">
+        <label class="formlabel">Uhrzeit</label>
+        <input type="time" value="${esc(opt.time || '')}" oninput="_pollOptions[${i}].time=this.value"
+          class="field" style="margin:0">
+      </div>
+      ${_pollOptions.length > 1
+        ? `<button type="button" class="poll-opt-remove" onclick="removePollOption(${i})" title="Entfernen">×</button>`
+        : '<div style="width:24px"></div>'}
+    </div>`).join('');
+}
+
+function buildPollSection(ev) {
+  if (!ev || !ev.poll) return '';
+  const poll = ev.poll;
+  const isCreator = _currentUser && ev.createdBy === _currentUser.uid;
+
+  if (!poll.active && poll.confirmedOption) {
+    const opt = poll.options && poll.options[poll.confirmedOption];
+    return `<h2 class="section">${_t('poll_section_title')}</h2>
+    <div class="poll-card confirmed">
+      <div class="poll-card-date">${_t('poll_confirmed_toast').split('!')[0]}:
+        ${_fmtPollDate(opt ? opt.date : ev.date, opt ? opt.time : ev.time)}</div>
+    </div>`;
+  }
+
+  if (!poll.active) return '';
+
+  const options = poll.options ? Object.entries(poll.options) : [];
+  const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
+  const totalVoters = allVoterIds.size;
+  const voterKey = getVoterKey();
+  const myVotes = new Set();
+  options.forEach(([optId, o]) => { if (o.votes && o.votes[voterKey]) myVotes.add(optId); });
+
+  const anonName = !_currentUser ? (localStorage.getItem('vivo_poll_anon_name') || '') : '';
+  const anonHeader = !_currentUser ? `
+    <div style="background:#fff;border-radius:12px;border:1px solid var(--line);padding:16px;margin-bottom:12px">
+      <p class="small" style="margin:0 0 8px;font-weight:500">${_t('poll_vote_as')}</p>
+      <input type="text" id="poll-anon-inp" value="${esc(anonName)}"
+        placeholder="Dein Name, z.B. Max Mustermann"
+        oninput="localStorage.setItem('vivo_poll_anon_name',this.value)"
+        class="field" style="margin-bottom:10px">
+      <p class="small" style="margin:0;text-align:center">
+        oder <button onclick="nav('Profile')" style="border:0;background:none;color:#277c42;font-weight:700;cursor:pointer">Einloggen</button>
+        — dann wird dein Name automatisch verwendet
+      </p>
+    </div>` : '';
+
+  const uidToName = {};
+  if (ev.rsvps) Object.values(ev.rsvps).forEach(r => { if (r.userId) uidToName[r.userId] = r.name; });
+  if (_currentUser) uidToName[_currentUser.uid] = (_userData && _userData.profile && _userData.profile.displayName) || _currentUser.displayName || (_currentUser.email ? _currentUser.email.split('@')[0] : 'Du');
+
+  const cards = options.map(([optId, opt]) => {
+    const voteCount = opt.votes ? Object.keys(opt.votes).length : 0;
+    const pct = totalVoters > 0 ? Math.round(voteCount / totalVoters * 100) : 0;
+    const iVoted = myVotes.has(optId);
+    const safeTime = (opt.time || '').replace(/'/g, "\\'");
+    const voterNames = Object.entries(opt.votes || {}).map(([k, v]) => {
+      if (v === true) return uidToName[k] || null;
+      return (v && v.name) ? v.name : null;
+    }).filter(Boolean);
+    const MAX_SHOWN = 4;
+    const namesHtml = voterNames.length
+      ? `<div class="small" style="margin-top:6px;line-height:1.4">
+           ${voterNames.slice(0, MAX_SHOWN).map(n => esc(n)).join(', ')}${voterNames.length > MAX_SHOWN ? ` +${voterNames.length - MAX_SHOWN}` : ''}
+         </div>` : '';
+    return `<div class="poll-card${iVoted ? ' i-voted' : ''}">
+      <div class="poll-card-head">
+        <div class="poll-card-date">${_fmtPollDate(opt.date, opt.time)}</div>
+        <div class="poll-card-votes">${voteCount} Stimme${voteCount !== 1 ? 'n' : ''}</div>
+      </div>
+      <div class="poll-bar-wrap"><div class="poll-bar" style="width:${pct}%"></div></div>
+      ${namesHtml}
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn ${iVoted ? '' : 'secondary'} full"
+          onclick="togglePollVote('${esc(ev.id)}','${esc(optId)}')">
+          ${iVoted ? _t('poll_voted') : _t('poll_vote_btn')}
+        </button>
+        ${isCreator ? `<button class="btn secondary full" style="color:#5CB87A;border-color:#5CB87A"
+          onclick="confirmPollOption('${esc(ev.id)}','${esc(optId)}','${esc(opt.date)}','${safeTime}')">
+          ${_t('poll_confirm_btn')}
+        </button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<h2 class="section">${_t('poll_section_title')} <span class="tag">${totalVoters}</span></h2>
+  ${anonHeader}${cards || '<div class="empty">Noch keine Optionen</div>'}`;
+}
+
+async function togglePollVote(eventId, optionId) {
+  if (!_db) { _pollToast('Firebase nicht verfügbar'); return; }
+  const voterKey = getVoterKey();
+  const voteRef = _db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
+
+  const evData = (_userData && _userData.events && _userData.events[eventId]) || null;
+  const alreadyVoted = !!(evData && evData.poll && evData.poll.options && evData.poll.options[optionId] && evData.poll.options[optionId].votes && evData.poll.options[optionId].votes[voterKey]);
+
+  if (!_currentUser || _currentUser.isAnonymous) {
+    const nameInp = document.getElementById('poll-anon-inp');
+    const name = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
+
+    if (alreadyVoted) {
+      try { await voteRef.remove(); }
+      catch(e) { console.error('poll unvote error:', e); _pollToast('Fehler beim Entfernen der Stimme'); }
+      return;
+    }
+    if (!name) {
+      if (nameInp) { nameInp.focus(); nameInp.style.borderColor = '#e74c3c'; setTimeout(() => { nameInp.style.borderColor = ''; }, 2500); }
+      _pollToast('Bitte gib zuerst deinen Namen ein');
+      return;
+    }
+    localStorage.setItem('vivo_poll_anon_name', name);
+    try {
+      await voteRef.set({ name, ts: Date.now() });
+    } catch(e) {
+      if (e.code === 'PERMISSION_DENIED' || String(e).includes('PERMISSION_DENIED')) {
+        try {
+          const fbAuth = _fbAuth || _initFirebaseAuth();
+          const cred = await fbAuth.signInAnonymously();
+          localStorage.setItem('vivo_anon_uid', cred.user.uid);
+          const authRef = _db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + cred.user.uid);
+          await authRef.set({ name, ts: Date.now() });
+        } catch(e2) { console.error('poll anon auth error:', e2); _pollToast('Abstimmen fehlgeschlagen'); }
+      } else { console.error('poll vote error:', e); _pollToast('Fehler beim Abstimmen'); }
+    }
+  } else {
+    try {
+      if (alreadyVoted) {
+        await voteRef.remove();
+      } else {
+        await voteRef.set(true);
+        const existingRsvp = evData && evData.rsvps
+          ? Object.values(evData.rsvps).find(r => r.userId === _currentUser.uid)
+          : null;
+        if (!existingRsvp) {
+          const name = (_userData && _userData.profile && _userData.profile.displayName) || _currentUser.displayName || (_currentUser.email ? _currentUser.email.split('@')[0] : 'Du');
+          await _db.ref('events/' + eventId + '/rsvps').push({
+            name, status: 'vielleicht', userId: _currentUser.uid, pollDriven: true, ts: Date.now(),
+          });
+          await _db.ref('userEvents/' + _currentUser.uid + '/' + eventId).set('vielleicht');
+        }
+      }
+    } catch(e) { console.error('poll vote error:', e); _pollToast('Fehler beim Abstimmen'); }
+  }
+}
+
+async function confirmPollOption(eventId, optionId, date, time) {
+  if (!_currentUser || !_currentUser.uid) return;
+  if (!confirm('Diesen Termin für alle bestätigen?')) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/poll-confirm', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId, optionId, date, time: time || null }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      _pollToast('Fehler: ' + (d.error || `HTTP ${res.status}`));
+      return;
+    }
+    _pollToast(_t('poll_confirmed_toast'));
+    // Refresh user data
+    const token2 = await _currentUser.getIdToken();
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token2}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch(e) { console.error('confirmPollOption:', e); _pollToast('Fehler: ' + e.message); }
+}
+
 // Patch render() to use auth-aware profile and header when user is on Profile tab.
 const _origRender = render;
 window.render = function render() {
@@ -609,6 +868,7 @@ window.render = function render() {
       ? `<button class="createfloat" aria-label="${S.tab==='Spaces'?'Create group':'Create event'}" onclick="${S.tab==='Spaces'?'_openSpaceCreate()':"openCreate('personal')"}">+</button>` : '')
     + (S.sheet ? (S.sheet === 'save' ? saveSheet() : S.sheet === 'space-create' ? _spaceCreateSheet() : createSheet()) : '');
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
+  if (S.sheet === 'create' && D.step === 'poll') setTimeout(renderPollOptions, 0);
   setTimeout(_applyImageFallbacks, 50);
 };
 
@@ -939,8 +1199,20 @@ window.commitCustom = async function commitCustom_auth() {
     const res = await fetch('/.netlify/functions/event-create', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: D.title, date: D.date, time: D.start,
-                             location: D.location, details: D.description, spaceIds, inviteUids }),
+      body: JSON.stringify((() => {
+        const isPoll = D.method === 'poll' && D.step === 'poll';
+        const validPollOpts = isPoll ? _pollOptions.filter(o => o.date) : [];
+        const payload = {
+          title: D.title,
+          date: validPollOpts.length ? null : D.date,
+          time: validPollOpts.length ? null : D.start,
+          location: D.location, details: D.description, spaceIds, inviteUids,
+        };
+        if (validPollOpts.length) {
+          payload.pollOptions = validPollOpts.map(o => ({ date: o.date, time: o.time || null }));
+        }
+        return payload;
+      })()),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -1062,23 +1334,26 @@ function _authEventPage() {
   const label = myStatus ? (_rsvpToLabel[myStatus] || myStatus) : 'No RSVP';
   const rsvpList = Object.values(ev.rsvps || {});
   const goingCount = rsvpList.filter(r => r.status === 'dabei').length;
+  const hasPoll = !!(ev.poll && (ev.poll.active || ev.poll.confirmedOption));
+  const evWithId = { ...ev, id };
   return `<div class="content">
     <button class="back" onclick="nav('Calendar')">← Calendar</button>
     <div class="eyebrow">${esc(spaceName)}</div>
     <h1 class="headline">${esc(((ev.emoji || '') + ' ' + (ev.title || '')).trim())}</h1>
     <div class="mutedbox">
-      <strong>${esc(ev.date || '')}</strong>
+      ${ev.date ? `<strong>${esc(ev.date)}</strong>` : `<strong style="color:var(--muted)">${_t('poll_date_open')}</strong>`}
       ${ev.time ? `<p>${esc(ev.time)}</p>` : ''}
       ${ev.location ? `<p>⌖ ${esc(ev.location)}</p>` : ''}
       ${ev.details ? `<p>${esc(ev.details)}</p>` : ''}
       <div class="small">${goingCount} going · Your RSVP: ${esc(label)}</div>
     </div>
+    ${hasPoll ? buildPollSection(evWithId) : `
     <h2 class="section">RSVP</h2>
     <div class="toggle">
       ${['dabei', 'vielleicht', 'nein'].map(s =>
         `<button class="${myStatus === s ? 'on' : ''}" onclick="_rsvp('${id}','${s}')">${{ dabei: '✓ Going', vielleicht: 'Maybe', nein: '✗ No' }[s]}</button>`
       ).join('')}
-    </div>
+    </div>`}
     <p class="footnote">Created by ${esc(ev.creatorName || '')}</p>
   </div>`;
 }

@@ -7,6 +7,8 @@
 const { initAdmin, verifyUserToken, json, makeId } = require('./_studio-shared');
 
 const ALLOWED_FIELDS = ['emoji','title','date','time','location','details','activityRef'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });
@@ -20,10 +22,21 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON' }); }
 
-  const { title, spaceIds = [], inviteUids = [] } = body;
+  const { title, spaceIds = [], inviteUids = [], pollOptions } = body;
   if (!title || !String(title).trim()) return json(400, { error: 'title required' });
   if (!Array.isArray(spaceIds)   || spaceIds.length   > 20)  return json(400, { error: 'spaceIds must be array (max 20)' });
   if (!Array.isArray(inviteUids) || inviteUids.length > 100) return json(400, { error: 'inviteUids must be array (max 100)' });
+
+  // Validate poll options when provided
+  if (pollOptions != null) {
+    if (!Array.isArray(pollOptions) || pollOptions.length < 2 || pollOptions.length > 20)
+      return json(400, { error: 'pollOptions must be array of 2–20 items' });
+    for (const opt of pollOptions) {
+      if (!opt || typeof opt !== 'object') return json(400, { error: 'each pollOption must be an object' });
+      if (!opt.date || !DATE_RE.test(opt.date)) return json(400, { error: 'each pollOption.date must be YYYY-MM-DD' });
+      if (opt.time != null && !TIME_RE.test(opt.time)) return json(400, { error: 'pollOption.time must be HH:MM' });
+    }
+  }
 
   const uid = decoded.uid;
   const db  = initAdmin().database();
@@ -64,6 +77,20 @@ exports.handler = async (event) => {
     inviteUids.forEach((id, i) => {
       if (invSnaps[i].exists()) updates[`invites/${id}/${eventId}`] = true;
     });
+  }
+
+  // Write poll sub-tree when poll options are provided
+  if (pollOptions && pollOptions.length >= 2) {
+    const options = {};
+    pollOptions.forEach((opt, i) => {
+      options[`opt_${now}_${i}`] = { date: opt.date, time: opt.time || null };
+    });
+    updates[`events/${eventId}/poll`] = { active: true, options, confirmedOption: null };
+    // Ensure date/time are null for poll events
+    if (updates[`events/${eventId}`]) {
+      updates[`events/${eventId}`].date = null;
+      updates[`events/${eventId}`].time = null;
+    }
   }
 
   await db.ref().update(updates);
