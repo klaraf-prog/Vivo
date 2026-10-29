@@ -964,6 +964,17 @@ async function selectSuggestion(id) {
         ${sug.schedule ? fieldRow('Termine', formatSchedule(sug.schedule)) : ''}
       </div>
       ${sug.sources?.length ? `<div class="section"><h4>Quellen</h4>${sug.sources.map(s => `<a href="${esc(s)}" target="_blank" rel="noopener" style="display:block;font-size:.85rem;color:var(--blue);margin-bottom:4px;word-break:break-all">${esc(s)}</a>`).join('')}</div>` : ''}
+      ${(() => {
+        const ids = sug.fewShotExampleIds;
+        if (!ids || ids.length === 0) return '';
+        const items = ids.map(actId => {
+          const a = _allActs[actId];
+          if (!a) return `<li style="font-size:.82rem;color:var(--muted)">${esc(actId)}</li>`;
+          const tags = Array.isArray(a.tags) && a.tags.length > 0 ? ` · <span style="color:var(--muted)">${a.tags.map(t => esc(t)).join(', ')}</span>` : '';
+          return `<li style="font-size:.82rem">${esc(a.title || actId)} <span style="color:var(--muted);font-size:.75rem">[${esc(a.category || '')}]</span>${tags}</li>`;
+        }).join('');
+        return `<div class="section"><h4>Referenzbeispiele (Few-Shot)</h4><p style="font-size:.78rem;color:var(--muted);margin-bottom:6px">Diese publizierten Aktivitäten wurden als thematische Orientierung für die Kategorisierung verwendet.</p><ul style="margin:0;padding-left:18px;line-height:1.8">${items}</ul></div>`;
+      })()}
       <div class="section">
         <h4>Vorschau</h4>
         <div class="preview-card">

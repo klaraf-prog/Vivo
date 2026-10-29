@@ -772,8 +772,125 @@ async function fetchSource(source) {
   }
 }
 
+// ── Few-shot example loading and similarity scoring ────────────────────────────
+const FEW_SHOT_MAX       = 5;    // max reference examples per LLM call
+const FEW_SHOT_MIN_SCORE = 2;    // min relevance score; 0 = not included
+const FEW_SHOT_MAX_LOAD  = 100;  // max published activities to load per run
+
+/**
+ * Load published activities as potential few-shot reference examples.
+ * Only `status === 'published'` entries are used — the only reliable editorial
+ * confirmation signal in the current data model (suggestions stay 'draft').
+ * Returns lightweight objects: { id, title, category, additionalCategories, tags }.
+ */
+async function loadPublishedExamples(db, city) {
+  const snap = await db.ref('activities').once('value');
+  const examples = [];
+  snap.forEach(child => {
+    if (examples.length >= FEW_SHOT_MAX_LOAD) return;
+    const a = child.val();
+    if (!a || a.status !== 'published') return;
+    if (a.city !== city) return;
+    if (!a.category) return;
+    examples.push({
+      id: child.key,
+      title: a.title || '',
+      category: a.category,
+      additionalCategories: Array.isArray(a.additionalCategories) && a.additionalCategories.length > 0
+        ? a.additionalCategories : null,
+      tags: Array.isArray(a.tags) && a.tags.length > 0 ? a.tags : null,
+    });
+  });
+  return examples;
+}
+
+/**
+ * Extract a normalised set of hint words from a source's name and condensed text.
+ * Returns a Set of lowercase tokens (3+ chars) augmented with any matching tag IDs.
+ * Tag IDs are added when all their parts appear in the text (e.g. 'weihnachtsmarkt').
+ */
+function extractSourceHintWords(sourceName, condensedText) {
+  const combined = ((sourceName || '') + ' ' + (condensedText || '')).toLowerCase();
+  const words = new Set((combined.match(/\b[a-zäöüß]{3,}\b/g) || []));
+  // Add matching tag IDs as synthetic tokens so score() can match them directly
+  for (const tag of ALL_TAGS_FLAT) {
+    const parts = tag.split('_').filter(p => p.length >= 3);
+    if (parts.length > 0 && parts.every(p => words.has(p) || combined.includes(p))) {
+      words.add(tag);
+    }
+  }
+  return words;
+}
+
+/**
+ * Score how relevant a published example is to a source's hint word set.
+ * Scoring (higher = more relevant):
+ *   +3  exact tag ID match in hintWords
+ *   +1  per 3+ char tag-part match in hintWords
+ *   +2  per 4+ char title-word overlap
+ */
+function scoreExampleRelevance(example, hintWords) {
+  let score = 0;
+  if (example.tags) {
+    for (const tag of example.tags) {
+      if (hintWords.has(tag)) {
+        score += 3;
+      } else {
+        for (const part of tag.split('_')) {
+          if (part.length >= 3 && hintWords.has(part)) score += 1;
+        }
+      }
+    }
+  }
+  const titleWords = (example.title || '').toLowerCase().match(/\b[a-zäöüß]{4,}\b/g) || [];
+  for (const w of titleWords) {
+    if (hintWords.has(w)) score += 2;
+  }
+  return score;
+}
+
+/**
+ * Select the most relevant few-shot examples for one source.
+ * Returns up to FEW_SHOT_MAX examples scoring >= FEW_SHOT_MIN_SCORE.
+ * Returns empty array when no examples are relevant enough (pipeline runs without them).
+ */
+function selectFewShotExamples(allExamples, hintWords) {
+  if (!allExamples || allExamples.length === 0) return [];
+  return allExamples
+    .map(ex => ({ ex, score: scoreExampleRelevance(ex, hintWords) }))
+    .filter(({ score }) => score >= FEW_SHOT_MIN_SCORE)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, FEW_SHOT_MAX)
+    .map(({ ex }) => ex);
+}
+
+/**
+ * Format few-shot examples as a prompt section (appended to the system prompt).
+ * Deliberately excludes price, dates, location, coordinates.
+ */
+function formatFewShotSection(examples) {
+  if (!examples || examples.length === 0) return '';
+  const lines = examples.map(ex => {
+    const parts = [`"${ex.title}"`];
+    parts.push(`category: ${ex.category}`);
+    if (ex.additionalCategories) parts.push(`additionalCategories: [${ex.additionalCategories.join(', ')}]`);
+    if (ex.tags) parts.push(`tags: [${ex.tags.join(', ')}]`);
+    return '• ' + parts.join(' → ');
+  });
+  return `
+
+--- EDITORIALLY CONFIRMED REFERENCE EXAMPLES ---
+The following activities were reviewed and categorised by editors. Use them as guidance
+for category and tag selection for the activities you extract from the page below.
+IMPORTANT: Do NOT copy prices, dates, opening hours, addresses or coordinates from these examples.
+Decide independently based on the actual source text — treat these as style guidance, not templates.
+
+${lines.join('\n')}
+--- END REFERENCE EXAMPLES ---`;
+}
+
 // ── LLM extraction prompt ─────────────────────────────────────────────────────
-function buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData) {
+function buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData, fewShotExamples) {
   const condensed = condensePipelineText(text, LLM_TEXT_LIMIT);
   const system = `You extract individual activity and event listings from website content for the city of ${city}.
 
@@ -802,7 +919,7 @@ schedule field — populate when temporal data is explicitly stated for the spec
 - exceptions: specific dates with deviating hours or closure (e.g. closed on 25.12.).
 - recurrence: a repeating event pattern (weekly/biweekly/monthly/daily/other) with optional days and time.
 - timezone: IANA name (e.g. "Europe/Berlin") — use only when explicitly stated, otherwise null.
-All schedule sub-fields are optional and default to null. Leave schedule null when no temporal data is available for an activity.`;
+All schedule sub-fields are optional and default to null. Leave schedule null when no temporal data is available for an activity.` + formatFewShotSection(fewShotExamples);
 
   // Prioritise structured data sections — include both JSON-LD and embedded JS data
   const jsonLdSection = (jsonLdEvents && jsonLdEvents.length > 0)
@@ -839,8 +956,8 @@ function extractJsonFromLLMResponse(raw) {
 }
 
 // ── Call Anthropic API ────────────────────────────────────────────────────────
-async function callAnthropicAPI(text, city, apiKey, jsonLdEvents, embeddedScriptData) {
-  const { system, user, condensedPreview } = buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData);
+async function callAnthropicAPI(text, city, apiKey, jsonLdEvents, embeddedScriptData, fewShotExamples) {
+  const { system, user, condensedPreview } = buildExtractionPrompt(text, city, jsonLdEvents, embeddedScriptData, fewShotExamples);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
@@ -1165,6 +1282,17 @@ exports.handler = async (event) => {
     const llmErrors = [];
     const savedSuggestionIds = [];
 
+    // Load published activities once for few-shot reference selection (non-fatal)
+    let publishedExamples = [];
+    if (mode === 'live') {
+      try {
+        publishedExamples = await loadPublishedExamples(db, city);
+      } catch (err) {
+        // Non-fatal: pipeline continues without few-shot examples
+        llmErrors.push({ phase: 'few-shot-load', error: String(err.message || err) });
+      }
+    }
+
     if (mode === 'live') {
       for (const result of fetchResults) {
         if (!result.ok || !result.text) continue;
@@ -1178,8 +1306,14 @@ exports.handler = async (event) => {
           continue;
         }
 
+        // Select relevant few-shot examples for this source
+        const hintWords = extractSourceHintWords(result.name, result.condensedPreview);
+        const fewShotExamples = selectFewShotExamples(publishedExamples, hintWords);
+        result.fewShotExampleIds    = fewShotExamples.map(e => e.id);
+        result.fewShotExampleCount  = fewShotExamples.length;
+
         llmCallsUsed++;
-        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey, result.jsonLdEvents, result.embeddedScriptData);
+        const { activities, inputTokens, outputTokens, condensedPreview, error } = await callAnthropicAPI(result.text, city, apiKey, result.jsonLdEvents, result.embeddedScriptData, fewShotExamples);
         totalInputTokens  += inputTokens;
         totalOutputTokens += outputTokens;
 
@@ -1230,6 +1364,7 @@ exports.handler = async (event) => {
             duplicateHash: safeHash,
             discoveredBy: 'discovery-pipeline',
             pipelineRunId: runId,
+            fewShotExampleIds: fewShotExamples.length > 0 ? fewShotExamples.map(e => e.id) : null,
             researchedAt: now,
             researchedBy: 'discovery-pipeline',
             reviewedBy: null,
@@ -1307,6 +1442,7 @@ exports.handler = async (event) => {
       suggestionsSaved,
       suggestionsDeduplicated,
       savedSuggestionIds,
+      fewShotExamplesLoaded: publishedExamples.length,
       llmErrors: llmErrors.length > 0 ? llmErrors : null,
       triggeredBy: actor.uid,
     };
@@ -1340,3 +1476,8 @@ exports._extractJsonFromLLMResponse = extractJsonFromLLMResponse;
 exports._callAnthropicAPI       = callAnthropicAPI;
 exports._validateActivity       = validateActivity;
 exports._validateSchedule       = validateSchedule;
+exports._loadPublishedExamples      = loadPublishedExamples;
+exports._extractSourceHintWords     = extractSourceHintWords;
+exports._scoreExampleRelevance      = scoreExampleRelevance;
+exports._selectFewShotExamples      = selectFewShotExamples;
+exports._formatFewShotSection       = formatFewShotSection;
