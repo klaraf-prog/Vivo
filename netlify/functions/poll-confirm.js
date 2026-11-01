@@ -59,9 +59,8 @@ exports.handler = async (event) => {
 
   // Promote winning logged-in voters to 'dabei'
   const needsName = Object.entries(winVotes)
-    .filter(([, val]) => val === true && !rsvpPushKey[/* key */undefined])
-    .map(([k]) => k)
-    .filter(k => !rsvpPushKey[k]);
+    .filter(([k, val]) => val === true && !rsvpPushKey[k])
+    .map(([k]) => k);
 
   const nameMap = {};
   await Promise.all(needsName.map(async voterUid => {

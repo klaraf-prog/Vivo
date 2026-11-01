@@ -220,18 +220,25 @@ async function _loadActivities() {
 // Signs users in/out; loads personal RTDB data via /.netlify/functions/user-data.
 // Falls back gracefully when unauthenticated or when the endpoint is unavailable.
 
+// ── NEW FIREBASE PROJECT CONFIG ───────────────────────────────────────────────
+// Replace all TODO_REPLACE values with the config from your new Firebase project.
+// Firebase Console → Project Settings → Your apps → Web app → Config snippet
 const _fbConfig = {
-  apiKey:            'AIzaSyAuapMaw8Tpw0HC_TlMUvCbw0PPfWOaL-Y',
-  authDomain:        'vivo-mvp.firebaseapp.com',
-  projectId:         'vivo-mvp',
-  appId:             '1:662578995457:web:ee580f001d212cd73d7b00',
+  apiKey:            'TODO_REPLACE',
+  authDomain:        'TODO_REPLACE',
+  databaseURL:       'TODO_REPLACE',
+  projectId:         'TODO_REPLACE',
+  storageBucket:     'TODO_REPLACE',
+  messagingSenderId: 'TODO_REPLACE',
+  appId:             'TODO_REPLACE',
 };
 
 let _fbApp  = null;
 let _fbAuth = null;
-let _db     = null; // Firebase RTDB instance (for poll votes)
-let _currentUser = null; // Firebase User or null
-let _userData    = null; // { uid, profile, userEvents, userSpaces } or null
+let _db     = null; // Firebase RTDB instance (for real-time listeners)
+let _currentUser   = null; // Firebase User or null
+let _userData      = null; // { uid, profile, userEvents, userSpaces } or null
+let _guestEventData = null; // event data for guests arriving via invite link
 let _authReady   = false;
 let _pollEnabled = false;
 let _pollOptions = []; // [{date:'', time:''}]
@@ -624,18 +631,49 @@ function _pollToast(msg) {
   el._t = setTimeout(() => { el.style.opacity = '0'; }, 3000);
 }
 
-function getPollSessionId() {
-  let id = localStorage.getItem('vivo_poll_sid');
+// Returns a stable per-event guest ID stored in localStorage.
+// Changing your display name does not create a new identity.
+function getGuestId(eventId) {
+  const key = 'vivo_guest_' + eventId;
+  let id = localStorage.getItem(key);
   if (!id) {
-    id = 'a_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
-    localStorage.setItem('vivo_poll_sid', id);
+    id = Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
+    localStorage.setItem(key, id);
   }
   return id;
 }
 
-function getVoterKey() {
-  if (_currentUser && !_currentUser.isAnonymous) return _currentUser.uid;
-  return localStorage.getItem('vivo_anon_uid') || getPollSessionId();
+// Returns the invite token for a given event from URL params or localStorage.
+function _getStoredInviteToken(eventId) {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('e') === eventId && params.get('t')) return params.get('t');
+  return localStorage.getItem('vivo_invite_' + eventId) || null;
+}
+
+// Fetches fresh event + user data after a vote or RSVP change.
+async function _refreshUserData() {
+  if (!_currentUser) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res   = await fetch('/.netlify/functions/user-data', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (res.ok) { _userData = await res.json(); render(); }
+  } catch (e) { console.warn('[someday] data refresh error:', e.message); }
+}
+
+// Fetches fresh event data for a guest via invite token.
+async function _refreshGuestEventData(eventId, inviteToken) {
+  try {
+    const res = await fetch(
+      `/.netlify/functions/guest-event?eventId=${encodeURIComponent(eventId)}&token=${encodeURIComponent(inviteToken)}`
+    );
+    if (res.ok) {
+      const data   = await res.json();
+      _guestEventData = { ...data.event, id: eventId };
+      render();
+    }
+  } catch (e) { console.warn('[someday] guest data refresh error:', e.message); }
 }
 
 function togglePollSection(on) {
@@ -701,7 +739,9 @@ function buildPollSection(ev) {
   const options = poll.options ? Object.entries(poll.options) : [];
   const allVoterIds = new Set(options.flatMap(([, o]) => o.votes ? Object.keys(o.votes) : []));
   const totalVoters = allVoterIds.size;
-  const voterKey = getVoterKey();
+  const voterKey = (_currentUser && !_currentUser.isAnonymous)
+    ? _currentUser.uid
+    : 'g_' + getGuestId(ev.id);
   const myVotes = new Set();
   options.forEach(([optId, o]) => { if (o.votes && o.votes[voterKey]) myVotes.add(optId); });
 
@@ -762,59 +802,52 @@ function buildPollSection(ev) {
 }
 
 async function togglePollVote(eventId, optionId) {
-  if (!_db) { _pollToast('Firebase nicht verfügbar'); return; }
-  const voterKey = getVoterKey();
-  const voteRef = _db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + voterKey);
+  const inviteToken = _getStoredInviteToken(eventId);
 
-  const evData = (_userData && _userData.events && _userData.events[eventId]) || null;
-  const alreadyVoted = !!(evData && evData.poll && evData.poll.options && evData.poll.options[optionId] && evData.poll.options[optionId].votes && evData.poll.options[optionId].votes[voterKey]);
-
-  if (!_currentUser || _currentUser.isAnonymous) {
+  if (_currentUser && !_currentUser.isAnonymous) {
+    // ── Authenticated user ─────────────────────────────────────────────────
+    try {
+      const token = await _currentUser.getIdToken();
+      const res   = await fetch('/.netlify/functions/poll-vote', {
+        method:  'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ eventId, optionId, inviteToken }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        _pollToast('Fehler: ' + (d.error || `HTTP ${res.status}`));
+        return;
+      }
+      await _refreshUserData();
+    } catch (e) { console.error('[someday] poll vote error:', e); _pollToast('Fehler beim Abstimmen'); }
+  } else {
+    // ── Guest user ─────────────────────────────────────────────────────────
     const nameInp = document.getElementById('poll-anon-inp');
-    const name = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
-
-    if (alreadyVoted) {
-      try { await voteRef.remove(); }
-      catch(e) { console.error('poll unvote error:', e); _pollToast('Fehler beim Entfernen der Stimme'); }
-      return;
-    }
+    const name    = (nameInp ? nameInp.value.trim() : '') || localStorage.getItem('vivo_poll_anon_name') || '';
     if (!name) {
-      if (nameInp) { nameInp.focus(); nameInp.style.borderColor = '#e74c3c'; setTimeout(() => { nameInp.style.borderColor = ''; }, 2500); }
+      if (nameInp) { nameInp.focus(); nameInp.style.borderColor = '#e74c3c'; setTimeout(() => nameInp.style.borderColor = '', 2500); }
       _pollToast('Bitte gib zuerst deinen Namen ein');
       return;
     }
-    localStorage.setItem('vivo_poll_anon_name', name);
-    try {
-      await voteRef.set({ name, ts: Date.now() });
-    } catch(e) {
-      if (e.code === 'PERMISSION_DENIED' || String(e).includes('PERMISSION_DENIED')) {
-        try {
-          const fbAuth = _fbAuth || _initFirebaseAuth();
-          const cred = await fbAuth.signInAnonymously();
-          localStorage.setItem('vivo_anon_uid', cred.user.uid);
-          const authRef = _db.ref('events/' + eventId + '/poll/options/' + optionId + '/votes/' + cred.user.uid);
-          await authRef.set({ name, ts: Date.now() });
-        } catch(e2) { console.error('poll anon auth error:', e2); _pollToast('Abstimmen fehlgeschlagen'); }
-      } else { console.error('poll vote error:', e); _pollToast('Fehler beim Abstimmen'); }
+    if (!inviteToken) {
+      _pollToast('Kein gültiger Einladungslink — bitte nutze den Original-Link');
+      return;
     }
-  } else {
+    localStorage.setItem('vivo_poll_anon_name', name);
+    const guestId = getGuestId(eventId);
     try {
-      if (alreadyVoted) {
-        await voteRef.remove();
-      } else {
-        await voteRef.set(true);
-        const existingRsvp = evData && evData.rsvps
-          ? Object.values(evData.rsvps).find(r => r.userId === _currentUser.uid)
-          : null;
-        if (!existingRsvp) {
-          const name = (_userData && _userData.profile && _userData.profile.displayName) || _currentUser.displayName || (_currentUser.email ? _currentUser.email.split('@')[0] : 'Du');
-          await _db.ref('events/' + eventId + '/rsvps').push({
-            name, status: 'vielleicht', userId: _currentUser.uid, pollDriven: true, ts: Date.now(),
-          });
-          await _db.ref('userEvents/' + _currentUser.uid + '/' + eventId).set('vielleicht');
-        }
+      const res = await fetch('/.netlify/functions/poll-vote', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ eventId, optionId, inviteToken, guestId, guestName: name }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        _pollToast('Fehler: ' + (d.error || `HTTP ${res.status}`));
+        return;
       }
-    } catch(e) { console.error('poll vote error:', e); _pollToast('Fehler beim Abstimmen'); }
+      await _refreshGuestEventData(eventId, inviteToken);
+    } catch (e) { console.error('[someday] poll vote error:', e); _pollToast('Fehler beim Abstimmen'); }
   }
 }
 
@@ -834,10 +867,7 @@ async function confirmPollOption(eventId, optionId, date, time) {
       return;
     }
     _pollToast(_t('poll_confirmed_toast'));
-    // Refresh user data
-    const token2 = await _currentUser.getIdToken();
-    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token2}` } });
-    if (res2.ok) { _userData = await res2.json(); render(); }
+    await _refreshUserData();
   } catch(e) { console.error('confirmPollOption:', e); _pollToast('Fehler: ' + e.message); }
 }
 
@@ -1148,16 +1178,18 @@ function _authCalendar() {
   </div>`;
 }
 
-async function _rsvp(eventId, fbStatus) {
+async function _rsvp(eventId, fbStatus, guestName) {
   if (_userData && _userData.userEvents) _userData.userEvents[eventId] = fbStatus;
   render();
   if (!_currentUser) return;
   try {
     const token = await _currentUser.getIdToken();
-    const res   = await fetch('/.netlify/functions/event-rsvp', {
+    const body  = { eventId, status: fbStatus };
+    if (guestName) body.guestName = String(guestName).trim().slice(0, 100);
+    const res = await fetch('/.netlify/functions/event-rsvp', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body:   JSON.stringify({ eventId, status: fbStatus }),
+      body:   JSON.stringify(body),
     });
     if (!res.ok) console.warn('[someday] RSVP failed:', await res.text());
   } catch (e) { console.warn('[someday] RSVP error:', e.message); }
@@ -1321,10 +1353,16 @@ function _authSpace() {
 
 function _authEventPage() {
   const id = S.eventId;
-  if (!id || !_currentUser || !_userData || _userData._error) return eventPage();
-  const ev = (_userData.events || {})[id];
+  if (!id) return eventPage();
+
+  // Support both authenticated users (via _userData) and guests (via _guestEventData)
+  const authEv  = (_userData && !_userData._error) ? (_userData.events || {})[id] : null;
+  const guestEv = (_guestEventData && _guestEventData.id === id) ? _guestEventData : null;
+  const ev      = authEv || guestEv;
   if (!ev) return eventPage();
-  const myStatus = (_userData.userEvents || {})[id];
+
+  const isGuest  = !authEv;
+  const myStatus = isGuest ? null : ((_userData.userEvents || {})[id]);
   let spaceName = 'Personal';
   if (_userData.spaceEvents && _userData.spaces) {
     for (const [sId, evts] of Object.entries(_userData.spaceEvents)) {
@@ -1349,10 +1387,14 @@ function _authEventPage() {
     </div>
     ${hasPoll ? buildPollSection(evWithId) : `
     <h2 class="section">RSVP</h2>
+    ${isGuest ? `<p class="small" style="margin:0 0 8px;color:var(--muted)">Du nimmst als Gast teil. Dein Name aus der Abstimmung wird verwendet.</p>` : ''}
     <div class="toggle">
-      ${['dabei', 'vielleicht', 'nein'].map(s =>
-        `<button class="${myStatus === s ? 'on' : ''}" onclick="_rsvp('${id}','${s}')">${{ dabei: '✓ Going', vielleicht: 'Maybe', nein: '✗ No' }[s]}</button>`
-      ).join('')}
+      ${['dabei', 'vielleicht', 'nein'].map(s => {
+        const guestArg = isGuest
+          ? `,localStorage.getItem('vivo_poll_anon_name')||'Gast'`
+          : '';
+        return `<button class="${myStatus === s ? 'on' : ''}" onclick="_rsvp('${id}','${s}'${guestArg})">${{ dabei: '✓ Going', vielleicht: 'Maybe', nein: '✗ No' }[s]}</button>`;
+      }).join('')}
     </div>`}
     <p class="footnote">Created by ${esc(ev.creatorName || '')}</p>
   </div>`;
@@ -1513,6 +1555,44 @@ window._loadActivities = async function _loadActivities_auth() {
   }
 };
 
+// ── Invite link handler ───────────────────────────────────────────────────────
+// Handles URLs like  someday.app/?e={eventId}&t={inviteToken}
+// Fetches event data server-side, signs in with a Firebase Custom Token so that
+// the RTDB rule (grantedEvent claim) allows reads, then navigates to the event.
+async function _handleInviteLink() {
+  const params    = new URLSearchParams(window.location.search);
+  const eventId   = params.get('e');
+  const token     = params.get('t');
+  if (!eventId || !token) return;
+
+  // Persist token so subsequent function calls (votes, RSVP) can retrieve it
+  try { localStorage.setItem('vivo_invite_' + eventId, token); } catch {}
+
+  try {
+    const res = await fetch(
+      `/.netlify/functions/guest-event?eventId=${encodeURIComponent(eventId)}&token=${encodeURIComponent(token)}`
+    );
+    if (!res.ok) {
+      console.warn('[someday] invite link invalid:', res.status);
+      return;
+    }
+    const data = await res.json();
+    _guestEventData = { ...data.event, id: eventId };
+
+    // Sign into Firebase with the custom token so RTDB reads succeed
+    if (data.customToken && _fbAuth) {
+      try { await _fbAuth.signInWithCustomToken(data.customToken); }
+      catch (e) { console.warn('[someday] guest Firebase sign-in error:', e.message); }
+    }
+
+    set({ page: 'event', eventId });
+  } catch (e) {
+    console.error('[someday] invite link error:', e.message);
+  }
+}
+
 _initFirebaseAuth();
-render();_loadActivities();if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+render();_loadActivities();
+_handleInviteLink();
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script></body></html>

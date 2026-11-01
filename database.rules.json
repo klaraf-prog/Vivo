@@ -1,8 +1,8 @@
 {
   "rules": {
     "users": {
-      ".read": "auth != null",
       "$uid": {
+        ".read": "$uid === auth.uid",
         ".write": "$uid === auth.uid"
       }
     },
@@ -13,45 +13,61 @@
       }
     },
     "events": {
-      ".read": "auth != null",
       "$eventId": {
-        ".write": "auth != null && (!data.exists() || data.child('createdBy').val() === auth.uid)"
+        ".read": "auth != null && (data.child('createdBy').val() === auth.uid || root.child('invites').child(auth.uid).child($eventId).val() === true || root.child('userEvents').child(auth.uid).child($eventId).val() !== null || auth.token.grantedEvent === $eventId)",
+        ".write": false
       }
     },
     "userEvents": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".write": false
       }
+    },
+    "invites": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": false
+      }
+    },
+    "inviteTokens": {
+      ".read": false,
+      ".write": false
     },
     "friends": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".write": false
+      }
+    },
+    "friendRequests": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": false
       }
     },
     "spaces": {
+      ".read": false,
       "$spaceId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": false
+      }
+    },
+    "spaceEvents": {
+      ".read": false,
+      "$spaceId": {
+        ".write": false
       }
     },
     "userSpaces": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".write": false
       }
     },
     "notifications": {
       "$uid": {
         ".read": "$uid === auth.uid",
-        ".write": "auth != null"
-      }
-    },
-    "suggestions": {
-      ".read": "auth != null && auth.token.studioRole != null",
-      "$id": {
-        ".write": "auth != null && (auth.token.studioRole === 'editor' || auth.token.studioRole === 'superadmin' || (auth.token.studioRole === 'researcher' && (!data.exists() || data.child('status').val() === 'draft')))"
+        ".write": false
       }
     },
     "activities": {
@@ -60,7 +76,13 @@
     },
     "providers": {
       ".read": "auth != null && auth.token.studioRole != null",
-      ".write": "auth != null && (auth.token.studioRole === 'editor' || auth.token.studioRole === 'superadmin')"
+      ".write": false
+    },
+    "suggestions": {
+      ".read": "auth != null && auth.token.studioRole != null",
+      "$id": {
+        ".write": false
+      }
     },
     "suggestionHashes": {
       ".read": "auth != null && auth.token.studioRole != null",
@@ -73,24 +95,6 @@
     "studioAdminUsers": {
       ".read": "auth != null && auth.token.studioRole === 'superadmin'",
       ".write": false
-    },
-    "spaceEvents": {
-      "$spaceId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
-    },
-    "invites": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "auth != null"
-      }
-    },
-    "friendRequests": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "auth != null"
-      }
     }
   }
 }

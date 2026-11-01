@@ -3,7 +3,9 @@
 // Writes: events/$newId, userEvents/$uid/$newId='created',
 //         events/$newId/rsvps/$key (creator RSVP),
 //         spaceEvents/$spaceId/$newId=true (for each spaceId),
-//         invites/$inviteeUid/$newId=true (for each inviteeUid)
+//         invites/$inviteeUid/$newId=true (for each inviteeUid),
+//         inviteTokens/$newId = token  (shareable invite link token)
+const crypto = require('crypto');
 const { initAdmin, verifyUserToken, json, makeId } = require('./_studio-shared');
 
 const ALLOWED_FIELDS = ['emoji','title','date','time','location','details','activityRef'];
@@ -44,11 +46,12 @@ exports.handler = async (event) => {
   const profile = (await db.ref(`users/${uid}`).once('value')).val() || {};
   const name    = profile.displayName || decoded.email || uid;
 
-  const eventId  = makeId('ev');
-  const rsvpKey  = makeId('rsvp');
-  const now      = Date.now();
+  const eventId     = makeId('ev');
+  const rsvpKey     = makeId('rsvp');
+  const inviteToken = crypto.randomBytes(24).toString('hex');
+  const now         = Date.now();
 
-  const newEvent = { createdBy: uid, creatorName: name, createdAt: now };
+  const newEvent = { createdBy: uid, creatorName: name, createdAt: now, inviteToken };
   ALLOWED_FIELDS.forEach(f => { if (body[f] != null) newEvent[f] = body[f]; });
   // Embed creator RSVP inside the event object to avoid ancestor/descendant path conflict
   newEvent.rsvps = { [rsvpKey]: { name, status: 'dabei', userId: uid, ts: now } };
@@ -56,6 +59,7 @@ exports.handler = async (event) => {
   const updates = {
     [`events/${eventId}`]:            newEvent,
     [`userEvents/${uid}/${eventId}`]: 'created',
+    [`inviteTokens/${eventId}`]:      inviteToken,
   };
 
   // Verify spaceIds exist AND caller is a member — prevents creating events in foreign spaces
@@ -94,5 +98,5 @@ exports.handler = async (event) => {
   }
 
   await db.ref().update(updates);
-  return json(201, { ok: true, eventId });
+  return json(201, { ok: true, eventId, inviteToken });
 };
