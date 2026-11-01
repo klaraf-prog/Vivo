@@ -220,17 +220,14 @@ async function _loadActivities() {
 // Signs users in/out; loads personal RTDB data via /.netlify/functions/user-data.
 // Falls back gracefully when unauthenticated or when the endpoint is unavailable.
 
-// ── NEW FIREBASE PROJECT CONFIG ───────────────────────────────────────────────
-// Replace all TODO_REPLACE values with the config from your new Firebase project.
-// Firebase Console → Project Settings → Your apps → Web app → Config snippet
 const _fbConfig = {
-  apiKey:            'TODO_REPLACE',
-  authDomain:        'TODO_REPLACE',
-  databaseURL:       'TODO_REPLACE',
-  projectId:         'TODO_REPLACE',
-  storageBucket:     'TODO_REPLACE',
-  messagingSenderId: 'TODO_REPLACE',
-  appId:             'TODO_REPLACE',
+  apiKey:            'AIzaSyDmBJKoZm_kLX46oAPXP2ESLzhFu_vH8ks',
+  authDomain:        'someday-3edba.firebaseapp.com',
+  databaseURL:       'https://someday-3edba-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId:         'someday-3edba',
+  storageBucket:     'someday-3edba.firebasestorage.app',
+  messagingSenderId: '285368620065',
+  appId:             '1:285368620065:web:16b7edf8be558454197f60',
 };
 
 let _fbApp  = null;
