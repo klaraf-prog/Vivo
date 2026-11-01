@@ -49,12 +49,14 @@
     "spaces": {
       ".read": false,
       "$spaceId": {
+        ".read": "auth != null && root.child('userSpaces').child(auth.uid).child($spaceId).exists()",
         ".write": false
       }
     },
     "spaceEvents": {
       ".read": false,
       "$spaceId": {
+        ".read": "auth != null && root.child('userSpaces').child(auth.uid).child($spaceId).exists()",
         ".write": false
       }
     },
