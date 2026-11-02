@@ -2,6 +2,7 @@ node_modules/
 .netlify/
 service-account.json
 *.service-account.json
+*-sa.json
 database-debug.log
 firebase-debug.log
 .env
@@ -9,3 +10,6 @@ firebase-debug.log
 .env.studio-test
 # Local Firebase Emulator data export (git-ignored, machine-local)
 .emulator-data/
+# Migration backups and service account keys (never commit)
+backups/
+scripts/*-sa.json

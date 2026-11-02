@@ -28,7 +28,7 @@ if (!SOURCE_SA || !SOURCE_RTDB || !TARGET_SA || !TARGET_RTDB) {
   process.exit(1);
 }
 
-// Paths to migrate (no user data, no audit logs)
+// Paths to migrate (no user data, no audit logs, no admin user config)
 const MIGRATE_PATHS = [
   'activities',
   'suggestions',
@@ -36,7 +36,6 @@ const MIGRATE_PATHS = [
   'providers',
   'discoverySources',
   'discoverySourceUrls',
-  'studioAdminUsers',
 ];
 
 // ── Firebase init ─────────────────────────────────────────────────────────────
