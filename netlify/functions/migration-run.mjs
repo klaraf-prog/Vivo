@@ -1,18 +1,21 @@
-'use strict';
 /**
  * One-shot Discovery migration: vivo-mvp → someday-3edba
  *
- * Security model (identical to studio-bootstrap):
- *   - Returns 503 if MIGRATION_TOKEN env var is absent → function is inert by default
- *   - Caller must supply matching X-Migration-Token header
- *   - After success, writes RTDB flag migrationState/discoveryMigration → prevents re-run
- *   - Remove MIGRATION_TOKEN + SOURCE_FIREBASE_SA + SOURCE_RTDB_URL from Netlify after done
+ * Written as Netlify Functions v2 (ESM, export default) so it runs on
+ * Netlify's own runtime instead of AWS Lambda — this bypasses the 4 KB
+ * Lambda environment-variable limit that would otherwise block two large
+ * Firebase service-account JSON blobs from coexisting.
  *
- * Never call this from client code. Trigger via curl or Netlify function invocation UI.
+ * Security model (identical to studio-bootstrap):
+ *   - Returns 503 if MIGRATION_TOKEN env var is absent → inert by default
+ *   - Caller must supply matching X-Migration-Token header
+ *   - Writes RTDB flag migrationState/discoveryMigration on success → prevents re-run
+ *   - Remove MIGRATION_TOKEN + SOURCE_FIREBASE_SA + SOURCE_RTDB_URL after done
  */
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
-const { initAdmin, json } = require('./_studio-shared');
 
 const MIGRATE_PATHS = [
   'activities',
@@ -23,35 +26,56 @@ const MIGRATE_PATHS = [
   'discoverySourceUrls',
 ];
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' });
+function jsonRes(status, body) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function getOrInitApp(name, credential, databaseURL) {
+  try { return admin.app(name); }
+  catch { return admin.initializeApp({ credential, databaseURL }, name); }
+}
+
+export default async (req) => {
+  if (req.method !== 'POST') return jsonRes(405, { error: 'Method Not Allowed' });
 
   // ── Guard: only active when MIGRATION_TOKEN is configured ─────────────────
   const expectedToken = process.env.MIGRATION_TOKEN;
   if (!expectedToken) {
-    return json(503, { error: 'Migration not configured or already deactivated.' });
+    return jsonRes(503, { error: 'Migration not configured or already deactivated.' });
   }
 
   // ── Token check ───────────────────────────────────────────────────────────
-  const suppliedToken = event.headers['x-migration-token'];
+  const suppliedToken = req.headers.get('x-migration-token');
   if (!suppliedToken || suppliedToken !== expectedToken) {
-    return json(403, { error: 'Invalid or missing X-Migration-Token.' });
+    return jsonRes(403, { error: 'Invalid or missing X-Migration-Token.' });
   }
 
-  // ── Source credentials check ───────────────────────────────────────────────
-  const sourceSaRaw  = process.env.SOURCE_FIREBASE_SA;
+  // ── Source credentials check ──────────────────────────────────────────────
+  const sourceSaRaw   = process.env.SOURCE_FIREBASE_SA;
   const sourceRtdbUrl = process.env.SOURCE_RTDB_URL;
   if (!sourceSaRaw || !sourceRtdbUrl) {
-    return json(503, { error: 'SOURCE_FIREBASE_SA or SOURCE_RTDB_URL not configured.' });
+    return jsonRes(503, { error: 'SOURCE_FIREBASE_SA or SOURCE_RTDB_URL not configured.' });
   }
 
-  // ── Target DB (someday-3edba via existing shared init) ─────────────────────
-  const tgtDb = initAdmin().database();
+  // ── Target DB (someday-3edba) ─────────────────────────────────────────────
+  let tgtSa;
+  try { tgtSa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON); }
+  catch { return jsonRes(500, { error: 'FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.' }); }
+
+  const tgtApp = getOrInitApp(
+    'migration-target',
+    admin.credential.cert(tgtSa),
+    process.env.FIREBASE_RTDB_URL,
+  );
+  const tgtDb = tgtApp.database();
 
   // ── Idempotency: refuse if already run ────────────────────────────────────
   const flagSnap = await tgtDb.ref('migrationState/discoveryMigration').once('value');
   if (flagSnap.exists()) {
-    return json(409, {
+    return jsonRes(409, {
       error: 'Migration already completed.',
       completedAt: flagSnap.val().completedAt,
     });
@@ -60,22 +84,16 @@ exports.handler = async (event) => {
   // ── Source DB (vivo-mvp) ──────────────────────────────────────────────────
   let sourceSa;
   try { sourceSa = JSON.parse(sourceSaRaw); }
-  catch { return json(500, { error: 'SOURCE_FIREBASE_SA is not valid JSON.' }); }
+  catch { return jsonRes(500, { error: 'SOURCE_FIREBASE_SA is not valid JSON.' }); }
 
-  let srcApp;
-  try {
-    // Use a unique app name so it doesn't clash with the target app
-    srcApp = admin.initializeApp(
-      { credential: admin.credential.cert(sourceSa), databaseURL: sourceRtdbUrl },
-      'migration-source',
-    );
-  } catch (e) {
-    // App may already exist if the function is retried mid-run
-    srcApp = admin.app('migration-source');
-  }
+  const srcApp = getOrInitApp(
+    'migration-source',
+    admin.credential.cert(sourceSa),
+    sourceRtdbUrl,
+  );
   const srcDb = srcApp.database();
 
-  // ── Migrate ────────────────────────────────────────────────────────────────
+  // ── Migrate path by path ──────────────────────────────────────────────────
   const report   = {};
   const warnings = [];
 
@@ -120,7 +138,7 @@ exports.handler = async (event) => {
     report,
   });
 
-  return json(200, {
+  return jsonRes(200, {
     ok: true,
     report,
     warnings,
