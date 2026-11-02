@@ -29,7 +29,7 @@ jobs:
         env:
           SOURCE_SA_JSON:  ${{ secrets.VIVO_MVP_SA }}
           TARGET_SA_JSON:  ${{ secrets.SOMEDAY_3EDBA_SA }}
-          SOURCE_RTDB_URL: https://vivo-mvp-default-rtdb.firebaseio.com
+          SOURCE_RTDB_URL: https://vivo-mvp-default-rtdb.europe-west1.firebasedatabase.app
           TARGET_RTDB_URL: https://someday-3edba-default-rtdb.europe-west1.firebasedatabase.app
         run: |
           # Write service account files from secrets — never logged, never stored in git
