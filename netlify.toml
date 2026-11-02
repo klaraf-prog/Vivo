@@ -18,6 +18,12 @@
   to   = "/admin.html"
   status = 200
 
+# /bootstrap-admin → bootstrap-admin.html (one-time setup page)
+[[redirects]]
+  from = "/bootstrap-admin"
+  to   = "/bootstrap-admin.html"
+  status = 200
+
 # /studio → /admin (redirect legacy studio URL to the unified admin panel)
 [[redirects]]
   from = "/studio"
