@@ -65,6 +65,17 @@ function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 }
 
+function log(msg) {
+  console.log(`[${new Date().toISOString()}] ${msg}`);
+}
+
+function withTimeout(promise, ms, label) {
+  const t = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout after ${ms}ms: ${label}`)), ms),
+  );
+  return Promise.race([promise, t]);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -72,45 +83,45 @@ async function main() {
   const backDir = ensureBackupDir();
   const report  = { migrated: {}, skipped: {}, errors: [] };
 
-  console.log('=== Someday Discovery Migration ===');
-  console.log(`Source: ${SOURCE_RTDB}`);
-  console.log(`Target: ${TARGET_RTDB}`);
-  console.log('');
+  log('=== Someday Discovery Migration ===');
+  log(`Source: ${SOURCE_RTDB}`);
+  log(`Target: ${TARGET_RTDB}`);
 
   // ── 1. Backup both databases ───────────────────────────────────────────────
 
-  console.log('--- Step 1: Backup source and target ---');
+  log('--- Step 1: Reading source and target ---');
   const sourceBackup = {};
   const targetBackup = {};
 
   for (const p of MIGRATE_PATHS) {
+    log(`  reading ${p} ...`);
     const [srcSnap, tgtSnap] = await Promise.all([
-      srcDb.ref(p).once('value'),
-      tgtDb.ref(p).once('value'),
+      withTimeout(srcDb.ref(p).once('value'), 30000, `source ${p}`),
+      withTimeout(tgtDb.ref(p).once('value'), 30000, `target ${p}`),
     ]);
     sourceBackup[p] = srcSnap.val();
     targetBackup[p] = tgtSnap.val();
     const srcCount = srcSnap.val() ? Object.keys(srcSnap.val()).length : 0;
     const tgtCount = tgtSnap.val() ? Object.keys(tgtSnap.val()).length : 0;
-    console.log(`  ${p}: source=${srcCount}, target=${tgtCount}`);
+    log(`  ${p}: source=${srcCount}, target=${tgtCount}`);
   }
 
   const srcFile = path.join(backDir, `source-vivo-mvp-${ts}.json`);
   const tgtFile = path.join(backDir, `target-someday-3edba-${ts}.json`);
   fs.writeFileSync(srcFile, JSON.stringify(sourceBackup, null, 2));
   fs.writeFileSync(tgtFile, JSON.stringify(targetBackup, null, 2));
-  console.log(`\nBackup saved:\n  ${srcFile}\n  ${tgtFile}\n`);
+  log(`Backup saved: ${srcFile} / ${tgtFile}`);
 
   // ── 2. Migrate path by path ────────────────────────────────────────────────
 
-  console.log('--- Step 2: Migrate ---');
+  log('--- Step 2: Migrating ---');
 
   for (const p of MIGRATE_PATHS) {
     const src = sourceBackup[p];
     const tgt = targetBackup[p] || {};
 
     if (!src || Object.keys(src).length === 0) {
-      console.log(`  ${p}: empty in source, skipping`);
+      log(`  ${p}: empty in source, skipping`);
       report.migrated[p] = 0;
       report.skipped[p]  = 0;
       continue;
@@ -122,7 +133,6 @@ async function main() {
 
     for (const [id, val] of Object.entries(src)) {
       if (tgt[id] !== undefined) {
-        // Record already exists in target — skip to avoid overwriting
         skippedN++;
       } else {
         toWrite[`${p}/${id}`] = val;
@@ -131,51 +141,54 @@ async function main() {
     }
 
     if (Object.keys(toWrite).length > 0) {
-      await tgtDb.ref().update(toWrite);
+      log(`  ${p}: writing ${migratedN} records ...`);
+      await withTimeout(tgtDb.ref().update(toWrite), 30000, `write ${p}`);
     }
 
     report.migrated[p] = migratedN;
     report.skipped[p]  = skippedN;
 
-    console.log(`  ${p}: migrated=${migratedN}, skipped (already existed)=${skippedN}`);
+    log(`  ${p}: migrated=${migratedN}, skipped (already existed)=${skippedN}`);
   }
 
   // ── 3. Verify ─────────────────────────────────────────────────────────────
 
-  console.log('\n--- Step 3: Verify ---');
+  log('--- Step 3: Verifying ---');
   for (const p of MIGRATE_PATHS) {
-    const snap = await tgtDb.ref(p).once('value');
+    const snap = await withTimeout(tgtDb.ref(p).once('value'), 30000, `verify ${p}`);
     const n    = snap.val() ? Object.keys(snap.val()).length : 0;
     const expected = (report.migrated[p] || 0) + Object.keys(targetBackup[p] || {}).length;
     const ok = n >= expected ? '✓' : '✗';
-    console.log(`  ${ok} ${p}: ${n} records in target (expected ≥ ${expected})`);
+    log(`  ${ok} ${p}: ${n} records in target (expected ≥ ${expected})`);
   }
 
   // ── 4. Summary ────────────────────────────────────────────────────────────
 
-  console.log('\n=== Summary ===');
+  log('=== Summary ===');
   let totalMigrated = 0;
   let totalSkipped  = 0;
   for (const p of MIGRATE_PATHS) {
     totalMigrated += report.migrated[p] || 0;
     totalSkipped  += report.skipped[p]  || 0;
   }
-  console.log(`Total migrated : ${totalMigrated}`);
-  console.log(`Total skipped  : ${totalSkipped} (already existed in target)`);
+  log(`Total migrated : ${totalMigrated}`);
+  log(`Total skipped  : ${totalSkipped} (already existed in target)`);
   if (report.errors.length > 0) {
-    console.log(`Errors         : ${report.errors.length}`);
-    report.errors.forEach(e => console.log('  -', e));
+    log(`Errors         : ${report.errors.length}`);
+    report.errors.forEach(e => log(`  - ${e}`));
   } else {
-    console.log('Errors         : 0');
+    log('Errors         : 0');
   }
 
-  await Promise.all([
-    srcDb.goOffline(),
-    tgtDb.goOffline(),
-  ]);
+  // ── 5. Cleanup — delete apps to release all SDK handles and exit cleanly ──
+  log('--- Step 5: Cleanup ---');
+  await Promise.all([sourceApp.delete(), targetApp.delete()]);
+  log('Done. Exiting.');
 }
 
-main().catch(e => {
-  console.error('Fatal:', e.message);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch(e => {
+    console.error(`[${new Date().toISOString()}] Fatal: ${e.message}`);
+    process.exit(1);
+  });
