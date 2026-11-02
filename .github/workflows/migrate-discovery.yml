@@ -1,0 +1,46 @@
+name: One-shot Discovery Migration (vivo-mvp → someday-3edba)
+
+# Manually triggered only — never runs automatically.
+# Delete this file and the two secrets after successful migration.
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: claude/vivo-social-app-U8QOY
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migration
+        env:
+          SOURCE_SA_JSON:  ${{ secrets.VIVO_MVP_SA }}
+          TARGET_SA_JSON:  ${{ secrets.SOMEDAY_3EDBA_SA }}
+          SOURCE_RTDB_URL: https://vivo-mvp-default-rtdb.firebaseio.com
+          TARGET_RTDB_URL: https://someday-3edba-default-rtdb.europe-west1.firebasedatabase.app
+        run: |
+          # Write service account files from secrets — never logged, never stored in git
+          echo "$SOURCE_SA_JSON" > /tmp/source-sa.json
+          echo "$TARGET_SA_JSON" > /tmp/target-sa.json
+
+          SOURCE_SA=/tmp/source-sa.json \
+          TARGET_SA=/tmp/target-sa.json \
+          SOURCE_RTDB=$SOURCE_RTDB_URL \
+          TARGET_RTDB=$TARGET_RTDB_URL \
+          node scripts/migrate-discovery.js
+
+          # Wipe key files immediately after use
+          rm -f /tmp/source-sa.json /tmp/target-sa.json

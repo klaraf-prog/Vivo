@@ -8,10 +8,6 @@
 [functions."discovery-pipeline"]
   timeout = 26
 
-# One-shot migration function — max timeout, inert without MIGRATION_TOKEN env var
-[functions."migration-run"]
-  timeout = 26
-
 # Motivations-Benachrichtigungen — läuft stündlich in UTC 15–18 (= 17–20 Uhr CET/CEST)
 [functions."motivate"]
   schedule = "0 15,16,17,18 * * *"
