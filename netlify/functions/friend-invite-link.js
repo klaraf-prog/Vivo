@@ -2,14 +2,13 @@
 // GET  ?token=<hex>  — preview token (no auth, returns ownerName + ownerUid)
 // POST { action:'generate' }          — create a 7-day invite token (auth required)
 // POST { action:'accept', token }     — accept invite → direct mutual friendship (auth required)
-const { initAdmin, verifyUserToken, json, makeId } = require('./_studio-shared');
+const crypto = require('crypto');
+const { initAdmin, verifyUserToken, json } = require('./_studio-shared');
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function makeToken() {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return crypto.randomBytes(24).toString('hex');
 }
 
 exports.handler = async (event) => {

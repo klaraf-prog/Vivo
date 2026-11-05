@@ -1775,9 +1775,12 @@ function _dismissAddFriend() {
 
 async function _confirmAddFriend() {
   if (!_pendingAddUid || !_currentUser) return;
-  const uid = _pendingAddUid;
+  const uid        = _pendingAddUid;
+  const targetName = _pendingAddProfile
+    ? (_pendingAddProfile.displayName || (_pendingAddProfile.username ? '@' + _pendingAddProfile.username : null) || 'der Person')
+    : 'der Person';
   const btn = $('add-friend-confirm-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Wird gesendet…'; }
   try {
     const token = await _currentUser.getIdToken();
     const res = await fetch('/.netlify/functions/friends', {
@@ -1786,37 +1789,44 @@ async function _confirmAddFriend() {
       body: JSON.stringify({ action: 'request', targetUid: uid }),
     });
     if (res.ok) {
-      _pendingAddUid = null;
+      _pendingAddUid    = null;
       _pendingAddProfile = null;
       history.replaceState(null, '', window.location.pathname);
-      // Refresh user data then render
       const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res2.ok) _userData = await res2.json();
       render();
-    } else if (res.status === 409) {
-      _pendingAddUid = null;
+      alert(`Freundschaftsanfrage an ${targetName} gesendet! Sie müssen sie zuerst bestätigen.`);
+    } else {
+      const d = await res.json().catch(() => ({}));
+      _pendingAddUid    = null;
       _pendingAddProfile = null;
       history.replaceState(null, '', window.location.pathname);
       render();
-      alert('Du hast dieser Person bereits eine Anfrage gesendet oder ihr seid bereits befreundet.');
-    } else {
-      if (btn) { btn.disabled = false; btn.textContent = 'Anfrage senden'; }
+      if (res.status === 409) alert('Du hast dieser Person bereits eine Anfrage gesendet oder ihr seid bereits befreundet.');
+      else if (res.status === 404) alert('Dieser Nutzer wurde nicht gefunden.');
+      else alert(d.error || `Fehler beim Senden der Anfrage (HTTP ${res.status}).`);
     }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Anfrage senden'; }
+    alert('Netzwerkfehler – bitte überprüfe deine Verbindung und versuche es erneut.');
   }
 }
 
 function _addFriendSheet() {
-  const name = _pendingAddProfile
+  const loaded = !!_pendingAddProfile;
+  const name = loaded
     ? esc(_pendingAddProfile.displayName || (_pendingAddProfile.username ? '@' + _pendingAddProfile.username : null) || 'Unbekannt')
-    : '…';
-  const sub = _pendingAddProfile && _pendingAddProfile.username ? `<div class="small" style="margin-top:2px">@${esc(_pendingAddProfile.username)}</div>` : '';
+    : null;
+  const sub = loaded && _pendingAddProfile.username ? `<div class="small" style="margin-top:2px">@${esc(_pendingAddProfile.username)}</div>` : '';
   return `<div class="sheetbg" onclick="_dismissAddFriend()"><div class="sheet" onclick="event.stopPropagation()">
-    <div class="between"><div class="eyebrow">NEUE VERBINDUNG ✳</div><button class="iconbtn" onclick="_dismissAddFriend()">×</button></div>
+    <div class="between"><div class="eyebrow">FREUNDSCHAFTSANFRAGE ✳</div><button class="iconbtn" onclick="_dismissAddFriend()">×</button></div>
     <h1 class="headline" style="margin:12px 0 4px">Freundschaft anfragen</h1>
-    <p class="sub" style="margin:0 0 20px">Du möchtest <strong>${name}</strong>${sub} eine Freundschaftsanfrage senden. Die Person muss die Anfrage bestätigen.</p>
-    <button id="add-friend-confirm-btn" class="btn full dark" onclick="_confirmAddFriend()">Anfrage senden</button>
+    ${loaded
+      ? `<p class="sub" style="margin:0 0 20px">Du möchtest <strong>${name}</strong>${sub} eine Freundschaftsanfrage senden. Die Person muss die Anfrage zuerst bestätigen.</p>
+         <button id="add-friend-confirm-btn" class="btn full dark" onclick="_confirmAddFriend()">Anfrage senden</button>`
+      : `<p class="sub" style="margin:0 0 20px">Profil wird geladen…</p>
+         <button class="btn full dark" disabled style="opacity:.5">Anfrage senden</button>`
+    }
     <button class="btn secondary full" style="margin-top:8px" onclick="_dismissAddFriend()">Abbrechen</button>
   </div></div>`;
 }
@@ -2203,12 +2213,25 @@ async function _loadConnectPreview(token) {
       const d = await res.json().catch(() => ({}));
       _pendingConnectToken = null;
       render();
-      alert(d.error === 'Link expired' ? 'Dieser Einladungslink ist abgelaufen.' : 'Ungültiger Einladungslink.');
+      if (d.error === 'Link expired') alert('Dieser Einladungslink ist abgelaufen. Bitte den Absender um einen neuen Link bitten.');
+      else alert('Dieser Einladungslink ist ungültig oder wurde bereits verwendet.');
       return;
     }
-    _pendingConnectOwner = await res.json();
+    const preview = await res.json();
+    // Check if this is own link (before showing sheet)
+    if (preview.ownerUid === _currentUser.uid) {
+      _pendingConnectToken = null;
+      render();
+      alert('Das ist dein eigener Einladungslink – teile ihn mit anderen.');
+      return;
+    }
+    _pendingConnectOwner = preview;
     render();
-  } catch (e) { /* show sheet without name */ }
+  } catch (e) {
+    _pendingConnectToken = null;
+    render();
+    alert('Einladungslink konnte nicht geprüft werden. Bitte überprüfe deine Verbindung.');
+  }
 }
 
 function _dismissConnect() {
@@ -2219,9 +2242,10 @@ function _dismissConnect() {
 
 async function _confirmConnect() {
   if (!_pendingConnectToken || !_currentUser) return;
-  const token = _pendingConnectToken;
-  const btn   = $('connect-confirm-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  const token     = _pendingConnectToken;
+  const ownerName = _pendingConnectOwner ? (_pendingConnectOwner.ownerName || 'deiner Kontaktperson') : 'deiner Kontaktperson';
+  const btn = $('connect-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Wird verbunden…'; }
   try {
     const idToken = await _currentUser.getIdToken();
     const res = await fetch('/.netlify/functions/friend-invite-link', {
@@ -2235,31 +2259,38 @@ async function _confirmConnect() {
       const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
       if (res2.ok) _userData = await res2.json();
       render();
-      alert('Freundschaft hinzugefügt! 🎉');
+      alert(`Du und ${ownerName} seid jetzt befreundet! 🎉`);
     } else {
       const d = await res.json().catch(() => ({}));
       _pendingConnectToken = null;
       _pendingConnectOwner = null;
       render();
       if (d.error === 'already_friends') alert('Ihr seid bereits befreundet.');
-      else if (d.error === 'Link expired') alert('Dieser Einladungslink ist abgelaufen.');
-      else alert(d.error || 'Fehler beim Verbinden.');
+      else if (d.error === 'Link expired') alert('Dieser Einladungslink ist abgelaufen. Bitte einen neuen Link anfordern.');
+      else if (d.error === 'Cannot connect with yourself') alert('Das ist dein eigener Einladungslink – teile ihn mit anderen.');
+      else if (d.error === 'Invalid or expired link') alert('Dieser Einladungslink ist ungültig oder abgelaufen.');
+      else alert(d.error || `Fehler beim Verbinden (HTTP ${res.status}).`);
     }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Freundschaft bestätigen'; }
+    alert('Netzwerkfehler – bitte überprüfe deine Verbindung und versuche es erneut.');
   }
 }
 
 function _connectSheet() {
-  const ownerName = _pendingConnectOwner
-    ? esc(_pendingConnectOwner.ownerName || 'Jemand')
-    : '…';
+  const loaded    = !!_pendingConnectOwner;
+  const ownerName = loaded ? esc(_pendingConnectOwner.ownerName || 'Jemand') : null;
   return `<div class="sheetbg" onclick="_dismissConnect()"><div class="sheet" onclick="event.stopPropagation()">
     <div class="between"><div class="eyebrow">EINLADUNG ✳</div><button class="iconbtn" onclick="_dismissConnect()">×</button></div>
-    <h1 class="headline" style="margin:12px 0 4px">${ownerName} möchte sich mit dir verbinden!</h1>
-    <p class="sub" style="margin:0 0 20px">Bestätige die Freundschaft – sie wird sofort für beide Seiten aktiv.</p>
-    <button id="connect-confirm-btn" class="btn full dark" onclick="_confirmConnect()">Freundschaft bestätigen</button>
-    <button class="btn secondary full" style="margin-top:8px" onclick="_dismissConnect()">Ablehnen</button>
+    ${loaded
+      ? `<h1 class="headline" style="margin:12px 0 4px">${ownerName} möchte sich mit dir verbinden!</h1>
+         <p class="sub" style="margin:0 0 20px">Bestätige die Freundschaft – sie wird sofort für beide Seiten aktiv.</p>
+         <button id="connect-confirm-btn" class="btn full dark" onclick="_confirmConnect()">Freundschaft bestätigen</button>`
+      : `<h1 class="headline" style="margin:12px 0 4px">Einladung wird geprüft…</h1>
+         <p class="sub" style="margin:0 0 20px">Einen Moment bitte.</p>
+         <button class="btn full dark" disabled style="opacity:.5">Freundschaft bestätigen</button>`
+    }
+    <button class="btn secondary full" style="margin-top:8px" onclick="_dismissConnect()">Abbrechen</button>
   </div></div>`;
 }
 
