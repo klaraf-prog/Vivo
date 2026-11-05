@@ -331,6 +331,20 @@ function _initFirebaseAuth() {
           }
           if (res.ok) {
             _userData = await res.json();
+            // Bootstrap RTDB profile for users who signed in via Google but have no profile node yet.
+            // user-profile preserves existing fields (createdAt etc.) — safe to call every first login.
+            if (!(_userData.profile && (_userData.profile.displayName || _userData.profile.username)) && user.displayName) {
+              try {
+                await fetch('/.netlify/functions/user-profile', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ displayName: user.displayName }),
+                });
+                // Re-fetch so the rest of the session sees the new profile
+                const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res2.ok) _userData = await res2.json();
+              } catch (e) { console.warn('[someday] profile bootstrap failed:', e.message); }
+            }
           } else {
             const msg = res.status === 503
               ? 'Dienst vorübergehend nicht verfügbar. Bitte versuche es später erneut.'

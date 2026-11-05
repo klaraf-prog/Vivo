@@ -19,12 +19,28 @@ exports.handler = async (event) => {
   if (!name || typeof name !== 'string' || !name.trim()) return json(400, { error: 'name is required' });
   if (name.trim().length > 80) return json(400, { error: 'name too long (max 80 chars)' });
 
-  const uid = decoded.uid;
-  const db  = initAdmin().database();
+  const uid   = decoded.uid;
+  const app   = initAdmin();
+  const db    = app.database();
 
-  // Verify creator profile exists, get displayName for invite messages
-  const creatorSnap = await db.ref(`users/${uid}`).once('value');
-  if (!creatorSnap.exists()) return json(404, { error: 'Creator user not found' });
+  // Load creator profile; bootstrap from Firebase Auth if the RTDB node is missing.
+  // This covers Google-login users whose profile was never explicitly written.
+  let creatorSnap = await db.ref(`users/${uid}`).once('value');
+  if (!creatorSnap.exists() || !creatorSnap.val()) {
+    try {
+      const authUser    = await app.auth().getUser(uid);
+      const bootstrapped = { createdAt: Date.now(), updatedAt: Date.now() };
+      if (authUser.displayName) {
+        bootstrapped.displayName      = authUser.displayName;
+        bootstrapped.displayNameLower = authUser.displayName.toLowerCase();
+      }
+      await db.ref(`users/${uid}`).set(bootstrapped);
+      creatorSnap = await db.ref(`users/${uid}`).once('value');
+    } catch (e) {
+      console.error('[someday] space-create: cannot bootstrap creator profile:', e.message);
+      return json(404, { error: 'Creator user not found' });
+    }
+  }
   const creatorName = (creatorSnap.val() || {}).displayName || null;
 
   // Validate member uids (deduplicated, excluding creator) — they receive invites, not direct membership
