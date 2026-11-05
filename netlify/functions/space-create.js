@@ -22,33 +22,40 @@ exports.handler = async (event) => {
   const uid = decoded.uid;
   const db  = initAdmin().database();
 
-  // Verify creator profile exists
+  // Verify creator profile exists, get displayName for invite messages
   const creatorSnap = await db.ref(`users/${uid}`).once('value');
   if (!creatorSnap.exists()) return json(404, { error: 'Creator user not found' });
+  const creatorName = (creatorSnap.val() || {}).displayName || null;
 
-  // Validate member uids (deduplicated, excluding creator)
+  // Validate member uids (deduplicated, excluding creator) — they receive invites, not direct membership
   const extraMembers = [...new Set((memberUids || []).filter(id => id && id !== uid))];
   const memberChecks = await Promise.all(extraMembers.map(id => db.ref(`users/${id}`).once('value')));
   const validMembers = extraMembers.filter((id, i) => memberChecks[i].exists());
 
-  const spaceId  = makeId('sp');
-  const now      = Date.now();
-  const members  = { [uid]: true };
-  validMembers.forEach(id => { members[id] = true; });
+  const spaceId = makeId('sp');
+  const now     = Date.now();
 
+  // Only creator is immediately a member; invited friends must accept
   const update = {
     [`spaces/${spaceId}`]: {
       name:      name.trim(),
       createdBy: uid,
       createdAt: now,
-      members,
+      members:   { [uid]: true },
     },
     [`userSpaces/${uid}/${spaceId}`]: true,
   };
-  validMembers.forEach(id => {
-    update[`userSpaces/${id}/${spaceId}`] = true;
-  });
+
+  // Write invite entries (no direct membership without consent)
+  for (const memberId of validMembers) {
+    update[`spaceInvites/${memberId}/${spaceId}`] = {
+      spaceName:     name.trim(),
+      invitedBy:     uid,
+      invitedByName: creatorName,
+      timestamp:     now,
+    };
+  }
 
   await db.ref('/').update(update);
-  return json(201, { ok: true, spaceId, name: name.trim(), memberCount: Object.keys(members).length });
+  return json(201, { ok: true, spaceId, name: name.trim(), memberCount: 1, invitesSent: validMembers.length });
 };

@@ -3,6 +3,11 @@
 .poll-divider{border-top:1.5px solid var(--line);margin:8px 0}.poll-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px}.poll-toggle-label strong{font-size:.9375rem;font-weight:600;color:var(--dark);display:block}.poll-opt-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:10px}.poll-card{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}.poll-card.i-voted{border-color:#f0b429;background:#FFF8EC}.poll-card.confirmed{border-color:#5CB87A;background:#F0FAF4}.poll-card-head{display:flex;align-items:center;justify-content:space-between}.poll-card-date{font-weight:600;font-size:.9375rem}.poll-card-votes{font-size:.875rem;color:var(--muted)}.poll-bar-wrap{background:var(--bg);border-radius:6px;height:6px;margin-top:8px}.poll-bar{background:#f0b429;border-radius:6px;height:6px;transition:width .3s}.poll-opt-remove{flex-shrink:0;background:none;border:none;color:var(--pink);font-size:1.25rem;cursor:pointer}
 .daily-quote{font-size:.875rem;color:#b7cbbd;font-style:italic;margin:6px 0 0;line-height:1.4}
 .friend-invite-box{background:white;border:1px solid var(--line);border-radius:15px;padding:16px;margin-top:16px}
+.modal-bg{position:fixed;inset:0;background:#102f1c70;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:var(--bg);width:min(560px,100%);border-radius:22px;padding:24px 20px;max-height:90dvh;overflow-y:auto}
+.friend-chip{display:inline-flex;align-items:center;gap:5px;background:#e4f9df;border:1px solid #59d66a;border-radius:20px;padding:5px 10px;font-size:13px;font-weight:650;color:#183b28;margin:3px}
+.friend-chip button{border:0;background:none;color:#183b28;font-size:14px;cursor:pointer;padding:0;line-height:1}
+.space-invite-card{background:#fff8e1;border:1.5px solid #f0b429;border-radius:15px;padding:14px 16px;margin-bottom:10px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -284,6 +289,10 @@ function _getDailyQuote() {
 let _pendingAddUid     = null; // UID from /?add= param waiting to be processed
 let _pendingAddProfile = null; // { displayName, username } fetched for the add-friend sheet
 
+let _spaceCreateSearch     = '';
+let _spaceCreateSelected   = {}; // { uid: { displayName, username } }
+let _spaceCreateSubmitting = false;
+
 function _initFirebaseAuth() {
   if (_fbAuth) return _fbAuth;
   try {
@@ -334,13 +343,20 @@ function _initFirebaseAuth() {
       }
       _authReady = true;
       render();
-      // Process pending add-friend from /?add= (after login)
+      // Process pending deep-links (after login)
       if (user) {
         try {
           const pendingAdd = sessionStorage.getItem('someday_pending_add');
           if (pendingAdd) {
             sessionStorage.removeItem('someday_pending_add');
             _handleAddFriend(pendingAdd);
+          }
+        } catch {}
+        try {
+          const pendingJoin = sessionStorage.getItem('someday_pending_joinspace');
+          if (pendingJoin) {
+            sessionStorage.removeItem('someday_pending_joinspace');
+            _joinSpaceViaLink(pendingJoin);
           }
         } catch {}
       }
@@ -553,7 +569,7 @@ async function _signUp() {
 
 // Auth-aware header: show user avatar or default when signed in.
 const _header = () => {
-  const unread = _pendingInvites ? _pendingInvites().length : 0;
+  const unread = (_pendingInvites ? _pendingInvites().length : 0) + _pendingSpaceInvites().length;
   const bell = `<button class="iconbtn" onclick="nav('Home')" aria-label="Notifications${unread?' ('+unread+' pending)':''}" style="background:${unread?'#fce0e8':'#e4f8e1'}"><span class="bell-wrap">🔔${unread?`<span class="bell-badge">${unread}</span>`:''}</span></button>`;
   return `<header class="header"><button onclick="nav('Home')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow">${bell}<button class="avatar" onclick="nav('Profile')" aria-label="Profile">${_avatarLetter()}</button></div></header>`;
 };
@@ -1051,6 +1067,11 @@ function _pendingInvites() {
     .filter(x => x.event);
 }
 
+function _pendingSpaceInvites() {
+  if (!_userData || !_userData.spaceInvites) return [];
+  return Object.entries(_userData.spaceInvites).map(([spaceId, inv]) => ({ spaceId, ...inv }));
+}
+
 function _homeTab() {
   const isAuth = !!(_currentUser && _userData && !_userData._error);
   const name = _displayName ? (_displayName() || 'there') : 'there';
@@ -1065,10 +1086,12 @@ function _homeTab() {
     <p class="daily-quote">${esc(_getDailyQuote())}</p>
   </div>`;
 
-  // Section B: Needs your attention (pending invites)
+  // Section B: Needs your attention (pending event invites + space invites)
   let attentionSection = '';
   if (isAuth) {
     const pending = _pendingInvites();
+    const spaceInvs = _pendingSpaceInvites();
+    let attentionHtml = '';
     if (pending.length) {
       const cards = pending.map(({ id, event: ev }) => {
         if (!ev) return '';
@@ -1078,14 +1101,32 @@ function _homeTab() {
           `<button class="home-rsvp-btn ${myRsvp === s ? 'active' : ''}" onclick="_rsvp('${esc(id)}','${s}')">${_rsvpToLabel[s]}</button>`
         ).join('');
         return `<div class="home-invite" onclick="openEvent('${esc(id)}')" style="cursor:pointer">
-          <div class="eyebrow" style="font-size:10px">INVITE</div>
+          <div class="eyebrow" style="font-size:10px">EINLADUNG</div>
           <strong style="font-size:15px">${esc((ev.emoji || '') + ' ' + (ev.title || '')).trim()}</strong>
           ${ev.date ? `<div class="small" style="margin-top:4px">${esc(ev.date)}${ev.time ? ' · ' + esc(ev.time) : ''}${ev.location ? ' · ' + esc(ev.location) : ''}</div>` : ''}
           <div class="home-rsvp-row" onclick="event.stopPropagation()">${rsvpBtns}</div>
         </div>`;
       }).join('');
-      attentionSection = `<div class="home-section" style="color:#c0392b">${_t('home_attention')} <span style="background:#fce0e8;color:#8b3d59;border-radius:20px;padding:3px 9px;font-size:12px">${pending.length}</span></div>${cards}`;
+      attentionHtml += `<div class="home-section" style="color:#c0392b">${_t('home_attention')} <span style="background:#fce0e8;color:#8b3d59;border-radius:20px;padding:3px 9px;font-size:12px">${pending.length}</span></div>${cards}`;
     }
+    if (spaceInvs.length) {
+      const spaceCards = spaceInvs.map(inv =>
+        `<div class="space-invite-card">
+          <div class="between">
+            <div>
+              <strong>${esc(inv.spaceName || 'Unbekannter Space')}</strong>
+              <div class="small" style="margin-top:2px">Eingeladen von ${esc(inv.invitedByName || 'jemandem')}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="chip" onclick="_spaceInviteAction('accept','${esc(inv.spaceId)}')">Annehmen</button>
+              <button class="chip" onclick="_spaceInviteAction('decline','${esc(inv.spaceId)}')">Ablehnen</button>
+            </div>
+          </div>
+        </div>`
+      ).join('');
+      attentionHtml += `<div class="home-section" style="color:#c07000">Space-Einladungen 📬 <span style="background:#fff3cd;color:#7a5a00;border-radius:20px;padding:3px 9px;font-size:12px">${spaceInvs.length}</span></div>${spaceCards}`;
+    }
+    if (attentionHtml) attentionSection = attentionHtml;
   }
 
   // Section C: Coming up (future Firebase events, sorted, excluding nein RSVP)
@@ -1336,34 +1377,52 @@ window.commitCustom = async function commitCustom_auth() {
 
 function _authSpaces() {
   if (!_currentUser) return spaces();
-  if (!_userData) return `<div class="content"><div class="hero"><div class="eyebrow">${_t('spaces_eyebrow')}</div><h1>Your groups.</h1></div><div class="empty">Loading…</div></div>`;
-  if (_userData._error) return `<div class="content"><div class="hero"><div class="eyebrow">${_t('spaces_eyebrow')}</div><h1>Your groups.</h1></div><div class="warn">⚠ ${esc(_userData._message || 'Could not load groups.')}</div></div>`;
+  if (!_userData) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div><div class="empty">Wird geladen…</div></div>`;
+  if (_userData._error) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div><div class="warn">⚠ ${esc(_userData._message || 'Spaces konnten nicht geladen werden.')}</div></div>`;
   const { spaces: fbSpaces, userSpaces } = _userData;
   const spaceList = Object.entries(userSpaces || {})
     .map(([id]) => ({ id, ...(fbSpaces[id] || {}) }))
     .filter(sp => sp.name);
+  const spaceInvs = _pendingSpaceInvites();
+  const invSection = spaceInvs.length ? `
+    <div class="home-section" style="color:#c07000">Space-Einladungen 📬</div>
+    ${spaceInvs.map(inv => `<div class="space-invite-card">
+      <div class="between">
+        <div>
+          <strong>${esc(inv.spaceName || 'Unbekannter Space')}</strong>
+          <div class="small" style="margin-top:2px">Eingeladen von ${esc(inv.invitedByName || 'jemandem')}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="chip" onclick="_spaceInviteAction('accept','${esc(inv.spaceId)}')">Annehmen</button>
+          <button class="chip" onclick="_spaceInviteAction('decline','${esc(inv.spaceId)}')">Ablehnen</button>
+        </div>
+      </div>
+    </div>`).join('')}
+  ` : '';
   if (!spaceList.length) {
     return `<div class="content">
-      <div class="hero"><div class="eyebrow">YOUR PEOPLE ✳</div><h1>Your groups.</h1></div>
-      <div class="empty">You are not in any groups yet.<br>Create one to plan together.</div>
+      <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div>
+      ${invSection}
+      <div class="empty">Du bist noch in keinem Space.<br>Erstelle einen, um gemeinsam zu planen.</div>
       <div style="height:12px"></div>
-      ${button('+ Create group', '_openSpaceCreate()', 'full')}
+      ${button('+ Space erstellen', '_openSpaceCreate()', 'full')}
     </div>`;
   }
   return `<div class="content">
-    <div class="hero"><div class="eyebrow">${_t('spaces_eyebrow')}</div><h1>${_t('spaces_headline')}</h1></div>
+    <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div>
+    ${invSection}
     <div class="stack">
       ${spaceList.map(sp => {
         const evtCount = Object.keys((_userData.spaceEvents || {})[sp.id] || {}).length;
+        const memberCount = Object.keys(sp.members||{}).length;
         return `<button class="rowcard" onclick="set({space:'${esc(sp.name)}',spaceId:'${sp.id}',page:'space',spaceTab:'Events'})">
           <div class="between"><h2>${esc(sp.name)}</h2><strong>→</strong></div>
-          <p class="sub">${Object.keys(sp.members||{}).length} member${Object.keys(sp.members||{}).length!==1?'s':''} · ${evtCount} event${evtCount!==1?'s':''}</p>
-          <span class="tag">${evtCount} event${evtCount!==1?'s':''}</span>
+          <p class="sub">${memberCount} ${memberCount!==1?'Mitglieder':'Mitglied'} · ${evtCount} ${evtCount!==1?'Events':'Event'}</p>
         </button>`;
       }).join('')}
     </div>
     <div style="height:12px"></div>
-    ${button('+ Create group', '_openSpaceCreate()', 'secondary full')}
+    ${button('+ Space erstellen', '_openSpaceCreate()', 'secondary full')}
   </div>`;
 }
 
@@ -1378,41 +1437,62 @@ function _authSpace() {
   const userEvs  = (_userData.userEvents || {});
   const memberIds = Object.keys(sp.members || {});
   const friendPs  = _userData.friendProfiles || {};
+  const friends   = _userData.friends || {};
   const myUid     = _userData.uid;
   const memberNames = memberIds.map(uid => {
     const p = (uid === myUid) ? _userData.profile : friendPs[uid];
     return (p && p.displayName) ? p.displayName : uid.slice(0,8)+'…';
   });
+  // Friends not yet in this space (eligible for invite)
+  const invitableFriends = Object.keys(friends).filter(uid => !(sp.members || {})[uid]);
   const eventCards = evtIds.map(id => {
     const ev = events[id];
     if (!ev) return '';
     const myStatus  = userEvs[id];
-    const label     = myStatus ? (_rsvpToLabel[myStatus] || myStatus) : 'No RSVP';
+    const label     = myStatus ? (_rsvpToLabel[myStatus] || myStatus) : 'Kein RSVP';
     const rsvpCount = Object.values(ev.rsvps || {}).filter(r => r.status === 'dabei').length;
     return `<div class="rowcard" style="margin-bottom:10px">
       <div class="between"><div>
         <strong>${esc((ev.emoji||'')+' '+(ev.title||''))}</strong>
         <div class="small">${esc(ev.date||'')}${ev.time?' '+esc(ev.time):''}${ev.location?' · '+esc(ev.location):''}</div>
-        <div class="small">${rsvpCount} going · Your RSVP: ${esc(label)}</div>
+        <div class="small">${rsvpCount} dabei · Dein RSVP: ${esc(label)}</div>
       </div></div>
       <div style="display:flex;gap:6px;margin-top:10px">
         ${['dabei','vielleicht','nein'].map(s =>
-          `<button class="chip ${myStatus===s?'on':''}" onclick="_rsvp('${id}','${s}')">${{dabei:'✓ Going',vielleicht:'Maybe',nein:'✗ No'}[s]}</button>`
+          `<button class="chip ${myStatus===s?'on':''}" onclick="_rsvp('${id}','${s}')">${{dabei:'✓ Dabei',vielleicht:'Vielleicht',nein:'✗ Nein'}[s]}</button>`
         ).join('')}
       </div>
     </div>`;
   }).join('');
+  const inviteSection = `
+    <div class="home-section" style="margin-top:20px">PERSONEN EINLADEN</div>
+    ${invitableFriends.length
+      ? `<div style="margin-bottom:8px">${invitableFriends.map(uid => {
+          const p = friendPs[uid];
+          const name = (p && p.displayName) ? p.displayName : uid.slice(0,8)+'…';
+          return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <span>${esc(name)}</span>
+            <button class="chip" onclick="_inviteFriendToSpace('${esc(uid)}','${esc(spaceId)}')">Einladen</button>
+          </div>`;
+        }).join('')}</div>`
+      : `<div class="small" style="color:var(--muted);margin-bottom:8px">Alle deine Freunde sind bereits Mitglieder.</div>`
+    }
+    <div style="margin-top:10px">${button('🔗 Einladungslink erstellen', `_generateSpaceLink('${esc(spaceId)}')`, 'secondary full')}</div>
+    <div id="space-link-box" style="display:none;margin-top:10px;padding:12px;background:var(--surface);border-radius:12px;font-size:13px;word-break:break-all"></div>
+  `;
   return `<div class="content">
-    <button class="back" onclick="set({page:'home'})">${_t('spaces_back')}</button>
-    <div class="hero"><div class="eyebrow">YOUR GROUP ✳</div><h1>${esc(sp.name)}</h1>
+    <button class="back" onclick="set({page:'spaces'})">${_t('spaces_back')}</button>
+    <div class="hero"><div class="eyebrow">DEIN SPACE ✳</div><h1>${esc(sp.name)}</h1>
     <p class="sub">${memberNames.join(', ')}</p></div>
-    ${segment('spaceTab',['Events','Members'])}
+    ${segment('spaceTab',['Events','Mitglieder','Einladen'])}
     <div style="margin-top:20px">
-      ${S.spaceTab === 'Members'
+      ${S.spaceTab === 'Mitglieder'
         ? `<div class="stack">${memberNames.map(n => `<div class="rowcard"><strong>${esc(n)}</strong></div>`).join('')}</div>`
-        : evtIds.length ? eventCards : '<div class="empty">No events in this group yet.</div>'}
+        : S.spaceTab === 'Einladen'
+        ? inviteSection
+        : evtIds.length ? eventCards : '<div class="empty">Noch keine Events in diesem Space.</div>'}
     </div>
-    ${button('+ Create group event', `startGroupEvent('${spaceId}')`, 'secondary full')}
+    ${S.spaceTab !== 'Einladen' ? button('+ Space-Event erstellen', `startGroupEvent('${spaceId}')`, 'secondary full') : ''}
   </div>`;
 }
 
@@ -1668,39 +1748,205 @@ function _openSpaceCreate() {
 }
 
 function _spaceCreateSheet() {
-  return `<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()">
-    <div class="between"><div class="eyebrow">YOUR PEOPLE ✳</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div>
-    <h1 class="headline">Start something together.</h1>
-    <label class="formlabel">Group name *</label>
-    <input id="sc-name" class="field" placeholder="Weekend Crew, Book Club…" style="margin-bottom:10px">
-    <label class="formlabel">Invite friends (optional)</label>
-    <input id="sc-members" class="field" placeholder="Friend UIDs, comma-separated" style="margin-bottom:10px">
+  const friends = _userData ? (_userData.friends || {}) : {};
+  const friendPs = _userData ? (_userData.friendProfiles || {}) : {};
+  const friendList = Object.keys(friends).map(uid => {
+    const p = friendPs[uid];
+    return { uid, displayName: (p && p.displayName) ? p.displayName : uid.slice(0,8)+'…', username: (p && p.username) || '' };
+  }).sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const search = (_spaceCreateSearch || '').toLowerCase();
+  const filtered = search
+    ? friendList.filter(f => f.displayName.toLowerCase().includes(search) || f.username.toLowerCase().includes(search))
+    : friendList;
+  const chips = Object.entries(_spaceCreateSelected).map(([uid, p]) =>
+    `<span class="friend-chip">${esc(p.displayName)}<button onclick="_spaceCreateDeselect('${esc(uid)}')">×</button></span>`
+  ).join('');
+  const rows = filtered.map(f => {
+    const sel = !!_spaceCreateSelected[f.uid];
+    return `<div class="between" style="padding:9px 4px;border-bottom:1px solid var(--border);cursor:pointer" onclick="${sel ? `_spaceCreateDeselect('${esc(f.uid)}')` : `_spaceCreateSelect('${esc(f.uid)}','${esc(f.displayName.replace(/'/g,'&#39;'))}','${esc(f.username.replace(/'/g,'&#39;'))}')` }">
+      <span style="font-size:14px">${esc(f.displayName)}${f.username ? ` <span style="color:var(--muted);font-size:12px">@${esc(f.username)}</span>` : ''}</span>
+      <span style="font-size:18px">${sel ? '✓' : '+'}</span>
+    </div>`;
+  }).join('');
+  return `<div class="modal-bg" onclick="_closeSpaceCreate()"><div class="modal-box" onclick="event.stopPropagation()">
+    <div class="between" style="margin-bottom:16px">
+      <div class="eyebrow">DEINE LEUTE ✳</div>
+      <button class="iconbtn" onclick="_closeSpaceCreate()">×</button>
+    </div>
+    <h1 class="headline" style="margin:0 0 20px">Space erstellen.</h1>
+    <label class="formlabel">Space-Name *</label>
+    <input id="sc-name" class="field" placeholder="Wochenend-Crew, Buchclub…" style="margin-bottom:16px">
+    <label class="formlabel">Freunde einladen (optional)</label>
+    ${chips ? `<div style="margin-bottom:8px">${chips}</div>` : ''}
+    ${friendList.length
+      ? `<input id="sc-search" class="field" placeholder="Freunde suchen…" value="${esc(search)}" oninput="_spaceCreateSearch=this.value;render()" style="margin-bottom:4px">
+         <div style="max-height:200px;overflow-y:auto;margin-bottom:12px">${rows || '<div class="small" style="color:var(--muted);padding:8px 4px">Keine Treffer.</div>'}</div>`
+      : `<div class="small" style="color:var(--muted);margin-bottom:12px">Füge zuerst Freunde hinzu, um sie einzuladen.</div>`
+    }
     <div id="sc-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
-    ${button('Create group →', '_submitSpaceCreate()', 'full')}
+    ${button(_spaceCreateSubmitting ? 'Wird erstellt…' : 'Space erstellen →', '_submitSpaceCreate()', 'full')}
   </div></div>`;
 }
 
+function _closeSpaceCreate() {
+  _spaceCreateSearch   = '';
+  _spaceCreateSelected = {};
+  _spaceCreateSubmitting = false;
+  set({ sheet: null });
+}
+
+function _spaceCreateSelect(uid, displayName, username) {
+  _spaceCreateSelected = { ..._spaceCreateSelected, [uid]: { displayName, username } };
+  render();
+}
+
+function _spaceCreateDeselect(uid) {
+  const copy = { ..._spaceCreateSelected };
+  delete copy[uid];
+  _spaceCreateSelected = copy;
+  render();
+}
+
 async function _submitSpaceCreate() {
-  const name    = ($('sc-name')    || {}).value || '';
-  const members = ($('sc-members') || {}).value || '';
-  const errEl   = $('sc-err');
-  if (!name.trim()) { if (errEl) errEl.textContent = 'Please enter a group name.'; return; }
+  if (_spaceCreateSubmitting) return;
+  const nameEl = $('sc-name');
+  const name   = (nameEl || {}).value || '';
+  const errEl  = $('sc-err');
+  if (!name.trim()) { if (errEl) errEl.textContent = 'Bitte einen Space-Namen eingeben.'; return; }
   if (errEl) errEl.textContent = '';
-  const memberUids = members.split(',').map(s => s.trim()).filter(Boolean);
+  _spaceCreateSubmitting = true;
+  render();
+  if (!_currentUser) { _spaceCreateSubmitting = false; render(); return; }
+  try {
+    const token      = await _currentUser.getIdToken();
+    const memberUids = Object.keys(_spaceCreateSelected);
+    const res = await fetch('/.netlify/functions/space-create', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name: name.trim(), memberUids }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      if (errEl) errEl.textContent = d.error || 'Fehler beim Erstellen.';
+      _spaceCreateSubmitting = false;
+      render();
+      return;
+    }
+    _spaceCreateSearch     = '';
+    _spaceCreateSelected   = {};
+    _spaceCreateSubmitting = false;
+    set({ sheet: null });
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message || 'Fehler';
+    _spaceCreateSubmitting = false;
+    render();
+  }
+}
+
+async function _spaceInviteAction(action, spaceId) {
   if (!_currentUser) return;
   try {
     const token = await _currentUser.getIdToken();
-    const res   = await fetch('/.netlify/functions/space-create', {
-      method: 'POST',
+    const res   = await fetch('/.netlify/functions/space-invite', {
+      method:  'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), memberUids }),
+      body:    JSON.stringify({ action, spaceId }),
     });
-    if (!res.ok) { const d = await res.json(); if (errEl) errEl.textContent = d.error || 'Failed'; return; }
-    set({ sheet: null });
-    // Refresh
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Fehler'); return; }
+    // Refresh user data
     const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res2.ok) { _userData = await res2.json(); render(); }
-  } catch (e) { if (errEl) errEl.textContent = e.message || 'Failed'; }
+  } catch (e) { console.error('[someday] spaceInviteAction:', e.message); }
+}
+
+async function _inviteFriendToSpace(inviteeUid, spaceId) {
+  if (!_currentUser) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res   = await fetch('/.netlify/functions/space-invite', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'invite', spaceId, inviteeUid }),
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      if (d.error === 'already_invited') { alert('Diese Person wurde bereits eingeladen.'); return; }
+      if (d.error === 'already_member')  { alert('Diese Person ist bereits Mitglied.'); return; }
+      alert(d.error || 'Fehler'); return;
+    }
+    alert('Einladung gesendet!');
+  } catch (e) { console.error('[someday] inviteFriendToSpace:', e.message); }
+}
+
+async function _generateSpaceLink(spaceId) {
+  if (!_currentUser) return;
+  const box = document.getElementById('space-link-box');
+  if (box) { box.style.display = 'block'; box.textContent = 'Link wird generiert…'; }
+  try {
+    const token = await _currentUser.getIdToken();
+    const res   = await fetch('/.netlify/functions/space-invite-link', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'generate', spaceId }),
+    });
+    if (!res.ok) { const d = await res.json(); if (box) box.textContent = d.error || 'Fehler'; return; }
+    const { token: invToken } = await res.json();
+    const url = `${location.origin}/?joinspace=${encodeURIComponent(invToken)}`;
+    if (box) {
+      box.innerHTML = `<strong>Einladungslink (7 Tage gültig):</strong><br>${esc(url)}<br><br>
+        <button class="chip" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>alert('Link kopiert!'))">Kopieren</button>`;
+    }
+  } catch (e) {
+    if (box) box.textContent = e.message || 'Fehler';
+  }
+}
+
+function _handleJoinSpaceLink() {
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('joinspace');
+  if (!token) return;
+  history.replaceState(null, '', window.location.pathname);
+  if (_currentUser) {
+    _joinSpaceViaLink(token);
+  } else {
+    try { sessionStorage.setItem('someday_pending_joinspace', token); } catch {}
+  }
+}
+
+async function _joinSpaceViaLink(token) {
+  if (!_currentUser) return;
+  try {
+    // First fetch preview (no auth required)
+    const previewRes = await fetch(`/.netlify/functions/space-invite-link?token=${encodeURIComponent(token)}`);
+    if (!previewRes.ok) {
+      const d = await previewRes.json();
+      alert(d.error === 'Link expired' ? 'Dieser Einladungslink ist abgelaufen.' : 'Ungültiger Einladungslink.');
+      return;
+    }
+    const { spaceName, memberCount } = await previewRes.json();
+    const confirmed = confirm(`Space beitreten?\n\n„${spaceName}" · ${memberCount} ${memberCount !== 1 ? 'Mitglieder' : 'Mitglied'}\n\nJetzt beitreten?`);
+    if (!confirmed) return;
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/space-invite-link', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'accept', token }),
+    });
+    const joinData = await res.json();
+    if (!res.ok) {
+      if (joinData.error === 'already_member') { alert('Du bist bereits Mitglied dieses Spaces.'); return; }
+      alert(joinData.error || 'Fehler beim Beitreten.');
+      return;
+    }
+    // Refresh and navigate
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
+    if (res2.ok) { _userData = await res2.json(); }
+    const { spaceId } = joinData;
+    alert(`Willkommen in „${spaceName}"!`);
+    set({ page: 'space', spaceId, space: spaceName, spaceTab: 'Events' });
+  } catch (e) { console.error('[someday] joinSpaceViaLink:', e.message); }
 }
 
 // ── Category image fallbacks ──────────────────────────────────────────────
@@ -1793,5 +2039,6 @@ _initFirebaseAuth();
 render();_loadActivities();
 _handleInviteLink();
 _handleAddFriendLink();
+_handleJoinSpaceLink();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script></body></html>
