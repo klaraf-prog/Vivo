@@ -55,11 +55,21 @@ exports.handler = async (event) => {
   const spaceEvents = {};
   spaceIds.forEach((id, i) => { const v = spaceEventSnaps[i].val(); if (v) spaceEvents[id] = v; });
 
+  // Always include every friend entry; fall back to Firebase Auth for missing RTDB profiles
+  const admin = initAdmin();
   const friendProfiles = {};
-  friendIds.forEach((id, i) => {
+  await Promise.all(friendIds.map(async (id, i) => {
     const v = friendSnaps[i].val();
-    if (v) friendProfiles[id] = { displayName: v.displayName || null, username: v.username || null };
-  });
+    let displayName = (v && v.displayName) || null;
+    let username    = (v && v.username)    || null;
+    if (!displayName && !username) {
+      try {
+        const authUser = await admin.auth().getUser(id);
+        displayName = authUser.displayName || null;
+      } catch (_) { /* user may have been deleted */ }
+    }
+    friendProfiles[id] = { displayName, username };
+  }));
 
   return json(200, {
     uid,

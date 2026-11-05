@@ -704,6 +704,22 @@ function _fmtPollDate(date, time) {
   } catch { return date + (time ? ' ' + time : ''); }
 }
 
+function _showToast(msg, isError) {
+  let el = document.getElementById('someday-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'someday-toast';
+    el.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);max-width:88vw;text-align:center;padding:10px 20px;border-radius:30px;font-size:14px;font-weight:700;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = isError ? '#7c1a1a' : '#183b28';
+  el.style.color = '#fff';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, isError ? 4000 : 3000);
+}
+
 function _pollToast(msg) {
   let el = document.getElementById('poll-toast');
   if (!el) {
@@ -1742,7 +1758,7 @@ async function _handleAddFriend(targetUid) {
   if (!_currentUser) return;
   if (targetUid === _currentUser.uid) {
     _pendingAddUid = null;
-    alert('Das bist du selbst. Teile diesen Link mit anderen.');
+    _showToast('Das bist du selbst. Teile diesen Link mit anderen.', true);
     history.replaceState(null, '', window.location.pathname);
     return;
   }
@@ -1750,7 +1766,7 @@ async function _handleAddFriend(targetUid) {
   if (_userData && _userData.friends && _userData.friends[targetUid]) {
     _pendingAddUid = null;
     history.replaceState(null, '', window.location.pathname);
-    alert('Ihr seid bereits befreundet.');
+    _showToast('Ihr seid bereits befreundet.');
     return;
   }
   _pendingAddUid = targetUid;
@@ -1795,20 +1811,20 @@ async function _confirmAddFriend() {
       const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res2.ok) _userData = await res2.json();
       render();
-      alert(`Freundschaftsanfrage an ${targetName} gesendet! Sie müssen sie zuerst bestätigen.`);
+      _showToast(`Freundschaftsanfrage an ${targetName} gesendet!`);
     } else {
       const d = await res.json().catch(() => ({}));
       _pendingAddUid    = null;
       _pendingAddProfile = null;
       history.replaceState(null, '', window.location.pathname);
       render();
-      if (res.status === 409) alert('Du hast dieser Person bereits eine Anfrage gesendet oder ihr seid bereits befreundet.');
-      else if (res.status === 404) alert('Dieser Nutzer wurde nicht gefunden.');
-      else alert(d.error || `Fehler beim Senden der Anfrage (HTTP ${res.status}).`);
+      if (res.status === 409) _showToast('Du hast dieser Person bereits eine Anfrage gesendet oder ihr seid bereits befreundet.', true);
+      else if (res.status === 404) _showToast('Dieser Nutzer wurde nicht gefunden.', true);
+      else _showToast(d.error || `Fehler beim Senden der Anfrage (HTTP ${res.status}).`, true);
     }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Anfrage senden'; }
-    alert('Netzwerkfehler – bitte überprüfe deine Verbindung und versuche es erneut.');
+    _showToast('Netzwerkfehler – bitte überprüfe deine Verbindung und versuche es erneut.', true);
   }
 }
 
@@ -2213,8 +2229,8 @@ async function _loadConnectPreview(token) {
       const d = await res.json().catch(() => ({}));
       _pendingConnectToken = null;
       render();
-      if (d.error === 'Link expired') alert('Dieser Einladungslink ist abgelaufen. Bitte den Absender um einen neuen Link bitten.');
-      else alert('Dieser Einladungslink ist ungültig oder wurde bereits verwendet.');
+      if (d.error === 'Link expired') _showToast('Dieser Einladungslink ist abgelaufen. Bitte den Absender um einen neuen Link bitten.', true);
+      else _showToast('Dieser Einladungslink ist ungültig oder wurde bereits verwendet.', true);
       return;
     }
     const preview = await res.json();
@@ -2222,7 +2238,7 @@ async function _loadConnectPreview(token) {
     if (preview.ownerUid === _currentUser.uid) {
       _pendingConnectToken = null;
       render();
-      alert('Das ist dein eigener Einladungslink – teile ihn mit anderen.');
+      _showToast('Das ist dein eigener Einladungslink – teile ihn mit anderen.', true);
       return;
     }
     _pendingConnectOwner = preview;
@@ -2230,7 +2246,7 @@ async function _loadConnectPreview(token) {
   } catch (e) {
     _pendingConnectToken = null;
     render();
-    alert('Einladungslink konnte nicht geprüft werden. Bitte überprüfe deine Verbindung.');
+    _showToast('Einladungslink konnte nicht geprüft werden. Bitte überprüfe deine Verbindung.', true);
   }
 }
 
@@ -2259,21 +2275,21 @@ async function _confirmConnect() {
       const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
       if (res2.ok) _userData = await res2.json();
       render();
-      alert(`Du und ${ownerName} seid jetzt befreundet! 🎉`);
+      _showToast(`Du und ${ownerName} seid jetzt befreundet! 🎉`);
     } else {
       const d = await res.json().catch(() => ({}));
       _pendingConnectToken = null;
       _pendingConnectOwner = null;
       render();
-      if (d.error === 'already_friends') alert('Ihr seid bereits befreundet.');
-      else if (d.error === 'Link expired') alert('Dieser Einladungslink ist abgelaufen. Bitte einen neuen Link anfordern.');
-      else if (d.error === 'Cannot connect with yourself') alert('Das ist dein eigener Einladungslink – teile ihn mit anderen.');
-      else if (d.error === 'Invalid or expired link') alert('Dieser Einladungslink ist ungültig oder abgelaufen.');
-      else alert(d.error || `Fehler beim Verbinden (HTTP ${res.status}).`);
+      if (d.error === 'already_friends') _showToast('Ihr seid bereits befreundet.');
+      else if (d.error === 'Link expired') _showToast('Dieser Einladungslink ist abgelaufen. Bitte einen neuen Link anfordern.', true);
+      else if (d.error === 'Cannot connect with yourself') _showToast('Das ist dein eigener Einladungslink – teile ihn mit anderen.', true);
+      else if (d.error === 'Invalid or expired link') _showToast('Dieser Einladungslink ist ungültig oder abgelaufen.', true);
+      else _showToast(d.error || `Fehler beim Verbinden (HTTP ${res.status}).`, true);
     }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Freundschaft bestätigen'; }
-    alert('Netzwerkfehler – bitte überprüfe deine Verbindung und versuche es erneut.');
+    _showToast('Netzwerkfehler – bitte überprüfe deine Verbindung und versuche es erneut.', true);
   }
 }
 

@@ -25,13 +25,17 @@ exports.handler = async (event) => {
       await db.ref(`friendInviteTokens/${token}`).remove();
       return json(410, { error: 'Link expired' });
     }
-    // Return owner display info
+    // Return owner display info; fall back to Firebase Auth if RTDB profile is missing
     const ownerSnap = await db.ref(`users/${data.uid}`).once('value');
     const owner = ownerSnap.val() || {};
-    return json(200, {
-      ownerUid:  data.uid,
-      ownerName: owner.displayName || owner.username || null,
-    });
+    let ownerName = owner.displayName || owner.username || null;
+    if (!ownerName) {
+      try {
+        const authUser = await initAdmin().auth().getUser(data.uid);
+        ownerName = authUser.displayName || null;
+      } catch (_) { /* user may have been deleted */ }
+    }
+    return json(200, { ownerUid: data.uid, ownerName });
   }
 
   // ── POST: generate or accept ──────────────────────────────────────────────
