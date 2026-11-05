@@ -292,6 +292,8 @@ let _pendingAddProfile = null; // { displayName, username } fetched for the add-
 let _spaceCreateSearch     = '';
 let _spaceCreateSelected   = {}; // { uid: { displayName, username } }
 let _spaceCreateSubmitting = false;
+let _spaceCreateName       = '';  // persists across re-renders
+let _spaceCreateErr        = '';  // error message, state-driven so it survives render()
 
 function _initFirebaseAuth() {
   if (_fbAuth) return _fbAuth;
@@ -1882,7 +1884,7 @@ function _spaceCreateSheet() {
     </div>
     <h1 class="headline" style="margin:0 0 20px">Space erstellen.</h1>
     <label class="formlabel">Space-Name *</label>
-    <input id="sc-name" class="field" placeholder="Wochenend-Crew, Buchclub…" style="margin-bottom:16px">
+    <input id="sc-name" class="field" placeholder="Wochenend-Crew, Buchclub…" style="margin-bottom:16px" value="${esc(_spaceCreateName)}" oninput="_spaceCreateName=this.value;_spaceCreateErr=''">
     <label class="formlabel">Freunde einladen (optional)</label>
     ${chips ? `<div style="margin-bottom:8px">${chips}</div>` : ''}
     ${friendList.length
@@ -1890,15 +1892,17 @@ function _spaceCreateSheet() {
          <div style="max-height:200px;overflow-y:auto;margin-bottom:12px">${rows || '<div class="small" style="color:var(--muted);padding:8px 4px">Keine Treffer.</div>'}</div>`
       : `<div class="small" style="color:var(--muted);margin-bottom:12px">Füge zuerst Freunde hinzu, um sie einzuladen.</div>`
     }
-    <div id="sc-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
+    ${_spaceCreateErr ? `<div style="color:#c0392b;font-size:13px;margin-bottom:8px">${esc(_spaceCreateErr)}</div>` : ''}
     ${button(_spaceCreateSubmitting ? 'Wird erstellt…' : 'Space erstellen →', '_submitSpaceCreate()', 'full')}
   </div></div>`;
 }
 
 function _closeSpaceCreate() {
-  _spaceCreateSearch   = '';
-  _spaceCreateSelected = {};
+  _spaceCreateName       = '';
+  _spaceCreateSearch     = '';
+  _spaceCreateSelected   = {};
   _spaceCreateSubmitting = false;
+  _spaceCreateErr        = '';
   set({ sheet: null });
 }
 
@@ -1916,11 +1920,10 @@ function _spaceCreateDeselect(uid) {
 
 async function _submitSpaceCreate() {
   if (_spaceCreateSubmitting) return;
-  const nameEl = $('sc-name');
-  const name   = (nameEl || {}).value || '';
-  const errEl  = $('sc-err');
-  if (!name.trim()) { if (errEl) errEl.textContent = 'Bitte einen Space-Namen eingeben.'; return; }
-  if (errEl) errEl.textContent = '';
+  // Read name from state variable (always current, survives re-renders)
+  const name = _spaceCreateName.trim();
+  if (!name) { _spaceCreateErr = 'Bitte einen Space-Namen eingeben.'; render(); return; }
+  _spaceCreateErr        = '';
   _spaceCreateSubmitting = true;
   render();
   if (!_currentUser) { _spaceCreateSubmitting = false; render(); return; }
@@ -1930,25 +1933,28 @@ async function _submitSpaceCreate() {
     const res = await fetch('/.netlify/functions/space-create', {
       method:  'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name: name.trim(), memberUids }),
+      body:    JSON.stringify({ name, memberUids }),
     });
     if (!res.ok) {
-      const d = await res.json();
-      if (errEl) errEl.textContent = d.error || 'Fehler beim Erstellen.';
+      const d = await res.json().catch(() => ({}));
+      _spaceCreateErr        = d.error || 'Fehler beim Erstellen.';
       _spaceCreateSubmitting = false;
       render();
       return;
     }
     const created = await res.json();
+    // Reset all form state only on confirmed success
+    _spaceCreateName       = '';
     _spaceCreateSearch     = '';
     _spaceCreateSelected   = {};
+    _spaceCreateErr        = '';
     _spaceCreateSubmitting = false;
     // Refresh user data before navigating so the new space is visible
     const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res2.ok) _userData = await res2.json();
     set({ sheet: null, tab: 'Spaces', page: 'space', spaceId: created.spaceId, space: created.name, spaceTab: 'Events' });
   } catch (e) {
-    if (errEl) errEl.textContent = e.message || 'Fehler';
+    _spaceCreateErr        = e.message || 'Netzwerkfehler – bitte erneut versuchen.';
     _spaceCreateSubmitting = false;
     render();
   }
