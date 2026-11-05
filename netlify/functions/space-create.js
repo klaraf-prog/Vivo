@@ -38,10 +38,11 @@ exports.handler = async (event) => {
   // Only creator is immediately a member; invited friends must accept
   const update = {
     [`spaces/${spaceId}`]: {
-      name:      name.trim(),
-      createdBy: uid,
-      createdAt: now,
-      members:   { [uid]: true },
+      name:       name.trim(),
+      createdBy:  uid,
+      createdAt:  now,
+      members:    { [uid]: true },
+      visibility: 'private', // 'private' | 'public' — public Communities via Discovery, not yet implemented
     },
     [`userSpaces/${uid}/${spaceId}`]: true,
   };
