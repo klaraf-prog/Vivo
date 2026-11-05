@@ -189,7 +189,7 @@ function _toActivity(key, d) {
     lat: d.lat || null,
     lng: d.lng || null,
     img,
-    tag: d.eyebrow || (d.category ? d.category.toUpperCase() : ''),
+    tag: d.eyebrow || (d.category ? _catLabel(d.category) : ''),
     description: d.description || '',
     website: d.website || null,
     instagram: d.instagram || null,
@@ -1020,7 +1020,8 @@ window.render = function render() {
       ? `<button class="createfloat" aria-label="${S.tab==='Spaces'?'Create group':'Create event'}" onclick="${S.tab==='Spaces'?'_openSpaceCreate()':"openCreate('personal')"}">+</button>` : '')
     + (S.sheet ? (S.sheet === 'save' ? saveSheet() : S.sheet === 'space-create' ? _spaceCreateSheet() : createSheet()) : '')
     + (_pendingAddUid ? _addFriendSheet() : '')
-    + (_pendingConnectToken ? _connectSheet() : '');
+    + (_pendingConnectToken ? _connectSheet() : '')
+    + _planWithSpaceHtml();
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
   if (S.sheet === 'create' && D.step === 'poll') setTimeout(renderPollOptions, 0);
   setTimeout(_applyImageFallbacks, 50);
