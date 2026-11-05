@@ -35,14 +35,16 @@ exports.handler = async (event) => {
   const spaceId = makeId('sp');
   const now     = Date.now();
 
-  // Only creator is immediately a member; invited friends must accept
+  // Creator is first member and first admin
   const update = {
     [`spaces/${spaceId}`]: {
-      name:       name.trim(),
-      createdBy:  uid,
-      createdAt:  now,
-      members:    { [uid]: true },
-      visibility: 'private', // 'private' | 'public' — public Communities via Discovery, not yet implemented
+      name:             name.trim(),
+      createdBy:        uid,
+      createdAt:        now,
+      members:          { [uid]: true },
+      admins:           { [uid]: true },
+      invitePermission: 'admins_only', // 'admins_only' | 'all_members'
+      visibility:       'private',     // 'private' | 'public' — public Communities not yet implemented
     },
     [`userSpaces/${uid}/${spaceId}`]: true,
   };

@@ -42,13 +42,23 @@ exports.handler = async (event) => {
     let body;
     try { body = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'Invalid JSON' }); }
 
-    // Generate invite link token (members only)
+    // Generate invite link token (respects invitePermission setting)
     if (body.action === 'generate') {
       const { spaceId } = body;
       if (!spaceId) return json(400, { error: 'Missing spaceId' });
 
-      const memberSnap = await db.ref(`spaces/${spaceId}/members/${uid}`).once('value');
-      if (!memberSnap.exists()) return json(403, { error: 'Not a member' });
+      const spaceSnap = await db.ref(`spaces/${spaceId}`).once('value');
+      if (!spaceSnap.exists()) return json(404, { error: 'Space not found' });
+      const sp = spaceSnap.val();
+
+      if (!sp.members || !sp.members[uid]) return json(403, { error: 'Not a member' });
+
+      const perm = sp.invitePermission || 'admins_only';
+      if (perm === 'admins_only' && !(sp.admins && sp.admins[uid])) {
+        return json(403, { error: 'Only admins can generate links in this space' });
+      }
+
+      // Keep the existing snapshot reference alive via sp — no extra fetch needed
 
       const token     = crypto.randomBytes(24).toString('hex');
       const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days

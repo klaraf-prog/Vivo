@@ -1440,20 +1440,31 @@ function _authSpace() {
   const spaceId = S.spaceId;
   const sp      = (_userData.spaces || {})[spaceId];
   if (!sp) return space();
-  const spEvts   = (_userData.spaceEvents || {})[spaceId] || {};
-  const evtIds   = Object.keys(spEvts);
-  const events   = (_userData.events || {});
-  const userEvs  = (_userData.userEvents || {});
+  const spEvts    = (_userData.spaceEvents || {})[spaceId] || {};
+  const evtIds    = Object.keys(spEvts);
+  const events    = (_userData.events || {});
+  const userEvs   = (_userData.userEvents || {});
   const memberIds = Object.keys(sp.members || {});
+  const adminIds  = Object.keys(sp.admins  || {});
   const friendPs  = _userData.friendProfiles || {};
   const friends   = _userData.friends || {};
   const myUid     = _userData.uid;
-  const memberNames = memberIds.map(uid => {
-    const p = (uid === myUid) ? _userData.profile : friendPs[uid];
-    return (p && p.displayName) ? p.displayName : uid.slice(0,8)+'…';
+  const isAdmin   = !!(sp.admins && sp.admins[myUid]);
+  const perm      = sp.invitePermission || 'admins_only';
+  const canInvite = isAdmin || perm === 'all_members';
+
+  const memberInfo = memberIds.map(uid => {
+    const p    = (uid === myUid) ? _userData.profile : friendPs[uid];
+    const name = (p && p.displayName) ? p.displayName : uid.slice(0, 8) + '…';
+    const admin = !!(sp.admins && sp.admins[uid]);
+    return { uid, name, admin };
   });
+  const memberNames = memberInfo.map(m => m.name);
+
   // Friends not yet in this space (eligible for invite)
   const invitableFriends = Object.keys(friends).filter(uid => !(sp.members || {})[uid]);
+
+  // ── Event cards ───────────────────────────────────────────────────────────
   const eventCards = evtIds.map(id => {
     const ev = events[id];
     if (!ev) return '';
@@ -1473,35 +1484,88 @@ function _authSpace() {
       </div>
     </div>`;
   }).join('');
-  const inviteSection = `
-    <div class="home-section" style="margin-top:20px">PERSONEN EINLADEN</div>
-    ${invitableFriends.length
-      ? `<div style="margin-bottom:8px">${invitableFriends.map(uid => {
-          const p = friendPs[uid];
-          const name = (p && p.displayName) ? p.displayName : uid.slice(0,8)+'…';
-          return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--border)">
-            <span>${esc(name)}</span>
-            <button class="chip" onclick="_inviteFriendToSpace('${esc(uid)}','${esc(spaceId)}')">Einladen</button>
-          </div>`;
-        }).join('')}</div>`
-      : `<div class="small" style="color:var(--muted);margin-bottom:8px">Alle deine Freunde sind bereits Mitglieder.</div>`
-    }
-    <div style="margin-top:10px">${button('🔗 Einladungslink erstellen', `_generateSpaceLink('${esc(spaceId)}')`, 'secondary full')}</div>
-    <div id="space-link-box" style="display:none;margin-top:10px;padding:12px;background:var(--surface);border-radius:12px;font-size:13px;word-break:break-all"></div>
-  `;
+
+  // ── Einladen tab ──────────────────────────────────────────────────────────
+  const inviteSection = canInvite
+    ? `<div class="home-section" style="margin-top:4px">FREUNDE EINLADEN</div>
+      ${invitableFriends.length
+        ? `<div style="margin-bottom:12px">${invitableFriends.map(uid => {
+            const p    = friendPs[uid];
+            const name = (p && p.displayName) ? p.displayName : uid.slice(0, 8) + '…';
+            return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <span>${esc(name)}</span>
+              <button class="chip" onclick="_inviteFriendToSpace('${esc(uid)}','${esc(spaceId)}')">Einladen</button>
+            </div>`;
+          }).join('')}</div>`
+        : `<div class="small" style="color:var(--muted);margin-bottom:12px">Alle deine Freunde sind bereits Mitglieder.</div>`
+      }
+      <div class="home-section" style="margin-top:4px">EINLADUNGSLINK</div>
+      <p class="sub" style="margin:0 0 10px">Teile diesen Link – auch ohne Someday-Freundschaft.</p>
+      ${button('🔗 Einladungslink generieren', `_generateSpaceLink('${esc(spaceId)}')`, 'secondary full')}
+      <div id="space-link-box" style="display:none;margin-top:10px;padding:12px;background:var(--surface);border-radius:12px;font-size:13px;word-break:break-all"></div>`
+    : `<div class="warn" style="margin-top:8px">Nur Admins dürfen in diesem Space einladen.<br>Bitte einen Admin, dich einzuladen.</div>`;
+
+  // ── Mitglieder tab ────────────────────────────────────────────────────────
+  const memberSection = `<div class="stack">${memberInfo.map(m =>
+    `<div class="rowcard between" style="margin-bottom:8px">
+      <div>
+        <strong>${esc(m.name)}</strong>
+        ${m.admin ? `<span class="chip" style="font-size:10px;margin-left:6px;background:#d4f0dc">Admin</span>` : ''}
+      </div>
+    </div>`
+  ).join('')}</div>`;
+
+  // ── Einstellungen tab (admin only) ────────────────────────────────────────
+  const settingsSection = isAdmin
+    ? `<div class="home-section">SPACE-NAME</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input id="sp-name-input" class="field" value="${esc(sp.name)}" style="flex:1;margin:0">
+        <button class="chip" onclick="_spaceSettingRename('${esc(spaceId)}')">Speichern</button>
+      </div>
+      <div class="home-section">EINLADEN-BERECHTIGUNG</div>
+      <p class="sub" style="margin:0 0 8px">Wer darf neue Mitglieder einladen?</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="chip ${perm==='admins_only'?'on':''}" onclick="_spaceSettingPerm('${esc(spaceId)}','admins_only')">Nur Admins</button>
+        <button class="chip ${perm==='all_members'?'on':''}" onclick="_spaceSettingPerm('${esc(spaceId)}','all_members')">Alle Mitglieder</button>
+      </div>
+      <div class="home-section">MITGLIEDER VERWALTEN</div>
+      <div class="stack">${memberInfo.map(m => {
+        const isSelf  = m.uid === myUid;
+        const isOnlyAdmin = m.admin && adminIds.length <= 1;
+        return `<div class="rowcard between" style="margin-bottom:8px">
+          <div>
+            <strong>${esc(m.name)}</strong>
+            ${m.admin ? `<span class="chip" style="font-size:10px;margin-left:6px;background:#d4f0dc">Admin</span>` : ''}
+          </div>
+          ${isSelf ? '' : `<div style="display:flex;gap:6px">
+            ${m.admin
+              ? (isOnlyAdmin ? '' : `<button class="chip" onclick="_spaceAdminAction('revoke-admin','${esc(spaceId)}','${esc(m.uid)}')">Admin entfernen</button>`)
+              : `<button class="chip" onclick="_spaceAdminAction('grant-admin','${esc(spaceId)}','${esc(m.uid)}')">Zum Admin machen</button>`}
+            <button class="chip" style="color:#c0392b" onclick="_spaceAdminAction('remove-member','${esc(spaceId)}','${esc(m.uid)}')">Entfernen</button>
+          </div>`}
+        </div>`;
+      }).join('')}</div>`
+    : `<div class="warn">Nur Admins können Einstellungen ändern.</div>`;
+
+  const tabs = isAdmin ? ['Events','Mitglieder','Einladen','Einstellungen'] : ['Events','Mitglieder','Einladen'];
+
   return `<div class="content">
-    <button class="back" onclick="set({page:'spaces'})">${_t('spaces_back')}</button>
+    <button class="back" onclick="set({tab:'Spaces',page:'home'})">← Spaces</button>
     <div class="hero"><div class="eyebrow">DEIN SPACE ✳</div><h1>${esc(sp.name)}</h1>
     <p class="sub">${memberNames.join(', ')}</p></div>
-    ${segment('spaceTab',['Events','Mitglieder','Einladen'])}
+    ${segment('spaceTab', tabs)}
     <div style="margin-top:20px">
       ${S.spaceTab === 'Mitglieder'
-        ? `<div class="stack">${memberNames.map(n => `<div class="rowcard"><strong>${esc(n)}</strong></div>`).join('')}</div>`
+        ? memberSection
         : S.spaceTab === 'Einladen'
         ? inviteSection
+        : S.spaceTab === 'Einstellungen'
+        ? settingsSection
         : evtIds.length ? eventCards : '<div class="empty">Noch keine Events in diesem Space.</div>'}
     </div>
-    ${S.spaceTab !== 'Einladen' ? button('+ Space-Event erstellen', `startGroupEvent('${spaceId}')`, 'secondary full') : ''}
+    ${S.spaceTab !== 'Einladen' && S.spaceTab !== 'Einstellungen'
+      ? button('+ Space-Event erstellen', `startGroupEvent('${spaceId}')`, 'secondary full')
+      : ''}
   </div>`;
 }
 
@@ -1760,11 +1824,8 @@ function _addFriendSheet() {
 // ── Space creation ────────────────────────────────────────────────────────
 
 function _openSpaceCreate() {
-  if (_currentUser && _userData && !_userData._error) {
-    set({ sheet: 'space-create' });
-  } else {
-    openCreate('group');
-  }
+  if (!_currentUser) { nav('Profile'); return; }
+  set({ sheet: 'space-create' });
 }
 
 function _spaceCreateSheet() {
@@ -1852,12 +1913,14 @@ async function _submitSpaceCreate() {
       render();
       return;
     }
+    const created = await res.json();
     _spaceCreateSearch     = '';
     _spaceCreateSelected   = {};
     _spaceCreateSubmitting = false;
-    set({ sheet: null });
+    // Refresh user data before navigating so the new space is visible
     const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${token}` } });
-    if (res2.ok) { _userData = await res2.json(); render(); }
+    if (res2.ok) _userData = await res2.json();
+    set({ sheet: null, tab: 'Spaces', page: 'space', spaceId: created.spaceId, space: created.name, spaceTab: 'Events' });
   } catch (e) {
     if (errEl) errEl.textContent = e.message || 'Fehler';
     _spaceCreateSubmitting = false;
@@ -1898,6 +1961,65 @@ async function _inviteFriendToSpace(inviteeUid, spaceId) {
     }
     alert('Einladung gesendet!');
   } catch (e) { console.error('[someday] inviteFriendToSpace:', e.message); }
+}
+
+async function _spaceAdminAction(action, spaceId, targetUid) {
+  if (!_currentUser) return;
+  const confirmMap = {
+    'grant-admin':   `${targetUid.slice(0,8)}… zum Admin machen?`,
+    'revoke-admin':  `Admin-Rechte entziehen?`,
+    'remove-member': `Mitglied aus dem Space entfernen?`,
+  };
+  if (!confirm(confirmMap[action] || 'Fortfahren?')) return;
+  try {
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/space-invite', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action, spaceId, targetUid }),
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      if (d.error === 'last_admin') alert('Der letzte Admin kann nicht degradiert werden.');
+      else alert(d.error || 'Fehler');
+      return;
+    }
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) { console.error('[someday] spaceAdminAction:', e.message); }
+}
+
+async function _spaceSettingRename(spaceId) {
+  if (!_currentUser) return;
+  const el = document.getElementById('sp-name-input');
+  const name = el ? el.value.trim() : '';
+  if (!name) { alert('Space-Name darf nicht leer sein.'); return; }
+  try {
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/space-invite', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'update-settings', spaceId, name }),
+    });
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Fehler'); return; }
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) { console.error('[someday] spaceSettingRename:', e.message); }
+}
+
+async function _spaceSettingPerm(spaceId, invitePermission) {
+  if (!_currentUser) return;
+  try {
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/space-invite', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'update-settings', spaceId, invitePermission }),
+    });
+    if (!res.ok) { const d = await res.json(); alert(d.error || 'Fehler'); return; }
+    const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
+    if (res2.ok) { _userData = await res2.json(); render(); }
+  } catch (e) { console.error('[someday] spaceSettingPerm:', e.message); }
 }
 
 async function _generateSpaceLink(spaceId) {
@@ -1965,7 +2087,7 @@ async function _joinSpaceViaLink(token) {
     if (res2.ok) { _userData = await res2.json(); }
     const { spaceId } = joinData;
     alert(`Willkommen in „${spaceName}"!`);
-    set({ page: 'space', spaceId, space: spaceName, spaceTab: 'Events' });
+    set({ tab: 'Spaces', page: 'space', spaceId, space: spaceName, spaceTab: 'Events' });
   } catch (e) { console.error('[someday] joinSpaceViaLink:', e.message); }
 }
 
