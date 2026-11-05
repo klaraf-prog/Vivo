@@ -353,6 +353,13 @@ function _initFirebaseAuth() {
           }
         } catch {}
         try {
+          const pendingConnect = sessionStorage.getItem('someday_pending_connect');
+          if (pendingConnect) {
+            sessionStorage.removeItem('someday_pending_connect');
+            _loadConnectPreview(pendingConnect);
+          }
+        } catch {}
+        try {
           const pendingJoin = sessionStorage.getItem('someday_pending_joinspace');
           if (pendingJoin) {
             sessionStorage.removeItem('someday_pending_joinspace');
@@ -650,23 +657,24 @@ function _profileTab() {
                       <button class="chip" onclick="_friendAction('decline','${fromUid}')">Ablehnen</button>
                     </div></div>`).join('')}
                 </div>` : ''}
-                <h2 class="section">Your friends</h2>
+                <div class="between" style="margin-bottom:4px"><h2 class="section" style="margin:0">Meine Freunde</h2><button class="chip" style="font-size:11px" onclick="_refreshUserData()">↻ Aktualisieren</button></div>
                 ${fps.length
                   ? fps.map(([uid, fp]) => `<div class="rowcard between" style="margin-bottom:10px">
-                      <div><strong>${esc(fp.displayName || fp.username || 'Unknown')}</strong>
+                      <div><strong>${esc(fp.displayName || fp.username || 'Unbekannt')}</strong>
                       ${fp.username ? `<div class="small">@${esc(fp.username)}</div>` : ''}</div>
-                      <button class="chip" onclick="_friendAction('remove','${uid}')">Remove</button>
+                      <button class="chip" onclick="_friendAction('remove','${uid}')">Entfernen</button>
                     </div>`).join('')
-                  : '<div class="empty" style="margin-bottom:12px">No friends connected yet.</div>'}
-                <h2 class="section">Find people</h2>
+                  : '<div class="empty" style="margin-bottom:12px">Noch keine Freunde verbunden.</div>'}
+                <h2 class="section">Personen suchen</h2>
                 <div style="display:flex;gap:8px;margin-bottom:8px">
-                  <input id="friend-search" class="field" placeholder="Search by name or @username" style="flex:1;margin:0">
-                  <button class="chip" onclick="_searchFriends()">Search</button>
+                  <input id="friend-search" class="field" placeholder="Name oder @nutzername" style="flex:1;margin:0">
+                  <button class="chip" onclick="_searchFriends()">Suchen</button>
                 </div>
                 <div id="friend-results"></div>
                 <div class="friend-invite-box">
                   <div class="eyebrow" style="margin-bottom:8px">FREUNDE EINLADEN</div>
-                  <p class="sub" style="margin:0 0 12px">Teile deinen persönlichen Link – wer ihn öffnet, kann dir eine Freundschaftsanfrage senden.</p>
+                  <p class="sub" style="margin:0 0 4px">🔗 <strong>Link</strong> – direkte Freundschaft ohne Anfrage, 7 Tage gültig.</p>
+                  <p class="sub" style="margin:0 0 12px">📷 <strong>QR-Code</strong> – sendet eine Freundschaftsanfrage (du bestätigst).</p>
                   <div style="display:flex;gap:8px;margin-bottom:10px">
                     <button class="btn secondary" style="flex:1;min-height:40px;font-size:13px" onclick="_copyInviteLink()">🔗 Link kopieren</button>
                     <button class="btn secondary" style="min-height:40px;font-size:13px" onclick="_toggleQr()">QR-Code</button>
@@ -976,7 +984,8 @@ window.render = function render() {
     + (S.page === 'home' && (S.tab === 'Calendar' || S.tab === 'Spaces')
       ? `<button class="createfloat" aria-label="${S.tab==='Spaces'?'Create group':'Create event'}" onclick="${S.tab==='Spaces'?'_openSpaceCreate()':"openCreate('personal')"}">+</button>` : '')
     + (S.sheet ? (S.sheet === 'save' ? saveSheet() : S.sheet === 'space-create' ? _spaceCreateSheet() : createSheet()) : '')
-    + (_pendingAddUid ? _addFriendSheet() : '');
+    + (_pendingAddUid ? _addFriendSheet() : '')
+    + (_pendingConnectToken ? _connectSheet() : '');
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
   if (S.sheet === 'create' && D.step === 'poll') setTimeout(renderPollOptions, 0);
   setTimeout(_applyImageFallbacks, 50);
@@ -1622,18 +1631,29 @@ async function _sendFriendRequest(targetUid) {
 
 // ── Friend invite helpers ─────────────────────────────────────────────────
 
-function _copyInviteLink() {
+async function _copyInviteLink() {
   if (!_currentUser) return;
-  const url = window.location.origin + '/?add=' + _currentUser.uid;
-  navigator.clipboard.writeText(url).then(() => {
-    const el = $('copy-confirm');
-    if (!el) return;
-    el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 2500);
-  }).catch(() => {
-    // Fallback: show the URL in a prompt for manual copy
-    window.prompt('Dein Einladungslink:', url);
-  });
+  const btn = document.querySelector('button[onclick="_copyInviteLink()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/friend-invite-link', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'generate' }),
+    });
+    if (!res.ok) throw new Error('generate failed');
+    const { token } = await res.json();
+    const url = window.location.origin + '/?connect=' + encodeURIComponent(token);
+    navigator.clipboard.writeText(url).then(() => {
+      const el = $('copy-confirm');
+      if (el) { el.style.display = 'block'; setTimeout(() => { el.style.display = 'none'; }, 2500); }
+    }).catch(() => { window.prompt('Dein Einladungslink:', url); });
+  } catch (e) {
+    alert('Link konnte nicht erstellt werden. Bitte versuche es erneut.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 Link kopieren'; }
+  }
 }
 
 let _qrInstance = null;
@@ -2020,25 +2040,122 @@ async function _handleInviteLink() {
 }
 
 // ── Add-friend link handler ───────────────────────────────────────────────
-// Handles URLs like  someday.app/?add={uid}
+// Handles URLs like  someday.app/?add={uid}  → traditional request (QR code)
 function _handleAddFriendLink() {
   const params    = new URLSearchParams(window.location.search);
   const targetUid = params.get('add');
   if (!targetUid) return;
-  // Remove param immediately to avoid re-processing on subsequent renders
   history.replaceState(null, '', window.location.pathname);
   if (_currentUser) {
     _handleAddFriend(targetUid);
   } else {
-    // Store for processing after login
     try { sessionStorage.setItem('someday_pending_add', targetUid); } catch {}
   }
+}
+
+// ── Connect-link handler ──────────────────────────────────────────────────
+// Handles URLs like  someday.app/?connect={token}  → direct mutual friendship
+let _pendingConnectToken  = null;
+let _pendingConnectOwner  = null; // { ownerUid, ownerName }
+
+function _handleConnectLink() {
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('connect');
+  if (!token) return;
+  history.replaceState(null, '', window.location.pathname);
+  if (_currentUser) {
+    _loadConnectPreview(token);
+  } else {
+    try { sessionStorage.setItem('someday_pending_connect', token); } catch {}
+  }
+}
+
+async function _loadConnectPreview(token) {
+  if (!_currentUser) return;
+  _pendingConnectToken  = token;
+  _pendingConnectOwner  = null;
+  render();
+  try {
+    const res = await fetch(`/.netlify/functions/friend-invite-link?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      _pendingConnectToken = null;
+      render();
+      alert(d.error === 'Link expired' ? 'Dieser Einladungslink ist abgelaufen.' : 'Ungültiger Einladungslink.');
+      return;
+    }
+    _pendingConnectOwner = await res.json();
+    render();
+  } catch (e) { /* show sheet without name */ }
+}
+
+function _dismissConnect() {
+  _pendingConnectToken = null;
+  _pendingConnectOwner = null;
+  render();
+}
+
+async function _confirmConnect() {
+  if (!_pendingConnectToken || !_currentUser) return;
+  const token = _pendingConnectToken;
+  const btn   = $('connect-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/friend-invite-link', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'accept', token }),
+    });
+    if (res.ok) {
+      _pendingConnectToken = null;
+      _pendingConnectOwner = null;
+      const res2 = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
+      if (res2.ok) _userData = await res2.json();
+      render();
+      alert('Freundschaft hinzugefügt! 🎉');
+    } else {
+      const d = await res.json().catch(() => ({}));
+      _pendingConnectToken = null;
+      _pendingConnectOwner = null;
+      render();
+      if (d.error === 'already_friends') alert('Ihr seid bereits befreundet.');
+      else if (d.error === 'Link expired') alert('Dieser Einladungslink ist abgelaufen.');
+      else alert(d.error || 'Fehler beim Verbinden.');
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Freundschaft bestätigen'; }
+  }
+}
+
+function _connectSheet() {
+  const ownerName = _pendingConnectOwner
+    ? esc(_pendingConnectOwner.ownerName || 'Jemand')
+    : '…';
+  return `<div class="sheetbg" onclick="_dismissConnect()"><div class="sheet" onclick="event.stopPropagation()">
+    <div class="between"><div class="eyebrow">EINLADUNG ✳</div><button class="iconbtn" onclick="_dismissConnect()">×</button></div>
+    <h1 class="headline" style="margin:12px 0 4px">${ownerName} möchte sich mit dir verbinden!</h1>
+    <p class="sub" style="margin:0 0 20px">Bestätige die Freundschaft – sie wird sofort für beide Seiten aktiv.</p>
+    <button id="connect-confirm-btn" class="btn full dark" onclick="_confirmConnect()">Freundschaft bestätigen</button>
+    <button class="btn secondary full" style="margin-top:8px" onclick="_dismissConnect()">Ablehnen</button>
+  </div></div>`;
+}
+
+// ── Data refresh ──────────────────────────────────────────────────────────
+async function _refreshUserData() {
+  if (!_currentUser) return;
+  try {
+    const idToken = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${idToken}` } });
+    if (res.ok) { _userData = await res.json(); render(); }
+  } catch (e) { console.warn('[someday] _refreshUserData:', e.message); }
 }
 
 _initFirebaseAuth();
 render();_loadActivities();
 _handleInviteLink();
 _handleAddFriendLink();
+_handleConnectLink();
 _handleJoinSpaceLink();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script></body></html>
