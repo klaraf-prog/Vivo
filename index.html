@@ -1512,12 +1512,23 @@ function _authSpaces() {
     const preview = _chatPreviews[(item.type === 'dm' ? 'dm_' : 'space_') + item.id];
     let previewText = '';
     if (preview) {
-      if (preview.type === 'activity') previewText = '📎 Aktivität geteilt';
-      else if (preview.type === 'event') previewText = '📆 ' + (preview.eventTitle || 'Event');
+      const isMe = preview.senderUid === myUid;
+      const isSpace = item.type === 'space';
+      let senderPrefix = '';
+      if (isSpace && preview.senderUid) {
+        if (isMe) {
+          senderPrefix = 'Du: ';
+        } else {
+          const fp = (friendProfiles || {})[preview.senderUid];
+          const name = (fp && (fp.displayName || fp.username)) || null;
+          senderPrefix = name ? (name.split(' ')[0] + ': ') : '';
+        }
+      }
+      if (preview.type === 'activity') previewText = senderPrefix + '📎 Aktivität geteilt';
+      else if (preview.type === 'event') previewText = senderPrefix + '📆 ' + (preview.eventTitle || 'Event');
       else {
-        const isMe = preview.senderUid === myUid;
         const raw = preview.text || '';
-        previewText = (isMe ? 'Du: ' : '') + (raw.length > 48 ? raw.slice(0, 48) + '…' : raw);
+        previewText = senderPrefix + (raw.length > 48 ? raw.slice(0, 48) + '…' : raw);
       }
     }
     const timeStr = preview && preview.timestamp ? _fmtChatTime(preview.timestamp) : '';
@@ -2600,7 +2611,7 @@ function _ensureChatPreview(type, id) {
   if (_chatPreviewListeners[key]) return;
   if (!_db) return;
   const path = type === 'dm' ? 'dmMessages/' + id : 'spaceMessages/' + id;
-  const ref = _db.ref(path).limitToLast(1);
+  const ref = _db.ref(path).orderByChild('timestamp').limitToLast(1);
   _chatPreviewListeners[key] = true;
   ref.on('value', snap => {
     if (snap.exists()) {
