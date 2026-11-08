@@ -98,5 +98,30 @@ exports.handler = async (event) => {
   }
 
   await db.ref().update(updates);
+
+  // Auto-post an event card message to each linked space chat (deduplicated by key)
+  const spaceChatUpdates = {};
+  for (const id of spaceIds) {
+    if (updates[`spaceEvents/${id}/${eventId}`]) {
+      spaceChatUpdates[`spaceMessages/${id}/event_${eventId}`] = {
+        type: 'event',
+        eventId,
+        eventTitle: newEvent.title || '',
+        eventDate: newEvent.date || null,
+        eventTime: newEvent.time || null,
+        eventLocation: newEvent.location || null,
+        eventEmoji: newEvent.emoji || null,
+        createdBy: uid,
+        creatorName: name,
+        senderUid: uid,
+        text: '',
+        timestamp: now,
+      };
+    }
+  }
+  if (Object.keys(spaceChatUpdates).length) {
+    await db.ref().update(spaceChatUpdates);
+  }
+
   return json(201, { ok: true, eventId, inviteToken });
 };

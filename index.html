@@ -1498,6 +1498,7 @@ function _authSpaces() {
     let previewText = '';
     if (preview) {
       if (preview.type === 'activity') previewText = '📎 Aktivität geteilt';
+      else if (preview.type === 'event') previewText = '📆 ' + (preview.eventTitle || 'Event');
       else {
         const isMe = preview.senderUid === myUid;
         const raw = preview.text || '';
@@ -1804,7 +1805,30 @@ function _authEventPage() {
   // Support both authenticated users (via _userData) and guests (via _guestEventData)
   const authEv  = (_userData && !_userData._error) ? (_userData.events || {})[id] : null;
   const guestEv = (_guestEventData && _guestEventData.id === id) ? _guestEventData : null;
-  const ev      = authEv || guestEv;
+  let ev = authEv || guestEv;
+
+  // If the user is a space member but hasn't RSVPed yet, event data may not be in _userData.events.
+  // Check if the event belongs to one of their spaces, then lazy-load it.
+  if (!ev && _userData && !_userData._error && _db) {
+    let isSpaceEvent = false;
+    if (_userData.spaceEvents) {
+      for (const evts of Object.values(_userData.spaceEvents)) {
+        if (evts && evts[id]) { isSpaceEvent = true; break; }
+      }
+    }
+    if (isSpaceEvent) {
+      _db.ref('events/' + id).once('value').then(snap => {
+        const val = snap.val();
+        if (val) {
+          if (!_userData.events) _userData.events = {};
+          _userData.events[id] = val;
+          render();
+        }
+      }).catch(() => {});
+      return `<div class="content" style="padding-top:40px;text-align:center"><p style="color:var(--muted)">Lade Event …</p></div>`;
+    }
+  }
+
   if (!ev) return eventPage();
 
   const isGuest  = !authEv;
@@ -2749,7 +2773,7 @@ function _listenSpaceMessages(spaceId) {
   const ref = _db.ref('spaceMessages/' + spaceId).orderByKey().limitToLast(100);
   ref.on('value', snap => {
     const msgs = [];
-    snap.forEach(child => { const m = child.val(); if (m && (m.text || m.type === 'activity')) msgs.push({ id: child.key, ...m }); });
+    snap.forEach(child => { const m = child.val(); if (m && (m.text || m.type === 'activity' || m.type === 'event')) msgs.push({ id: child.key, ...m }); });
     _spaceMessages[spaceId] = msgs;
     const el = $('space-msgs');
     if (el) { el.innerHTML = _chatBubblesHtml(msgs); _scrollChatToBottom(); }
@@ -2789,11 +2813,38 @@ function _chatBubblesHtml(msgs) {
         <div class="chat-meta ${isMine ? '' : 'theirs'}">${esc(name)}${time ? ' · ' + time : ''}</div>
       </div>`;
     }
+    if (m.type === 'event') {
+      const myRsvp = (_userData && _userData.userEvents && m.eventId) ? _userData.userEvents[m.eventId] : null;
+      const dateStr = m.eventDate ? (m.eventTime ? `${m.eventDate} · ${m.eventTime.slice(0,5)} Uhr` : m.eventDate) : '';
+      const locationHtml = m.eventLocation ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">⌖ ${esc(m.eventLocation)}</div>` : '';
+      const dateHtml = dateStr ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">📅 ${esc(dateStr)}</div>` : '';
+      const rsvpBtns = m.eventDate ? ['dabei','vielleicht','nein'].map(s => {
+        const labels = {dabei:'Dabei',vielleicht:'Vielleicht',nein:'Nein'};
+        const active = myRsvp === s;
+        return `<button onclick="event.stopPropagation();_chatEventRsvp('${esc(m.eventId)}','${s}')" style="flex:1;padding:6px 4px;border-radius:8px;border:1px solid ${active?'#51c965':'var(--line)'};background:${active?'#d9f7d9':'white'};font-size:12px;font-weight:${active?'700':'500'};color:${active?'#287e43':'var(--dark)'};">${labels[s]}</button>`;
+      }).join('') : '';
+      const card = `<div class="chat-activity-card" onclick="${m.eventId ? `set({page:'event',eventId:'${esc(m.eventId)}'})` : ''}" style="cursor:${m.eventId?'pointer':'default'};width:100%">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:#1388ff;margin-bottom:6px">📆 EVENT</div>
+        <div style="font-size:15px;font-weight:700;line-height:1.3">${esc(m.eventEmoji ? m.eventEmoji + ' ' : '')}${esc(m.eventTitle || '')}</div>
+        ${dateHtml}${locationHtml}
+        ${rsvpBtns ? `<div style="display:flex;gap:6px;margin-top:10px">${rsvpBtns}</div>` : ''}
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">von ${esc(m.creatorName || m.createdBy || '')}</div>
+      </div>`;
+      return `<div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;margin-bottom:4px">
+        ${card}
+        <div class="chat-meta theirs">${time}</div>
+      </div>`;
+    }
     return `<div style="display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'}">
       <div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">${esc(m.text)}</div>
       <div class="chat-meta ${isMine ? '' : 'theirs'}">${esc(name)}${time ? ' · ' + time : ''}</div>
     </div>`;
   }).join('') + '</div>';
+}
+
+async function _chatEventRsvp(eventId, status) {
+  if (!eventId || !status || !_currentUser) return;
+  await _rsvp(eventId, status, null);
 }
 
 async function _sendDmMessage(dmId) {
