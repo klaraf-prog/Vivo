@@ -2699,8 +2699,11 @@ function _fixChatHeight() {
   const inputH = inputRow ? inputRow.getBoundingClientRect().height : 68;
   const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
   const bottomNavH = 73;
-  const available = vh - flexTop - bottomNavH - inputH - 8;
-  scroll.style.height = Math.max(100, available) + 'px';
+  const available = Math.max(100, vh - flexTop - bottomNavH - inputH - 8);
+  scroll.style.height = available + 'px';
+  // Constrain the flex container so .content doesn't scroll the whole page
+  flex.style.height = (available + inputH + 8) + 'px';
+  flex.style.overflow = 'hidden';
   if (window.visualViewport && !flex._vpBound) {
     flex._vpBound = true;
     const handler = () => _fixChatHeight();
@@ -2731,7 +2734,7 @@ function _listenDmMessages(dmId) {
   const ref = _db.ref('dmMessages/' + dmId).orderByKey().limitToLast(100);
   ref.on('value', snap => {
     const msgs = [];
-    snap.forEach(child => { const m = child.val(); if (m && m.text) msgs.push({ id: child.key, ...m }); });
+    snap.forEach(child => { const m = child.val(); if (m && (m.text || m.type === 'activity')) msgs.push({ id: child.key, ...m }); });
     _dmMessages[dmId] = msgs;
     const el = $('dm-msgs');
     if (el) { el.innerHTML = _chatBubblesHtml(msgs); _scrollChatToBottom(); }
@@ -2746,7 +2749,7 @@ function _listenSpaceMessages(spaceId) {
   const ref = _db.ref('spaceMessages/' + spaceId).orderByKey().limitToLast(100);
   ref.on('value', snap => {
     const msgs = [];
-    snap.forEach(child => { const m = child.val(); if (m && m.text) msgs.push({ id: child.key, ...m }); });
+    snap.forEach(child => { const m = child.val(); if (m && (m.text || m.type === 'activity')) msgs.push({ id: child.key, ...m }); });
     _spaceMessages[spaceId] = msgs;
     const el = $('space-msgs');
     if (el) { el.innerHTML = _chatBubblesHtml(msgs); _scrollChatToBottom(); }
