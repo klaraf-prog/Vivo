@@ -1105,7 +1105,7 @@ function _fbCalEntries() {
   }
   return Object.entries(userEvents).map(([id, status]) => {
     const ev = events[id];
-    if (!ev || !ev.date) return null;
+    if (!ev || !ev.date || ev.cancelled) return null;
     return {
       id,
       date:      ev.date,
@@ -1126,7 +1126,7 @@ function _pendingInvites() {
   return Object.keys(invites)
     .filter(id => !userEvents[id])
     .map(id => ({ id, event: events[id] }))
-    .filter(x => x.event);
+    .filter(x => x.event && !x.event.cancelled);
 }
 
 function _pendingSpaceInvites() {
@@ -1573,7 +1573,7 @@ function _authSpace() {
   // ── Event cards ───────────────────────────────────────────────────────────
   const eventCards = evtIds.map(id => {
     const ev = events[id];
-    if (!ev) return '';
+    if (!ev || ev.cancelled) return '';
     const myStatus  = userEvs[id];
     const label     = myStatus ? (_rsvpToLabel[myStatus] || myStatus) : 'Kein RSVP';
     const rsvpCount = Object.values(ev.rsvps || {}).filter(r => r.status === 'dabei').length;
@@ -1655,7 +1655,7 @@ function _authSpace() {
 
   const chatPanel = (() => {
     const msgs = _spaceMessages[spaceId] || [];
-    setTimeout(() => { _listenSpaceMessages(spaceId); _spaceSwipeInit(spaceId); _scrollChatToBottom(); _fixChatHeight(); }, 50);
+    setTimeout(() => { _listenSpaceMessages(spaceId); _spaceSwipeInit(spaceId); _scrollChatToBottom(true); _fixChatHeight(); }, 50);
     return `<div class="space-chat-flex" id="space-chat-flex">
       <div class="chat-msgs-area" id="chat-scroll">
         <div id="space-msgs">${_chatBubblesHtml(msgs)}</div>
@@ -1832,6 +1832,8 @@ function _authEventPage() {
   if (!ev) return eventPage();
 
   const isGuest  = !authEv;
+  const myUid    = _currentUser ? _currentUser.uid : null;
+  const isCreator = !isGuest && myUid && ev.createdBy === myUid;
   const myStatus = isGuest ? null : ((_userData.userEvents || {})[id]);
   let spaceName = 'Personal';
   if (_userData.spaceEvents && _userData.spaces) {
@@ -1844,18 +1846,13 @@ function _authEventPage() {
   const goingCount = rsvpList.filter(r => r.status === 'dabei').length;
   const hasPoll = !!(ev.poll && (ev.poll.active || ev.poll.confirmedOption));
   const evWithId = { ...ev, id };
-  return `<div class="content">
-    <button class="back" onclick="nav('Calendar')">← Calendar</button>
-    <div class="eyebrow">${esc(spaceName)}</div>
-    <h1 class="headline">${esc(((ev.emoji || '') + ' ' + (ev.title || '')).trim())}</h1>
-    <div class="mutedbox">
-      ${ev.date ? `<strong>${esc(ev.date)}</strong>` : `<strong style="color:var(--muted)">${_t('poll_date_open')}</strong>`}
-      ${ev.time ? `<p>${esc(ev.time)}</p>` : ''}
-      ${ev.location ? `<p>⌖ ${esc(ev.location)}</p>` : ''}
-      ${ev.details ? `<p>${esc(ev.details)}</p>` : ''}
-      <div class="small">${goingCount} going · Your RSVP: ${esc(label)}</div>
-    </div>
-    ${hasPoll ? buildPollSection(evWithId) : `
+  const cancelledBanner = ev.cancelled
+    ? `<div style="background:#fce8e8;border-radius:8px;padding:10px 14px;margin-bottom:12px;color:#c0392b;font-weight:600;font-size:14px">Termin abgesagt</div>`
+    : '';
+  const cancelBtn = isCreator && !ev.cancelled
+    ? `<button class="chip" style="background:#fce8e8;color:#c0392b;border:1px solid #f5c6c6;margin-top:16px" onclick="_cancelEvent('${id}')">✕ Termin absagen</button>`
+    : '';
+  const rsvpSection = ev.cancelled ? '' : (hasPoll ? buildPollSection(evWithId) : `
     <h2 class="section">RSVP</h2>
     ${isGuest ? `<p class="small" style="margin:0 0 8px;color:var(--muted)">Du nimmst als Gast teil. Dein Name aus der Abstimmung wird verwendet.</p>` : ''}
     <div class="toggle">
@@ -1865,8 +1862,22 @@ function _authEventPage() {
           : '';
         return `<button class="${myStatus === s ? 'on' : ''}" onclick="_rsvp('${id}','${s}'${guestArg})">${{ dabei: '✓ Going', vielleicht: 'Maybe', nein: '✗ No' }[s]}</button>`;
       }).join('')}
-    </div>`}
+    </div>`);
+  return `<div class="content">
+    <button class="back" onclick="nav('Calendar')">← Calendar</button>
+    <div class="eyebrow">${esc(spaceName)}</div>
+    <h1 class="headline">${esc(((ev.emoji || '') + ' ' + (ev.title || '')).trim())}</h1>
+    ${cancelledBanner}
+    <div class="mutedbox">
+      ${ev.date ? `<strong>${esc(ev.date)}</strong>` : `<strong style="color:var(--muted)">${_t('poll_date_open')}</strong>`}
+      ${ev.time ? `<p>${esc(ev.time)}</p>` : ''}
+      ${ev.location ? `<p>⌖ ${esc(ev.location)}</p>` : ''}
+      ${ev.details ? `<p>${esc(ev.details)}</p>` : ''}
+      <div class="small">${goingCount} going · Your RSVP: ${esc(label)}</div>
+    </div>
+    ${rsvpSection}
     <p class="footnote">Created by ${esc(ev.creatorName || '')}</p>
+    ${cancelBtn}
   </div>`;
 }
 
@@ -2781,8 +2792,12 @@ function _listenSpaceMessages(spaceId) {
   _chatListeners[key] = ref;
 }
 
-function _scrollChatToBottom() {
-  setTimeout(() => { const el = $('chat-scroll'); if (el) el.scrollTop = el.scrollHeight; }, 60);
+function _scrollChatToBottom(force) {
+  const el = $('chat-scroll');
+  if (!el) return;
+  // If not forced, only scroll when user is already near the bottom (within 80px)
+  if (!force && (el.scrollHeight - el.scrollTop - el.clientHeight) > 80) return;
+  setTimeout(() => { const el2 = $('chat-scroll'); if (el2) el2.scrollTop = el2.scrollHeight; }, 60);
 }
 
 function _chatBubblesHtml(msgs) {
@@ -2814,10 +2829,24 @@ function _chatBubblesHtml(msgs) {
       </div>`;
     }
     if (m.type === 'event') {
-      const myRsvp = (_userData && _userData.userEvents && m.eventId) ? _userData.userEvents[m.eventId] : null;
+      const isCancelled = !!m.cancelled;
+      const titleStr = esc((m.eventEmoji ? m.eventEmoji + ' ' : '') + (m.eventTitle || ''));
       const dateStr = m.eventDate ? (m.eventTime ? `${m.eventDate} · ${m.eventTime.slice(0,5)} Uhr` : m.eventDate) : '';
       const locationHtml = m.eventLocation ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">⌖ ${esc(m.eventLocation)}</div>` : '';
       const dateHtml = dateStr ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">📅 ${esc(dateStr)}</div>` : '';
+      if (isCancelled) {
+        const card = `<div class="chat-activity-card" style="opacity:0.65;cursor:default;width:100%">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">📆 EVENT · ABGESAGT</div>
+          <div style="font-size:15px;font-weight:700;line-height:1.3;text-decoration:line-through;color:var(--muted)">${titleStr}</div>
+          ${dateHtml}${locationHtml}
+          <div style="font-size:12px;color:#c0392b;font-weight:600;margin-top:8px;background:#fce8e8;border-radius:6px;padding:4px 8px;display:inline-block">Termin abgesagt</div>
+        </div>`;
+        return `<div style="display:flex;flex-direction:column;align-items:flex-start;width:100%;margin-bottom:4px">
+          ${card}
+          <div class="chat-meta theirs">${time}</div>
+        </div>`;
+      }
+      const myRsvp = (_userData && _userData.userEvents && m.eventId) ? _userData.userEvents[m.eventId] : null;
       const rsvpBtns = m.eventDate ? ['dabei','vielleicht','nein'].map(s => {
         const labels = {dabei:'Dabei',vielleicht:'Vielleicht',nein:'Nein'};
         const active = myRsvp === s;
@@ -2825,7 +2854,7 @@ function _chatBubblesHtml(msgs) {
       }).join('') : '';
       const card = `<div class="chat-activity-card" onclick="${m.eventId ? `set({page:'event',eventId:'${esc(m.eventId)}'})` : ''}" style="cursor:${m.eventId?'pointer':'default'};width:100%">
         <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:#1388ff;margin-bottom:6px">📆 EVENT</div>
-        <div style="font-size:15px;font-weight:700;line-height:1.3">${esc(m.eventEmoji ? m.eventEmoji + ' ' : '')}${esc(m.eventTitle || '')}</div>
+        <div style="font-size:15px;font-weight:700;line-height:1.3">${titleStr}</div>
         ${dateHtml}${locationHtml}
         ${rsvpBtns ? `<div style="display:flex;gap:6px;margin-top:10px">${rsvpBtns}</div>` : ''}
         <div style="font-size:11px;color:var(--muted);margin-top:6px">von ${esc(m.creatorName || m.createdBy || '')}</div>
@@ -2847,6 +2876,37 @@ async function _chatEventRsvp(eventId, status) {
   await _rsvp(eventId, status, null);
 }
 
+async function _cancelEvent(eventId) {
+  if (!eventId || !_currentUser) return;
+  if (!confirm('Termin wirklich absagen? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/event-cancel', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      _showToast(err.error || 'Absagen fehlgeschlagen.', true);
+      return;
+    }
+    _showToast('Termin abgesagt.');
+    // Update local event data immediately so UI reflects cancellation
+    if (_userData && _userData.events && _userData.events[eventId]) {
+      _userData.events[eventId].cancelled = true;
+    }
+    // Refresh full user data in the background
+    _currentUser.getIdToken().then(tok =>
+      fetch('/.netlify/functions/user-data', { headers: { 'Authorization': `Bearer ${tok}` } })
+        .then(r => r.ok ? r.json() : null).then(d => { if (d) { _userData = d; render(); } })
+    ).catch(() => {});
+    set({ page: 'home', tab: 'Calendar' });
+  } catch (e) {
+    _showToast('Fehler: ' + e.message, true);
+  }
+}
+
 async function _sendDmMessage(dmId) {
   if (_dmSending || !dmId || !_currentUser || !_db) return;
   const input = $('dm-input');
@@ -2866,6 +2926,7 @@ async function _sendDmMessage(dmId) {
     _dmSending = false;
     input.disabled = false;
     input.focus();
+    _scrollChatToBottom(true);
   }
 }
 
@@ -2886,6 +2947,7 @@ async function _sendSpaceMessage(spaceId) {
   } finally {
     input.disabled = false;
     input.focus();
+    _scrollChatToBottom(true);
   }
 }
 
@@ -2912,7 +2974,7 @@ function _dmChatView() {
   const fp = (_userData.friendProfiles || {})[partnerUid];
   const partnerName = (fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : partnerUid.slice(0, 8) + '…');
   const msgs = _dmMessages[dmId] || [];
-  setTimeout(() => { _listenDmMessages(dmId); _scrollChatToBottom(); _chatKeyboardFix('chat-page-wrap'); }, 50);
+  setTimeout(() => { _listenDmMessages(dmId); _scrollChatToBottom(true); _chatKeyboardFix('chat-page-wrap'); }, 50);
   return `<div class="chat-page-wrap" id="chat-page-wrap">
     <div style="flex-shrink:0;padding:14px 0 10px">
       <button class="back" onclick="set({tab:'Spaces',page:'home'})">← Chats</button>
