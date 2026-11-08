@@ -2813,6 +2813,7 @@ function _listenSpaceMessages(spaceId) {
   ref.on('value', snap => {
     const msgs = [];
     snap.forEach(child => { const m = child.val(); if (m && (m.text || m.type === 'activity' || m.type === 'event')) msgs.push({ id: child.key, ...m }); });
+    msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     _spaceMessages[spaceId] = msgs;
     const el = $('space-msgs');
     if (el) { el.innerHTML = _chatBubblesHtml(msgs); _scrollChatToBottom(); }
