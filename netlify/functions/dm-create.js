@@ -28,6 +28,15 @@ exports.handler = async (event) => {
   const targetSnap = await db.ref(`users/${targetUid}`).once('value');
   if (!targetSnap.exists()) return json(404, { error: 'User not found' });
 
+  // Both users must be friends
+  const [myFriendSnap, theirFriendSnap] = await Promise.all([
+    db.ref(`friends/${uid}/${targetUid}`).once('value'),
+    db.ref(`friends/${targetUid}/${uid}`).once('value'),
+  ]);
+  if (!myFriendSnap.exists() || !theirFriendSnap.exists()) {
+    return json(403, { error: 'Users are not friends' });
+  }
+
   const dmId = [uid, targetUid].sort().join('_');
 
   const existingSnap = await db.ref(`dms/${dmId}`).once('value');
