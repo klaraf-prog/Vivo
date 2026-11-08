@@ -8,6 +8,7 @@
 .friend-chip{display:inline-flex;align-items:center;gap:5px;background:#e4f9df;border:1px solid #59d66a;border-radius:20px;padding:5px 10px;font-size:13px;font-weight:650;color:#183b28;margin:3px}
 .friend-chip button{border:0;background:none;color:#183b28;font-size:14px;cursor:pointer;padding:0;line-height:1}
 .space-invite-card{background:#fff8e1;border:1.5px solid #f0b429;border-radius:15px;padding:14px 16px;margin-bottom:10px}
+.chat-bubble{max-width:75%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.45;margin-bottom:2px}.chat-bubble.mine{background:#183b28;color:white;border-bottom-right-radius:4px;align-self:flex-end}.chat-bubble.theirs{background:white;border:1px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}.chat-wrap{display:flex;flex-direction:column;gap:4px;padding:12px 0}.chat-meta{font-size:10px;color:var(--muted);text-align:right;padding-right:4px;margin-bottom:6px}.chat-meta.theirs{text-align:left;padding-right:0;padding-left:4px}.chat-input-row{display:flex;gap:8px;padding:12px 0 4px;position:sticky;bottom:calc(83px + env(safe-area-inset-bottom));background:var(--bg);z-index:10}.chat-input{flex:1;border:1px solid var(--line);border-radius:22px;padding:11px 16px;font-size:14px;outline:none;background:white}.chat-input:focus{border-color:#51c965}.dm-row{background:white;border:1px solid var(--line);border-radius:15px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;width:100%;text-align:left;color:var(--dark)}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -15,7 +16,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 let A=[];let _activitiesLoaded=false;let _planModal=null;
-const store='someday-pwa-v1',initial={tab:'Home',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[]};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
+let _chatMessages={},_chatListeners={},_chatDraft='',_spaceChatDraft='';
+const store='someday-pwa-v1',initial={tab:'Home',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;if(typeof _detachChatListeners==='function')_detachChatListeners();set({tab:t,page:'home',sheet:false,settings:false})};
 let _lang=localStorage.getItem('someday-lang')||'de';
 const _i18n={
 de:{
@@ -297,6 +299,11 @@ let _spaceCreateSelected   = {}; // { uid: { displayName, username } }
 let _spaceCreateSubmitting = false;
 let _spaceCreateName       = '';  // persists across re-renders
 let _spaceCreateErr        = '';  // error message, state-driven so it survives render()
+
+let _dmMessages    = {};  // { [dmId]: [{id, senderUid, text, timestamp}] }
+let _spaceMessages = {};  // { [spaceId]: [{id, senderUid, text, timestamp}] }
+let _chatListeners = {};
+let _dmSending     = false;
 
 function _initFirebaseAuth() {
   if (_fbAuth) return _fbAuth;
@@ -681,7 +688,10 @@ function _profileTab() {
                   ? fps.map(([uid, fp]) => `<div class="rowcard between" style="margin-bottom:10px">
                       <div><strong>${esc(fp.displayName || fp.username || 'Unbekannt')}</strong>
                       ${fp.username ? `<div class="small">@${esc(fp.username)}</div>` : ''}</div>
-                      <button class="chip" onclick="_friendAction('remove','${uid}')">Entfernen</button>
+                      <div style="display:flex;gap:6px">
+                        <button class="chip" onclick="_openDm('${uid}')">💬 Chat</button>
+                        <button class="chip" onclick="_friendAction('remove','${uid}')">Entfernen</button>
+                      </div>
                     </div>`).join('')
                   : '<div class="empty" style="margin-bottom:12px">Noch keine Freunde verbunden.</div>'}
                 <h2 class="section">Personen suchen</h2>
@@ -1008,6 +1018,8 @@ window.render = function render() {
     p = _authSpaces();
   } else if (S.tab === 'Spaces' && S.page === 'space' && S.spaceId && _currentUser && _userData && !_userData._error) {
     p = _authSpace();
+  } else if (S.tab === 'Spaces' && S.page === 'dm' && S.dmId && _currentUser) {
+    p = _dmChatView();
   } else {
     const pages = { activity: detail, provider, session, space, planning, event: _authEventPage,
       booking: () => `<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>` };
@@ -1429,6 +1441,23 @@ function _authSpaces() {
     .map(([id]) => ({ id, ...(fbSpaces[id] || {}) }))
     .filter(sp => sp.name);
   const spaceInvs = _pendingSpaceInvites();
+
+  // DM section
+  const myUid = _userData.uid;
+  const dmEntries = Object.keys(_userData.userDMs || {}).map(dmId => {
+    const parts = dmId.split('_');
+    const partnerUid = parts[0] === myUid ? parts[1] : parts[0];
+    const fp = (_userData.friendProfiles || {})[partnerUid];
+    const name = (fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : partnerUid.slice(0, 8) + '…');
+    const initial = esc(name[0] || '?').toUpperCase();
+    return `<button class="dm-row" onclick="_openDm('${esc(partnerUid)}')">
+      <div style="width:38px;height:38px;border-radius:50%;background:#65db70;color:#183b28;display:grid;place-items:center;font-size:14px;font-weight:800;flex-shrink:0">${initial}</div>
+      <div style="flex:1;margin-left:12px"><strong>${esc(name)}</strong></div>
+      <span style="color:var(--muted)">→</span>
+    </button>`;
+  });
+  const dmSection = dmEntries.length ? `<div class="home-section" style="margin-top:4px">Direktnachrichten</div><div class="stack">${dmEntries.join('')}</div>` : '';
+
   const invSection = spaceInvs.length ? `
     <div class="home-section" style="color:#c07000">Space-Einladungen 📬</div>
     ${spaceInvs.map(inv => `<div class="space-invite-card">
@@ -1444,9 +1473,9 @@ function _authSpaces() {
       </div>
     </div>`).join('')}
   ` : '';
-  if (!spaceList.length) {
+  if (!spaceList.length && !dmEntries.length) {
     return `<div class="content">
-      <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div>
+      <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats &amp; Spaces.</h1></div>
       ${invSection}
       <div class="empty">Du bist noch in keinem Space.<br>Erstelle einen, um gemeinsam zu planen.</div>
       <div style="height:12px"></div>
@@ -1454,9 +1483,10 @@ function _authSpaces() {
     </div>`;
   }
   return `<div class="content">
-    <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div>
+    <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats &amp; Spaces.</h1></div>
     ${invSection}
-    <div class="stack">
+    ${dmSection}
+    ${spaceList.length ? `<div class="home-section">Spaces</div><div class="stack">
       ${spaceList.map(sp => {
         const evtCount = Object.keys((_userData.spaceEvents || {})[sp.id] || {}).length;
         const memberCount = Object.keys(sp.members||{}).length;
@@ -1465,7 +1495,7 @@ function _authSpaces() {
           <p class="sub">${memberCount} ${memberCount!==1?'Mitglieder':'Mitglied'} · ${evtCount} ${evtCount!==1?'Events':'Event'}</p>
         </button>`;
       }).join('')}
-    </div>
+    </div>` : ''}
     <div style="height:12px"></div>
     ${button('+ Space erstellen', '_openSpaceCreate()', 'secondary full')}
   </div>`;
@@ -1585,7 +1615,18 @@ function _authSpace() {
 
   const spaceIdeas=(S.spaceIdeas||[]).filter(i=>i.spaceId===spaceId);
   const ideaSection=spaceIdeas.length?`<div class="stack">${spaceIdeas.map(idea=>`<div class="rowcard" style="margin-bottom:10px"><div class="eyebrow" style="font-size:10px">IDEE</div><strong style="font-size:15px">${esc(idea.actName)}</strong>${idea.actLocation?`<div class="small" style="margin-top:2px">⌖ ${esc(idea.actLocation)}</div>`:''}${idea.actPeriod?`<div class="small" style="color:var(--muted)">${esc(idea.actPeriod)}</div>`:''}${idea.savedAt?`<div class="small" style="color:var(--muted)">Geteilt am ${esc(idea.savedAt)}</div>`:''}<div style="display:flex;gap:8px;margin-top:10px">${idea.actId?`<button class="chip" onclick="set({selected:'${esc(idea.actId)}',page:'activity'})">Aktivität öffnen →</button>`:''}<button class="chip" onclick="_openPlanForm('${esc(idea.actId||'')}')">Termin planen</button></div></div>`).join('')}</div>`:`<div class="empty">Noch keine Ideen in diesem Space.<br><span style="font-size:13px">Teile Aktivitäten über „↗ Mit Space teilen" in der Discovery.</span></div>`;
-  const tabs = isAdmin ? ['Events','Ideen','Mitglieder','Einladen','Einstellungen'] : ['Events','Ideen','Mitglieder','Einladen'];
+  const chatSection = (() => {
+    const msgs = _spaceMessages[spaceId] || [];
+    setTimeout(() => { _listenSpaceMessages(spaceId); _scrollChatToBottom(); }, 50);
+    return `<div id="chat-scroll" style="min-height:160px;max-height:calc(100dvh - 350px);overflow-y:auto">
+      <div id="space-msgs">${_chatBubblesHtml(msgs)}</div>
+    </div>
+    <div class="chat-input-row">
+      <input id="space-msg-input" class="chat-input" placeholder="Nachricht an ${esc(sp.name)}…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();_sendSpaceMessage('${esc(spaceId)}')}">
+      <button class="btn dark" style="min-height:44px;padding:0 18px;border-radius:22px;flex-shrink:0" onclick="_sendSpaceMessage('${esc(spaceId)}')">→</button>
+    </div>`;
+  })();
+  const tabs = isAdmin ? ['Events','Chat','Ideen','Mitglieder','Einladen','Einstellungen'] : ['Events','Chat','Ideen','Mitglieder','Einladen'];
 
   return `<div class="content">
     <button class="back" onclick="set({tab:'Spaces',page:'home'})">← Spaces</button>
@@ -1593,7 +1634,9 @@ function _authSpace() {
     <p class="sub">${memberNames.join(', ')}</p></div>
     ${segment('spaceTab', tabs)}
     <div style="margin-top:20px">
-      ${S.spaceTab === 'Mitglieder'
+      ${S.spaceTab === 'Chat'
+        ? chatSection
+        : S.spaceTab === 'Mitglieder'
         ? memberSection
         : S.spaceTab === 'Einladen'
         ? inviteSection
@@ -1602,7 +1645,7 @@ function _authSpace() {
         : S.spaceTab === 'Ideen' ? ideaSection
         : evtIds.length ? eventCards : '<div class="empty">Noch keine Events in diesem Space.</div>'}
     </div>
-    ${S.spaceTab !== 'Einladen' && S.spaceTab !== 'Einstellungen'
+    ${S.spaceTab !== 'Chat' && S.spaceTab !== 'Einladen' && S.spaceTab !== 'Einstellungen'
       ? button('+ Space-Event erstellen', `startGroupEvent('${spaceId}')`, 'secondary full')
       : ''}
   </div>`;
@@ -2335,6 +2378,137 @@ function _connectSheet() {
     }
     <button class="btn secondary full" style="margin-top:8px" onclick="_dismissConnect()">Abbrechen</button>
   </div></div>`;
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────
+
+function _listenDmMessages(dmId) {
+  const key = 'dm_' + dmId;
+  if (_chatListeners[key] || !_db || !dmId) return;
+  _dmMessages[dmId] = _dmMessages[dmId] || [];
+  const ref = _db.ref('dmMessages/' + dmId).orderByKey().limitToLast(100);
+  ref.on('value', snap => {
+    const msgs = [];
+    snap.forEach(child => { const m = child.val(); if (m && m.text) msgs.push({ id: child.key, ...m }); });
+    _dmMessages[dmId] = msgs;
+    const el = $('dm-msgs');
+    if (el) { el.innerHTML = _chatBubblesHtml(msgs); _scrollChatToBottom(); }
+  });
+  _chatListeners[key] = ref;
+}
+
+function _listenSpaceMessages(spaceId) {
+  const key = 'space_' + spaceId;
+  if (_chatListeners[key] || !_db || !spaceId) return;
+  _spaceMessages[spaceId] = _spaceMessages[spaceId] || [];
+  const ref = _db.ref('spaceMessages/' + spaceId).orderByKey().limitToLast(100);
+  ref.on('value', snap => {
+    const msgs = [];
+    snap.forEach(child => { const m = child.val(); if (m && m.text) msgs.push({ id: child.key, ...m }); });
+    _spaceMessages[spaceId] = msgs;
+    const el = $('space-msgs');
+    if (el) { el.innerHTML = _chatBubblesHtml(msgs); _scrollChatToBottom(); }
+  });
+  _chatListeners[key] = ref;
+}
+
+function _scrollChatToBottom() {
+  setTimeout(() => { const el = $('chat-scroll'); if (el) el.scrollTop = el.scrollHeight; }, 60);
+}
+
+function _chatBubblesHtml(msgs) {
+  if (!msgs || !msgs.length) return '<div class="empty" style="margin:20px 0">Noch keine Nachrichten. Schreib die erste!</div>';
+  const myUid = _userData && _userData.uid;
+  const profiles = (_userData && _userData.friendProfiles) || {};
+  return '<div class="chat-wrap">' + msgs.map(m => {
+    const isMine = m.senderUid === myUid;
+    const fp = profiles[m.senderUid];
+    const name = isMine ? 'Du' : ((fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : m.senderUid.slice(0, 8) + '…'));
+    const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+    return `<div style="display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'}">
+      <div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">${esc(m.text)}</div>
+      <div class="chat-meta ${isMine ? '' : 'theirs'}">${esc(name)}${time ? ' · ' + time : ''}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+async function _sendDmMessage(dmId) {
+  if (_dmSending || !dmId || !_currentUser || !_db) return;
+  const input = $('dm-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  _dmSending = true;
+  input.disabled = true;
+  const saved = input.value;
+  input.value = '';
+  try {
+    await _db.ref('dmMessages/' + dmId).push({ senderUid: _currentUser.uid, text, timestamp: firebase.database.ServerValue.TIMESTAMP });
+  } catch (e) {
+    _showToast('Nachricht konnte nicht gesendet werden.', true);
+    input.value = saved;
+  } finally {
+    _dmSending = false;
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+async function _sendSpaceMessage(spaceId) {
+  if (!spaceId || !_currentUser || !_db) return;
+  const input = $('space-msg-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.disabled = true;
+  const saved = input.value;
+  input.value = '';
+  try {
+    await _db.ref('spaceMessages/' + spaceId).push({ senderUid: _currentUser.uid, text, timestamp: firebase.database.ServerValue.TIMESTAMP });
+  } catch (e) {
+    _showToast('Nachricht konnte nicht gesendet werden.', true);
+    input.value = saved;
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+async function _openDm(partnerUid) {
+  if (!_currentUser || !partnerUid) return;
+  const dmId = [_currentUser.uid, partnerUid].sort().join('_');
+  try {
+    const idToken = await _currentUser.getIdToken();
+    await fetch('/.netlify/functions/dm-create', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUid: partnerUid }),
+    });
+  } catch (e) { console.warn('[someday] dm-create:', e.message); }
+  set({ tab: 'Spaces', page: 'dm', dmId, chatPartnerUid: partnerUid });
+}
+
+function _dmChatView() {
+  const dmId = S.dmId;
+  const partnerUid = S.chatPartnerUid;
+  if (!dmId || !_currentUser || !_userData) {
+    return `<div class="content"><button class="back" onclick="set({tab:'Spaces',page:'home'})">← Zurück</button><div class="empty">Chat nicht gefunden.</div></div>`;
+  }
+  const fp = (_userData.friendProfiles || {})[partnerUid];
+  const partnerName = (fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : partnerUid.slice(0, 8) + '…');
+  const msgs = _dmMessages[dmId] || [];
+  setTimeout(() => { _listenDmMessages(dmId); _scrollChatToBottom(); }, 50);
+  return `<div class="content">
+    <button class="back" onclick="set({tab:'Spaces',page:'home'})">← Chats</button>
+    <div style="padding:4px 0 16px"><div class="eyebrow">DIREKTNACHRICHT ✳</div><h2 style="margin:4px 0 0;font-size:21px;letter-spacing:-.5px">${esc(partnerName)}</h2></div>
+    <div id="chat-scroll" style="min-height:160px;max-height:calc(100dvh - 290px);overflow-y:auto">
+      <div id="dm-msgs">${_chatBubblesHtml(msgs)}</div>
+    </div>
+    <div class="chat-input-row">
+      <input id="dm-input" class="chat-input" placeholder="Nachricht…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();_sendDmMessage('${esc(dmId)}')}">
+      <button class="btn dark" style="min-height:44px;padding:0 18px;border-radius:22px;flex-shrink:0" onclick="_sendDmMessage('${esc(dmId)}')">→</button>
+    </div>
+  </div>`;
 }
 
 // ── Data refresh ──────────────────────────────────────────────────────────

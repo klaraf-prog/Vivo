@@ -97,6 +97,48 @@
     "studioAdminUsers": {
       ".read": "auth != null && auth.token.studioRole === 'superadmin'",
       ".write": false
+    },
+    "dms": {
+      "$dmId": {
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+        ".write": false
+      }
+    },
+    "dmMessages": {
+      "$dmId": {
+        ".read": "auth != null && root.child('dms').child($dmId).child('members').child(auth.uid).exists()",
+        "$msgId": {
+          ".write": "auth != null && root.child('dms').child($dmId).child('members').child(auth.uid).exists() && newData.child('senderUid').val() === auth.uid && !data.exists()"
+        }
+      }
+    },
+    "directChats": {
+      "$chatId": {
+        ".read": "auth != null && root.child('directChats').child($chatId).child('members').child(auth.uid).exists()",
+        "members": {
+          ".write": false
+        },
+        "messages": {
+          "$msgId": {
+            ".write": "auth != null && root.child('directChats').child($chatId).child('members').child(auth.uid).exists() && newData.child('senderUid').val() === auth.uid && !data.exists()"
+          }
+        }
+      }
+    },
+    "userDMs": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": false
+      }
+    },
+    "spaceMessages": {
+      ".read": false,
+      "$spaceId": {
+        ".read": "auth != null && root.child('userSpaces').child(auth.uid).child($spaceId).exists()",
+        "$msgId": {
+          ".write": "auth != null && root.child('userSpaces').child(auth.uid).child($spaceId).exists() && newData.child('senderUid').val() === auth.uid && !data.exists()"
+        }
+      }
     }
   }
 }

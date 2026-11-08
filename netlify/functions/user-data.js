@@ -17,7 +17,7 @@ exports.handler = async (event) => {
   const db  = initAdmin().database();
 
   // Stage 1: top-level indices
-  const [profileSnap, userEventsSnap, userSpacesSnap, friendsSnap, invitesSnap, friendReqsSnap, spaceInvitesSnap] = await Promise.all([
+  const [profileSnap, userEventsSnap, userSpacesSnap, friendsSnap, invitesSnap, friendReqsSnap, spaceInvitesSnap, userDMsSnap] = await Promise.all([
     db.ref(`users/${uid}`).once('value'),
     db.ref(`userEvents/${uid}`).once('value'),
     db.ref(`userSpaces/${uid}`).once('value'),
@@ -25,6 +25,7 @@ exports.handler = async (event) => {
     db.ref(`invites/${uid}`).once('value'),
     db.ref(`friendRequests/${uid}`).once('value'),
     db.ref(`spaceInvites/${uid}`).once('value'),
+    db.ref(`userDMs/${uid}`).once('value'),
   ]);
 
   const userEvents     = userEventsSnap.val()    || {};
@@ -33,6 +34,7 @@ exports.handler = async (event) => {
   const invites        = invitesSnap.val()        || {};
   const friendRequests = friendReqsSnap.val()     || {};
   const spaceInvites   = spaceInvitesSnap.val()   || {};
+  const userDMs        = userDMsSnap.val()        || {};
 
   // Stage 2: resolve references
   const eventIds  = [...new Set([...Object.keys(userEvents), ...Object.keys(invites)])];
@@ -84,5 +86,6 @@ exports.handler = async (event) => {
     invites,
     friendRequests,
     spaceInvites,
+    userDMs,
   });
 };
