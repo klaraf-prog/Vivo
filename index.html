@@ -1038,7 +1038,7 @@ window.render = function render() {
     const pages = { activity: detail, provider, session, space, planning, event: _authEventPage,
       booking: () => `<div class="content"><button class="back" onclick="goBack()">← Back</button><h1 class="headline">Ready to book?</h1><p class="sub">Booking is a simulated handoff. No availability, payment or reservation has been made.</p>${button('Back to session',"set({page:'session'})")}</div>` };
     p = S.page === 'home'
-      ? ({ Discover: discovery, Calendar: calendar, Spaces: spaces, Profile: _profileTab, Privacy: _privacyPage }[S.tab] || discovery)()
+      ? ({ Discover: discovery, Calendar: calendar, Spaces: _authSpaces, Profile: _profileTab, Privacy: _privacyPage }[S.tab] || discovery)()
       : (pages[S.page] || discovery)();
   }
   $('app').innerHTML = (_currentUser ? _header() : header()) + p + bottom()
@@ -1448,7 +1448,10 @@ window.commitCustom = async function commitCustom_auth() {
 // ── Auth-aware Spaces tab ─────────────────────────────────────────────────
 
 function _authSpaces() {
-  if (!_currentUser) return spaces();
+  if (!_currentUser) {
+    if (!_authReady) return `<div class="content"><div style="padding:32px 16px 0"><div class="eyebrow" style="color:var(--muted)">DEINE LEUTE ✳</div><h1 style="margin:8px 0 20px">Chats.</h1></div>${[1,2,3].map(()=>`<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)"><div style="width:44px;height:44px;border-radius:50%;background:#eee;flex-shrink:0"></div><div style="flex:1"><div style="height:14px;background:#eee;border-radius:6px;width:55%;margin-bottom:8px"></div><div style="height:12px;background:#f4f4f4;border-radius:6px;width:80%"></div></div></div>`).join('')}</div>`;
+    return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div><p class="sub">Melde dich an, um deine Spaces und Chats zu sehen.</p></div>`;
+  }
   if (!_userData) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div><div class="empty">Wird geladen…</div></div>`;
   if (_userData._error) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div><div class="warn">⚠ ${esc(_userData._message || 'Konnte nicht geladen werden.')}</div></div>`;
 
@@ -1714,10 +1717,10 @@ function _authSpace() {
 }
 
 function _authSpaceInfo() {
-  if (!_currentUser || !_userData || _userData._error) return spaces();
+  if (!_currentUser || !_userData || _userData._error) return `<div class="content"><button class="back" onclick="set({tab:'Spaces',page:'home'})">← Spaces</button><div class="empty" style="padding:32px 0;text-align:center">Wird geladen…</div></div>`;
   const spaceId = S.spaceId;
   const sp      = (_userData.spaces || {})[spaceId];
-  if (!sp) return spaces();
+  if (!sp) return `<div class="content"><button class="back" onclick="set({tab:'Spaces',page:'home'})">← Spaces</button><div class="empty" style="padding:32px 0;text-align:center">Space nicht gefunden.</div></div>`;
   const memberIds  = Object.keys(sp.members || {});
   const adminIds   = Object.keys(sp.admins  || {});
   const friendPs   = _userData.friendProfiles || {};
