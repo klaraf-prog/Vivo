@@ -6,6 +6,7 @@
     "test": "jest tests/ --testPathIgnorePatterns=tests/integration",
     "test:integration": "firebase emulators:exec --only auth,database --project demo-vivo-test \"jest tests/integration --runInBand\"",
     "test:rules": "firebase emulators:exec --only database --project vivo-mvp-rules-test \"jest tests/integration/database-rules.integration.test.js --forceExit\"",
+    "test:rules:audit": "firebase emulators:exec --only database --project vivo-mvp-rules-test \"jest tests/integration/database-rules-audit.test.js --forceExit\"",
     "studio:local": "node scripts/start-studio-local.js",
     "studio:seed": "node scripts/seed-emulator-suggestion.js",
     "studio:seed-brunch": "node scripts/seed-brunch-club.js"
