@@ -26,7 +26,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 let A=[];let _activitiesLoaded=false;let _planModal=null;
-const store='someday-pwa-v1',initial={tab:'Spaces',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
+const store='someday-pwa-v1',initial={tab:'Spaces',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',calSub:'Übersicht',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
 let _lang=localStorage.getItem('someday-lang')||'de';
 const _i18n={
 de:{
@@ -1270,6 +1270,67 @@ function _authCalendar() {
     if (e.owner && !owners[e.owner])
       owners[e.owner] = _spaceColors[Object.keys(owners).length % _spaceColors.length];
   });
+
+  // Sub-view toggle: Übersicht | Kalender
+  const calSub = S.calSub || 'Übersicht';
+  const subToggle = `<div class="switch" style="margin:12px 0 16px">
+    <button class="${calSub==='Übersicht'?'on':''}" onclick="set({calSub:'Übersicht'})">Übersicht</button>
+    <button class="${calSub==='Kalender'?'on':''}" onclick="set({calSub:'Kalender'})">Kalender</button>
+  </div>`;
+
+  // ── ÜBERSICHT (agenda) ─────────────────────────────────────────
+  const overviewView = () => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const confirmed = fbEntries
+      .filter(e => (e._fbStatus === 'dabei' || e._fbStatus === 'created') && e.date >= todayStr)
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.start - b.start);
+
+    // Group by date
+    const byDate = {};
+    confirmed.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+    const dateGroups = Object.keys(byDate).sort();
+
+    const quoteBlock = `<div style="background:#1a2e22;border-radius:14px;padding:14px 16px;margin-bottom:20px">
+      <div class="eyebrow" style="color:#54d86b;font-size:10px;margin-bottom:4px">SOMEDAY ✳</div>
+      <p style="margin:0;font-size:13px;color:#b7cbbd;line-height:1.5;font-style:italic">${esc(_getDailyQuote())}</p>
+    </div>`;
+
+    if (!isReal) {
+      return quoteBlock + `<div class="empty" style="padding:32px 0;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">📅</div>
+        <div style="color:#888;font-size:14px">Melde dich an, um deine Events zu sehen.</div>
+      </div>`;
+    }
+
+    const agendaHtml = dateGroups.length === 0
+      ? `<div class="empty" style="padding:32px 0;text-align:center">
+          <div style="font-size:32px;margin-bottom:8px">✳</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:6px">Nichts geplant</div>
+          <div style="color:#888;font-size:13px">Noch keine bestätigten Events in der Zukunft.<br>Schau mal in deine Einladungen!</div>
+        </div>`
+      : dateGroups.map(d => {
+          const dt = new Date(d + 'T00:00:00Z');
+          const dayLabel = dt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+          const cards = byDate[d].map(e => {
+            const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+            return `<button class="home-upcoming" onclick="openEvent('${esc(e.id)}')" style="border-left:3px solid ${fg};padding-left:12px;text-align:left;width:100%;margin-bottom:6px">
+              <div class="between">
+                <strong style="font-size:14px">${esc(e.title)}</strong>
+                ${e.owner && e.owner !== 'Personal' ? `<span style="font-size:10px;background:${bg};color:${fg};border-radius:20px;padding:2px 7px">${esc(e.owner)}</span>` : ''}
+              </div>
+              ${e.start ? `<div class="small" style="margin-top:3px">${formatHour(e.start)}</div>` : ''}
+            </button>`;
+          }).join('');
+          return `<div style="margin-bottom:18px">
+            <div class="eyebrow" style="font-size:10px;margin-bottom:8px;color:#54d86b">${esc(dayLabel.toUpperCase())}</div>
+            ${cards}
+          </div>`;
+        }).join('');
+
+    return quoteBlock + agendaHtml;
+  };
+
+  // ── KALENDER (grid) ────────────────────────────────────────────
   const layers    = S.layers.filter(l => l in owners);
   const visLayers = layers.length ? layers : Object.keys(owners);
   const es        = allEntries.filter(e => visLayers.includes(e.owner));
@@ -1277,7 +1338,7 @@ function _authCalendar() {
   const _dow   = (_today.getUTCDay() + 6) % 7;
   const _mon   = new Date(Date.UTC(_today.getUTCFullYear(), _today.getUTCMonth(), _today.getUTCDate() - _dow));
   const start  = new Date(Date.UTC(_mon.getUTCFullYear(), _mon.getUTCMonth(), _mon.getUTCDate() + 7 * S.week));
-  const days      = Array.from({length:7}, (_, i) => {
+  const days   = Array.from({length:7}, (_, i) => {
     const d = new Date(start); d.setUTCDate(start.getUTCDate() + i);
     return d.toISOString().slice(0, 10);
   });
@@ -1300,6 +1361,13 @@ function _authCalendar() {
         </div></div></div>`).join('')}
     </div>` : '';
   const SLOT_H = 50;
+
+  const _eventStyle = (e, bg, fg) => {
+    if (e._fbStatus === 'nein') return `background:transparent;border:2px dashed ${fg};color:${fg};opacity:0.45`;
+    if (e._fbStatus === 'vielleicht') return `background:${bg};border-color:${fg};color:${fg};opacity:0.6`;
+    return `background:${bg};border-color:${fg};color:${fg}`;
+  };
+
   const weekView = () => `<div class="calendar-scroll"><div class="calendar">
     <div class="cal-head">${days.map((d,i) =>
       `<button class="cal-day" onclick="openCreate('personal','','${d}')">${(_t('cal_days')||['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])[i]}<br>${Number(d.slice(-2))}</button>`
@@ -1315,7 +1383,7 @@ function _authCalendar() {
         style="left:calc(${days.indexOf(e.date)*100/7 + side*6.8}% + 2px);
                width:calc(${w}% - 3px);top:${(e.start-8)*SLOT_H}px;
                height:${Math.max(25,(e.end-e.start)*SLOT_H-2)}px;
-               background:${bg};border-color:${fg};color:${fg}">
+               ${_eventStyle(e, bg, fg)}">
         ${esc(e.title)}<br>${formatHour(e.start)}</button>`;
     }).join('')}
   </div></div>`;
@@ -1332,28 +1400,41 @@ function _authCalendar() {
         ${d ? Number(d.slice(-2)) : ''}
         ${es.filter(e => e.date === d).slice(0,3).map(e => {
           const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+          const isMaybe = e._fbStatus === 'vielleicht';
+          const isPending = e._firebase && !e._fbStatus;
+          const style = isPending
+            ? `border:1px dashed ${fg};color:${fg};background:transparent`
+            : isMaybe
+              ? `background:${bg};color:${fg};opacity:0.6`
+              : `background:${bg};color:${fg}`;
           return `<div class="monthlabel" onclick="event.stopPropagation();openEvent('${e.id}')"
-            style="background:${bg};color:${fg}">${esc(e.title)}</div>`;
+            style="${style}">${esc(e.title)}</div>`;
         }).join('')}
       </div>`).join('')}
     </div>`;
   };
+
+  const gridView = () => `
+    <div class="toggle">${Object.keys(owners).map(toggleChip).join('')}</div>
+    <div class="between" style="margin:12px 0">
+      <button class="chip" onclick="set({week:S.week-1})">←</button>
+      <button class="chip" onclick="set({week:0})" style="font-size:11px">${_t('cal_today')}</button>
+      <strong style="font-size:12px">${label}</strong>
+      <button class="chip" onclick="set({week:S.week+1})">→</button>
+    </div>
+    ${segment('calView',['Week','Month'])}
+    <div style="height:10px"></div>
+    ${S.calView === 'Week' ? weekView() : monthView()}
+    ${inviteSection}`;
+
   const signedInNote = isReal
     ? `<p class="footnote">${_t('cal_footnote')}</p>`
     : `<p class="footnote">${_t('cal_demo')}</p>`;
+
   return `<div class="content">
-    <div class="between"><h1 class="headline">${_t('cal_title')}</h1>${segment('calView',['Week','Month'])}</div>
-    <div class="toggle">${Object.keys(owners).map(toggleChip).join('')}</div>
-    <div class="between" style="margin:20px 0">
-      <button class="chip" onclick="set({week:S.week-1})">←</button>
-      <button class="chip" onclick="set({week:0})" style="font-size:11px">${_t('cal_today')}</button>
-      <strong>${label}</strong>
-      <button class="chip" onclick="set({week:S.week+1})">→</button>
-    </div>
-    ${button(_t('cal_new_event'), "openCreate('personal')", 'secondary full')}
-    <div style="height:15px"></div>
-    ${S.calView === 'Week' ? weekView() : monthView()}
-    ${inviteSection}
+    <div class="between" style="margin-bottom:0"><h1 class="headline">${_t('cal_title')}</h1>${button(_t('cal_new_event'), "openCreate('personal')", 'secondary')}</div>
+    ${subToggle}
+    ${calSub === 'Übersicht' ? overviewView() : gridView()}
     ${signedInNote}
   </div>`;
 }
