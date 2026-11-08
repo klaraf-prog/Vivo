@@ -8,7 +8,7 @@
 .friend-chip{display:inline-flex;align-items:center;gap:5px;background:#e4f9df;border:1px solid #59d66a;border-radius:20px;padding:5px 10px;font-size:13px;font-weight:650;color:#183b28;margin:3px}
 .friend-chip button{border:0;background:none;color:#183b28;font-size:14px;cursor:pointer;padding:0;line-height:1}
 .space-invite-card{background:#fff8e1;border:1.5px solid #f0b429;border-radius:15px;padding:14px 16px;margin-bottom:10px}
-.chat-bubble{max-width:75%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.45;margin-bottom:2px}.chat-bubble.mine{background:#183b28;color:white;border-bottom-right-radius:4px;align-self:flex-end}.chat-bubble.theirs{background:white;border:1px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}.chat-wrap{display:flex;flex-direction:column;gap:4px;padding:12px 0}.chat-meta{font-size:10px;color:var(--muted);text-align:right;padding-right:4px;margin-bottom:6px}.chat-meta.theirs{text-align:left;padding-right:0;padding-left:4px}.chat-input-row{display:flex;gap:8px;padding:12px 0 4px;position:sticky;bottom:calc(83px + env(safe-area-inset-bottom));background:var(--bg);z-index:10}.chat-input{flex:1;border:1px solid var(--line);border-radius:22px;padding:11px 16px;font-size:14px;outline:none;background:white}.chat-input:focus{border-color:#51c965}.dm-row{background:white;border:1px solid var(--line);border-radius:15px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;width:100%;text-align:left;color:var(--dark)}
+.chat-bubble{max-width:75%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.45;margin-bottom:2px}.chat-bubble.mine{background:#183b28;color:white;border-bottom-right-radius:4px;align-self:flex-end}.chat-bubble.theirs{background:white;border:1px solid var(--line);border-bottom-left-radius:4px;align-self:flex-start}.chat-wrap{display:flex;flex-direction:column;gap:4px;padding:12px 0}.chat-meta{font-size:10px;color:var(--muted);text-align:right;padding-right:4px;margin-bottom:6px}.chat-meta.theirs{text-align:left;padding-right:0;padding-left:4px}.chat-input-row{display:flex;gap:8px;padding:12px 0 4px;position:sticky;bottom:calc(83px + env(safe-area-inset-bottom));background:var(--bg);z-index:10}.chat-input{flex:1;border:1px solid var(--line);border-radius:22px;padding:11px 16px;font-size:14px;outline:none;background:white}.chat-input:focus{border-color:#51c965}.dm-row{background:white;border:1px solid var(--line);border-radius:15px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;width:100%;text-align:left;color:var(--dark)}.chat-list-row{background:white;border:1px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left;color:var(--dark);border:none;outline:none}.chat-list-row:active{background:#f5f7f3}.chat-list-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:15px;font-weight:800}.chat-list-name{font-size:15px;font-weight:700;line-height:1.2}.chat-list-preview{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}.chat-list-time{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:6px}.chat-activity-card{background:#f5f7f3;border:1.5px solid var(--line);border-radius:14px;padding:11px 13px;cursor:pointer;text-align:left;width:100%;margin-top:4px;display:block;border:none}.chat-activity-card:active{opacity:.85}.space-tab-panels{display:flex;transition:transform .22s ease;will-change:transform}.space-tab-panel{min-width:100%;box-sizing:border-box}.space-info-section{font-size:13px;font-weight:800;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin:20px 0 10px}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -26,7 +26,7 @@ de:{
   acct_label:'Konto',data_label:'Deine Daten',export_btn:'⬇ Daten exportieren',
   delete_btn:'Konto löschen',no_results:'Keine Ergebnisse. Andere Suche versuchen.',
   settings_back:'← Profil',settings_title:'Einstellungen',
-  nav_home:'Home',nav_discover:'Entdecken',nav_calendar:'Kalender',nav_spaces:'Spaces',nav_profile:'Profil',
+  nav_home:'Home',nav_discover:'Entdecken',nav_calendar:'Kalender',nav_spaces:'Chats',nav_profile:'Profil',
   home_eyebrow:'DEIN TAG ✳',home_coming_up:'Demnächst',home_attention:'Ausstehend',
   home_quick:'Schnellzugriff',home_create_plan:'Plan erstellen',home_create_plan_sub:'Zum Kalender hinzufügen',
   home_explore:'Ideen entdecken',home_explore_sub:'Neue Erlebnisse finden',
@@ -57,7 +57,7 @@ en:{
   acct_label:'Account',data_label:'Your data',export_btn:'⬇ Export my data',
   delete_btn:'Delete my account',no_results:'No experiences found. Try another search.',
   settings_back:'← Profile',settings_title:'Settings',
-  nav_home:'Home',nav_discover:'Discover',nav_calendar:'Calendar',nav_spaces:'Spaces',nav_profile:'Profile',
+  nav_home:'Home',nav_discover:'Discover',nav_calendar:'Calendar',nav_spaces:'Chats',nav_profile:'Profile',
   home_eyebrow:'YOUR DAY ✳',home_coming_up:'Coming up',home_attention:'Needs your attention',
   home_quick:'Quick actions',home_create_plan:'Create plan',home_create_plan_sub:'Add to your calendar',
   home_explore:'Explore ideas',home_explore_sub:'Find new experiences',
@@ -122,7 +122,7 @@ function showMapCard(id){
   const imgHtml=a.img?`<img src="${esc(a.img)}" alt="${esc(a.name)}" onerror="this.outerHTML='<div style=\'width:84px;height:84px;flex-shrink:0;background:#e7f7e4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px\'>✳</div>'" style="width:84px;height:84px;object-fit:cover;border-radius:10px;flex-shrink:0">`:`<div style="width:84px;height:84px;flex-shrink:0;background:#e7f7e4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">✳</div>`;
   $('map-info').innerHTML=`<div class="mapinfo" style="padding:12px"><div class="hrow" style="gap:12px;align-items:flex-start">${imgHtml}<div style="flex:1;min-width:0"><strong style="font-size:15px;line-height:1.3;display:block">${esc(a.name)}</strong>${a.provider?`<div class="small">${esc(a.provider)}</div>`:''}${a.location?`<div class="small">⌖ ${esc(a.location)}</div>`:''}${a.price?`<div class="small">${esc(a.price)}</div>`:''}</div></div><div style="margin-top:10px">${button('Aktivität öffnen →',`openActivity('${a.id}')`,'full')}</div></div>`;
 }
-const detail=()=>{let a=act();if(!a)return`<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button><div class="empty" style="padding:32px 0;text-align:center"><div style="font-size:28px;margin-bottom:8px">✳</div><div style="color:#888;font-size:14px">Aktivität wird geladen …</div></div></div>`;const heroHtml=_photoHtml(a,220);const schedHtml=_fmtScheduleDetail(a);const metaRows=[a.address?`<div class="meta">📍 ${esc(a.address)}</div>`:'',a.price?`<div class="meta">🎟 ${esc(a.price)}</div>`:'',a.website?`<div class="meta">🌐 <a href="${esc(a.website)}" target="_blank" rel="noopener noreferrer" style="color:inherit">${esc(a.website.replace(/^https?:\/\//,''))}</a></div>`:'',a.instagram?`<div class="meta">📷 <a href="https://instagram.com/${esc(a.instagram.replace(/^@/,''))}" target="_blank" rel="noopener noreferrer" style="color:inherit">@${esc(a.instagram.replace(/^@/,''))}</a></div>`:''].filter(Boolean).join('');const descHtml=a.publishedAt?(a.description?`<p class="sub">${esc(a.description)}</p>`:''):`<p class="sub">Try something new, meet your people, and make a day worth remembering.</p>`;const providerBtn=a.publishedAt?(a.website?`<a href="${esc(a.website)}" target="_blank" rel="noopener noreferrer" class="btn secondary full" style="display:block;text-align:center;text-decoration:none">🌐 Website öffnen</a>`:''):`${button('Explore provider →',`set({page:'provider',providerView:'List'})`,'secondary full')}`;const bookingBtn=a.bookingUrl?`<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener noreferrer" class="btn full" style="display:block;text-align:center;text-decoration:none">Jetzt buchen →</a>`:`${button('♡ Save for someday',`openSave('${a.id}')`,'full')}`;return `<div>${heroHtml}<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button><div class="eyebrow">${a.tag}</div><h1 class="headline">${esc(a.name)}</h1>${descHtml}${schedHtml}${metaRows?`<div style="margin:14px 0">${metaRows}</div>`:''}<div class="stack">${a.bookingUrl?`<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener noreferrer" class="btn full" style="display:block;text-align:center;text-decoration:none">Jetzt buchen →</a>`:''}${button('📅 Termin planen',`_openPlanForm('${a.id}')`,'full')}<div style="display:flex;gap:8px"><button class="btn secondary" style="flex:1" onclick="_toggleSave('${a.id}')">${(S.saved[a.id]||[]).includes('Just for me')?'❤️ Gemerkt':'♡ Merken'}</button><button class="btn secondary" style="flex:1" onclick="_openShareToSpace('${a.id}')">↗ Mit Space teilen</button></div>${providerBtn}</div></div></div>`};const provider=()=>{let a=act();if(!a)return`<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button></div>`;return `<div class="content"><button class="back" onclick="goBack()">← Back to activity</button><div class="eyebrow">EXPERIENCE PROVIDER</div><h1 class="headline">${esc(a.provider)}</h1><p class="sub">${a.location} · Cologne</p><img class="photo" style="border-radius:18px;margin:16px 0" src="${a.img}" alt="${esc(a.provider)}"><h2 class="section">Upcoming sessions</h2>${segment('providerView',['List','Calendar'])}${S.providerView==='Calendar'?`<div class="monthgrid" style="margin:15px 0">${[23,24,27].map(d=>`<button class="rowcard" style="padding:10px;text-align:center;background:#e2f8df" onclick="set({date:'2026-10-${d}',page:'session'})">Oct ${d}</button>`).join('')}</div>`:''}<div class="stack" style="margin-top:15px">${[['23','Fri 23 Oct · 18:30'],['24','Sat 24 Oct · 11:00'],['27','Tue 27 Oct · 17:00']].map(([d,t])=>`<button class="rowcard between" onclick="set({date:'2026-10-${d}',page:'session'})"><span><strong>${t}</strong><br><span class="small">${a.name} · ${a.price}</span></span><strong>→</strong></button>`).join('')}</div></div>`};const session=()=>{let a=act();if(!a)return`<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button></div>`;return `<div class="content"><button class="back" onclick="goBack()">← Back to sessions</button><div class="eyebrow">UPCOMING SESSION</div><h1 class="headline">${a.name}</h1><div class="mutedbox"><strong>${S.date} · 18:30</strong><p>${a.provider} · ${a.location}</p><strong>${a.price} per person</strong></div><div class="stack" style="margin-top:18px">${button('Book a spot →',`set({page:'booking'})`,'full')}${button('Invite friends',`startPlan('${a.id}','Weekend Crew')`,'secondary full')}${button('Add to my calendar',`addPersonalSession()`,'secondary full')}</div></div>`};function addPersonalSession(){S.plans.push({id:Date.now(),activity:S.selected,title:act().name,space:'Personal',date:S.date,start:'18:30',end:'20:00',status:'Personal',rsvp:'Going',booked:false,custom:false});set({tab:'Calendar',page:'home'})}const segment=(key,options)=>`<div class="seg">${options.map(v=>`<button class="${S[key]===v?'active':''}" onclick="set({${key}:'${v}'},false)">${v}</button>`).join('')}</div>`;
+const detail=()=>{let a=act();if(!a)return`<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button><div class="empty" style="padding:32px 0;text-align:center"><div style="font-size:28px;margin-bottom:8px">✳</div><div style="color:#888;font-size:14px">Aktivität wird geladen …</div></div></div>`;const heroHtml=_photoHtml(a,220);const schedHtml=_fmtScheduleDetail(a);const metaRows=[a.address?`<div class="meta">📍 ${esc(a.address)}</div>`:'',a.price?`<div class="meta">🎟 ${esc(a.price)}</div>`:'',a.website?`<div class="meta">🌐 <a href="${esc(a.website)}" target="_blank" rel="noopener noreferrer" style="color:inherit">${esc(a.website.replace(/^https?:\/\//,''))}</a></div>`:'',a.instagram?`<div class="meta">📷 <a href="https://instagram.com/${esc(a.instagram.replace(/^@/,''))}" target="_blank" rel="noopener noreferrer" style="color:inherit">@${esc(a.instagram.replace(/^@/,''))}</a></div>`:''].filter(Boolean).join('');const descHtml=a.publishedAt?(a.description?`<p class="sub">${esc(a.description)}</p>`:''):`<p class="sub">Try something new, meet your people, and make a day worth remembering.</p>`;const providerBtn=a.publishedAt?(a.website?`<a href="${esc(a.website)}" target="_blank" rel="noopener noreferrer" class="btn secondary full" style="display:block;text-align:center;text-decoration:none">🌐 Website öffnen</a>`:''):`${button('Explore provider →',`set({page:'provider',providerView:'List'})`,'secondary full')}`;const bookingBtn=a.bookingUrl?`<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener noreferrer" class="btn full" style="display:block;text-align:center;text-decoration:none">Jetzt buchen →</a>`:`${button('♡ Save for someday',`openSave('${a.id}')`,'full')}`;return `<div>${heroHtml}<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button><div class="eyebrow">${a.tag}</div><h1 class="headline">${esc(a.name)}</h1>${descHtml}${schedHtml}${metaRows?`<div style="margin:14px 0">${metaRows}</div>`:''}<div class="stack">${a.bookingUrl?`<a href="${esc(a.bookingUrl)}" target="_blank" rel="noopener noreferrer" class="btn full" style="display:block;text-align:center;text-decoration:none">Jetzt buchen →</a>`:''}${button('📅 Termin planen',`_openPlanForm('${a.id}')`,'full')}<div style="display:flex;gap:8px"><button class="btn secondary" style="flex:1" onclick="_toggleSave('${a.id}')">${(S.saved[a.id]||[]).includes('Just for me')?'❤️ Gemerkt':'♡ Merken'}</button><button class="btn secondary" style="flex:1" onclick="_openShareToChatModal('${a.id}')">📤 Teilen</button></div>${providerBtn}</div></div></div>`};const provider=()=>{let a=act();if(!a)return`<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button></div>`;return `<div class="content"><button class="back" onclick="goBack()">← Back to activity</button><div class="eyebrow">EXPERIENCE PROVIDER</div><h1 class="headline">${esc(a.provider)}</h1><p class="sub">${a.location} · Cologne</p><img class="photo" style="border-radius:18px;margin:16px 0" src="${a.img}" alt="${esc(a.provider)}"><h2 class="section">Upcoming sessions</h2>${segment('providerView',['List','Calendar'])}${S.providerView==='Calendar'?`<div class="monthgrid" style="margin:15px 0">${[23,24,27].map(d=>`<button class="rowcard" style="padding:10px;text-align:center;background:#e2f8df" onclick="set({date:'2026-10-${d}',page:'session'})">Oct ${d}</button>`).join('')}</div>`:''}<div class="stack" style="margin-top:15px">${[['23','Fri 23 Oct · 18:30'],['24','Sat 24 Oct · 11:00'],['27','Tue 27 Oct · 17:00']].map(([d,t])=>`<button class="rowcard between" onclick="set({date:'2026-10-${d}',page:'session'})"><span><strong>${t}</strong><br><span class="small">${a.name} · ${a.price}</span></span><strong>→</strong></button>`).join('')}</div></div>`};const session=()=>{let a=act();if(!a)return`<div class="content"><button class="back" onclick="goBack()">${_t('back')}</button></div>`;return `<div class="content"><button class="back" onclick="goBack()">← Back to sessions</button><div class="eyebrow">UPCOMING SESSION</div><h1 class="headline">${a.name}</h1><div class="mutedbox"><strong>${S.date} · 18:30</strong><p>${a.provider} · ${a.location}</p><strong>${a.price} per person</strong></div><div class="stack" style="margin-top:18px">${button('Book a spot →',`set({page:'booking'})`,'full')}${button('Invite friends',`startPlan('${a.id}','Weekend Crew')`,'secondary full')}${button('Add to my calendar',`addPersonalSession()`,'secondary full')}</div></div>`};function addPersonalSession(){S.plans.push({id:Date.now(),activity:S.selected,title:act().name,space:'Personal',date:S.date,start:'18:30',end:'20:00',status:'Personal',rsvp:'Going',booked:false,custom:false});set({tab:'Calendar',page:'home'})}const segment=(key,options)=>`<div class="seg">${options.map(v=>`<button class="${S[key]===v?'active':''}" onclick="set({${key}:'${v}'},false)">${v}</button>`).join('')}</div>`;
 function openSave(id){S.selected=id;draft=[...(S.saved[id]||[])];set({sheet:'save'},false)}function _toggleSave(id){const list=S.saved[id]||[];if(list.includes('Just for me')){S.saved[id]=list.filter(x=>x!=='Just for me')}else{S.saved[id]=[...list,'Just for me']}save();render()}function toggleDraft(t){draft=draft.includes(t)?draft.filter(x=>x!==t):[...draft,t];render()}function commitSave(){S.saved[S.selected]=[...draft];set({sheet:false})}const saveSheet=()=>`<div class="sheetbg" onclick="set({sheet:false},false)"><div class="sheet" onclick="event.stopPropagation()"><div class="between"><div class="eyebrow">SAVE FOR SOMEDAY ✳</div><button class="iconbtn" onclick="set({sheet:false},false)">×</button></div><h1 class="headline">Keep this one close.</h1><p class="sub">${act().name} can live in more than one list.</p><div class="stack">${_spaceSaveTargets().map(t=>`<button class="rowcard ${draft.includes(t)?'selected':''} between" onclick="toggleDraft('${t}')"><strong>${t}</strong><span>${draft.includes(t)?'✓':'○'}</span></button>`).join('')}${button('Save choices →','commitSave()','full')}</div></div></div>`;
 const spaces=()=>`<div class="content"><div class="hero"><div class="eyebrow">${_t('spaces_eyebrow')}</div><h1>${_t('spaces_headline')}</h1></div><div class="stack">${['Weekend Crew','Run Club'].map(t=>`<button class="rowcard" onclick="set({space:'${t}',page:'space',spaceTab:'Ideas'})"><div class="between"><h2>${t}</h2><strong>→</strong></div><p class="sub">${t==='Weekend Crew'?'4 friends · Food, culture & adventures':'12 members · Movement & community'}</p><span class="tag">${A.filter(a=>(S.saved[a.id]||[]).includes(t)).length+(S.ideas||[]).filter(x=>x.spaces.includes(t)).length} ideas</span></button>`).join('')}</div>${button('+ Create group plan',"openCreate('group')",'full')}</div>`;
 const space=()=>{let ps=S.plans.filter(p=>(p.spaces||[p.space]).includes(S.space)),ideas=A.filter(a=>(S.saved[a.id]||[]).includes(S.space)),customIdeas=(S.ideas||[]).filter(i=>i.spaces.includes(S.space));let body='';if(S.spaceTab==='Ideas'){body='<h2 class="section">Our someday list</h2>'+ideas.map(a=>`<button class="rowcard" style="margin-bottom:12px" onclick="startPlan('${a.id}','${S.space}')"><div class="eyebrow">UNDATED IDEA</div><h3>${a.name}</h3><p class="sub">${a.provider} · ${a.price}</p><strong>Make a plan →</strong></button>`).join('')+customIdeas.map(i=>`<button class="rowcard" style="margin-bottom:12px" onclick="openCreate('group','${i.id}')"><div class="eyebrow">YOUR IDEA</div><h3>${esc(i.title)}</h3><p class="sub">${esc(i.description||'Not scheduled yet')}</p><strong>Make a plan →</strong></button>`).join('')+(!ideas.length&&!customIdeas.length?'<div class="empty">Nothing saved here yet.</div>':'')+button('+ Add an idea',"openCreate('idea')",'secondary full')}else{body=`<h2 class="section">${S.spaceTab==='Plans'?'Group plans':'Upcoming together'}</h2>`+(ps.length?ps.map(p=>planCard(p)).join(''):'<div class="empty">No plans yet.</div>')+button('+ Create a group plan',"openCreate('group')",'full')+(S.spaceTab==='Calendar'?button('Open full calendar',"nav('Calendar')",'secondary full'):'')}return `<div class="content"><button class="back" onclick="set({page:'home'})">← All Spaces</button><div class="hero"><div class="eyebrow">YOUR PEOPLE ✳</div><h1>${S.space}</h1><p class="sub">${_t('spaces_good_ahead')}</p></div>${segment('spaceTab',['Plans','Calendar','Ideas'])}<div style="margin-top:20px">${body}</div></div>`};
@@ -303,6 +303,9 @@ let _dmMessages    = {};  // { [dmId]: [{id, senderUid, text, timestamp}] }
 let _spaceMessages = {};  // { [spaceId]: [{id, senderUid, text, timestamp}] }
 let _chatListeners = {};
 let _dmSending     = false;
+let _chatPreviews  = {};  // { 'dm_$id' | 'space_$id' : lastMessage }
+let _chatPreviewListeners = {};
+let _shareChatModal = null;
 
 function _initFirebaseAuth() {
   if (_fbAuth) return _fbAuth;
@@ -1017,6 +1020,8 @@ window.render = function render() {
     p = _authSpaces();
   } else if (S.tab === 'Spaces' && S.page === 'space' && S.spaceId && _currentUser && _userData && !_userData._error) {
     p = _authSpace();
+  } else if (S.tab === 'Spaces' && S.page === 'space-info' && S.spaceId && _currentUser && _userData && !_userData._error) {
+    p = _authSpaceInfo();
   } else if (S.tab === 'Spaces' && S.page === 'dm' && S.dmId && _currentUser) {
     p = _dmChatView();
   } else {
@@ -1032,7 +1037,8 @@ window.render = function render() {
     + (S.sheet ? (S.sheet === 'save' ? saveSheet() : S.sheet === 'space-create' ? _spaceCreateSheet() : createSheet()) : '')
     + (_pendingAddUid ? _addFriendSheet() : '')
     + (_pendingConnectToken ? _connectSheet() : '')
-    + _planModalHtml();
+    + _planModalHtml()
+    + _shareChatModalHtml();
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
   if (S.sheet === 'create' && D.step === 'poll') setTimeout(renderPollOptions, 0);
   setTimeout(_applyImageFallbacks, 50);
@@ -1433,68 +1439,102 @@ window.commitCustom = async function commitCustom_auth() {
 
 function _authSpaces() {
   if (!_currentUser) return spaces();
-  if (!_userData) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div><div class="empty">Wird geladen…</div></div>`;
-  if (_userData._error) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Deine Spaces.</h1></div><div class="warn">⚠ ${esc(_userData._message || 'Spaces konnten nicht geladen werden.')}</div></div>`;
-  const { spaces: fbSpaces, userSpaces } = _userData;
-  const spaceList = Object.entries(userSpaces || {})
-    .map(([id]) => ({ id, ...(fbSpaces[id] || {}) }))
-    .filter(sp => sp.name);
-  const spaceInvs = _pendingSpaceInvites();
+  if (!_userData) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div><div class="empty">Wird geladen…</div></div>`;
+  if (_userData._error) return `<div class="content"><div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div><div class="warn">⚠ ${esc(_userData._message || 'Konnte nicht geladen werden.')}</div></div>`;
 
-  // DM section
+  const { spaces: fbSpaces, userSpaces, userDMs, friendProfiles } = _userData;
   const myUid = _userData.uid;
-  const dmEntries = Object.keys(_userData.userDMs || {}).map(dmId => {
+
+  // Build unified list items (DMs + Spaces)
+  const items = [];
+
+  Object.keys(userDMs || {}).forEach(dmId => {
     const parts = dmId.split('_');
     const partnerUid = parts[0] === myUid ? parts[1] : parts[0];
-    const fp = (_userData.friendProfiles || {})[partnerUid];
+    const fp = (friendProfiles || {})[partnerUid];
     const name = (fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : partnerUid.slice(0, 8) + '…');
-    const initial = esc(name[0] || '?').toUpperCase();
-    return `<button class="dm-row" onclick="_openDm('${esc(partnerUid)}')">
-      <div style="width:38px;height:38px;border-radius:50%;background:#65db70;color:#183b28;display:grid;place-items:center;font-size:14px;font-weight:800;flex-shrink:0">${initial}</div>
-      <div style="flex:1;margin-left:12px"><strong>${esc(name)}</strong></div>
-      <span style="color:var(--muted)">→</span>
-    </button>`;
+    const previewKey = 'dm_' + dmId;
+    _ensureChatPreview('dm', dmId);
+    const preview = _chatPreviews[previewKey];
+    items.push({ type: 'dm', id: dmId, partnerUid, name, preview, ts: preview ? (preview.timestamp || 0) : 0 });
   });
-  const dmSection = dmEntries.length ? `<div class="home-section" style="margin-top:4px">Direktnachrichten</div><div class="stack">${dmEntries.join('')}</div>` : '';
 
+  Object.entries(userSpaces || {}).forEach(([spaceId]) => {
+    const sp = (fbSpaces || {})[spaceId];
+    if (!sp || !sp.name) return;
+    const previewKey = 'space_' + spaceId;
+    _ensureChatPreview('space', spaceId);
+    const preview = _chatPreviews[previewKey];
+    items.push({ type: 'space', id: spaceId, name: sp.name, memberCount: Object.keys(sp.members || {}).length, preview, ts: preview ? (preview.timestamp || 0) : 0 });
+  });
+
+  // Sort by most recent message
+  items.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  const spaceInvs = _pendingSpaceInvites();
   const invSection = spaceInvs.length ? `
-    <div class="home-section" style="color:#c07000">Space-Einladungen 📬</div>
+    <div class="home-section" style="color:#c07000;margin-top:4px">Space-Einladungen 📬</div>
     ${spaceInvs.map(inv => `<div class="space-invite-card">
-      <div class="between">
-        <div>
-          <strong>${esc(inv.spaceName || 'Unbekannter Space')}</strong>
-          <div class="small" style="margin-top:2px">Eingeladen von ${esc(inv.invitedByName || 'jemandem')}</div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="chip" onclick="_spaceInviteAction('accept','${esc(inv.spaceId)}')">Annehmen</button>
-          <button class="chip" onclick="_spaceInviteAction('decline','${esc(inv.spaceId)}')">Ablehnen</button>
-        </div>
-      </div>
-    </div>`).join('')}
+      <div class="between"><div><strong>${esc(inv.spaceName || 'Unbekannter Space')}</strong>
+      <div class="small" style="margin-top:2px">Eingeladen von ${esc(inv.invitedByName || 'jemandem')}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="chip" onclick="_spaceInviteAction('accept','${esc(inv.spaceId)}')">Annehmen</button>
+        <button class="chip" onclick="_spaceInviteAction('decline','${esc(inv.spaceId)}')">Ablehnen</button>
+      </div></div></div>`).join('')}
   ` : '';
-  if (!spaceList.length && !dmEntries.length) {
+
+  if (!items.length) {
     return `<div class="content">
-      <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats &amp; Spaces.</h1></div>
+      <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div>
       ${invSection}
-      <div class="empty">Du bist noch in keinem Space.<br>Erstelle einen, um gemeinsam zu planen.</div>
+      <div class="empty">Noch keine Chats oder Spaces.<br>Erstelle einen Space oder schreib einem Freund.</div>
       <div style="height:12px"></div>
       ${button('+ Space erstellen', '_openSpaceCreate()', 'full')}
     </div>`;
   }
+
+  const listHtml = items.map(item => {
+    const preview = _chatPreviews[(item.type === 'dm' ? 'dm_' : 'space_') + item.id];
+    let previewText = '';
+    if (preview) {
+      if (preview.type === 'activity') previewText = '📎 Aktivität geteilt';
+      else {
+        const isMe = preview.senderUid === myUid;
+        const raw = preview.text || '';
+        previewText = (isMe ? 'Du: ' : '') + (raw.length > 48 ? raw.slice(0, 48) + '…' : raw);
+      }
+    }
+    const timeStr = preview && preview.timestamp ? _fmtChatTime(preview.timestamp) : '';
+    const previewEl = previewText
+      ? `<div class="chat-list-preview">${esc(previewText)}</div>`
+      : `<div class="chat-list-preview" style="font-style:italic;color:#bbb">Noch keine Nachrichten</div>`;
+
+    if (item.type === 'dm') {
+      const initial = (item.name[0] || '?').toUpperCase();
+      return `<button class="chat-list-row" onclick="_openDm('${esc(item.partnerUid)}')">
+        <div class="chat-list-avatar" style="background:#65db70;color:#183b28">${esc(initial)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="between" style="margin-bottom:2px"><span class="chat-list-name">${esc(item.name)}</span>${timeStr ? `<span class="chat-list-time">${esc(timeStr)}</span>` : ''}</div>
+          ${previewEl}
+        </div>
+      </button>`;
+    }
+    const colIdx = item.id.charCodeAt(0) % _spaceColors.length;
+    const [bg, fg] = _spaceColors[colIdx];
+    const initial = (item.name[0] || '?').toUpperCase();
+    return `<button class="chat-list-row" onclick="set({space:'${esc(item.name)}',spaceId:'${esc(item.id)}',page:'space',spaceTab:'Chat',tab:'Spaces'})">
+      <div class="chat-list-avatar" style="background:${bg};color:${fg}">${esc(initial)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="between" style="margin-bottom:2px"><span class="chat-list-name">${esc(item.name)}</span>${timeStr ? `<span class="chat-list-time">${esc(timeStr)}</span>` : ''}</div>
+        ${previewEl}
+      </div>
+    </button>`;
+  }).join('');
+
   return `<div class="content">
-    <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats &amp; Spaces.</h1></div>
+    <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div>
     ${invSection}
-    ${dmSection}
-    ${spaceList.length ? `<div class="home-section">Spaces</div><div class="stack">
-      ${spaceList.map(sp => {
-        const evtCount = Object.keys((_userData.spaceEvents || {})[sp.id] || {}).length;
-        const memberCount = Object.keys(sp.members||{}).length;
-        return `<button class="rowcard" onclick="set({space:'${esc(sp.name)}',spaceId:'${sp.id}',page:'space',spaceTab:'Events'})">
-          <div class="between"><h2>${esc(sp.name)}</h2><strong>→</strong></div>
-          <p class="sub">${memberCount} ${memberCount!==1?'Mitglieder':'Mitglied'} · ${evtCount} ${evtCount!==1?'Events':'Event'}</p>
-        </button>`;
-      }).join('')}
-    </div>` : ''}
+    <div class="stack">${listHtml}</div>
     <div style="height:12px"></div>
     ${button('+ Space erstellen', '_openSpaceCreate()', 'secondary full')}
   </div>`;
@@ -1612,11 +1652,9 @@ function _authSpace() {
       }).join('')}</div>`
     : `<div class="warn">Nur Admins können Einstellungen ändern.</div>`;
 
-  const spaceIdeas=(S.spaceIdeas||[]).filter(i=>i.spaceId===spaceId);
-  const ideaSection=spaceIdeas.length?`<div class="stack">${spaceIdeas.map(idea=>`<div class="rowcard" style="margin-bottom:10px"><div class="eyebrow" style="font-size:10px">IDEE</div><strong style="font-size:15px">${esc(idea.actName)}</strong>${idea.actLocation?`<div class="small" style="margin-top:2px">⌖ ${esc(idea.actLocation)}</div>`:''}${idea.actPeriod?`<div class="small" style="color:var(--muted)">${esc(idea.actPeriod)}</div>`:''}${idea.savedAt?`<div class="small" style="color:var(--muted)">Geteilt am ${esc(idea.savedAt)}</div>`:''}<div style="display:flex;gap:8px;margin-top:10px">${idea.actId?`<button class="chip" onclick="set({selected:'${esc(idea.actId)}',page:'activity'})">Aktivität öffnen →</button>`:''}<button class="chip" onclick="_openPlanForm('${esc(idea.actId||'')}')">Termin planen</button></div></div>`).join('')}</div>`:`<div class="empty">Noch keine Ideen in diesem Space.<br><span style="font-size:13px">Teile Aktivitäten über „↗ Mit Space teilen" in der Discovery.</span></div>`;
-  const chatSection = (() => {
+  const chatPanel = (() => {
     const msgs = _spaceMessages[spaceId] || [];
-    setTimeout(() => { _listenSpaceMessages(spaceId); _scrollChatToBottom(); }, 50);
+    setTimeout(() => { _listenSpaceMessages(spaceId); _spaceSwipeInit(spaceId); _scrollChatToBottom(); }, 50);
     return `<div id="chat-scroll" style="min-height:160px;max-height:calc(100dvh - 350px);overflow-y:auto">
       <div id="space-msgs">${_chatBubblesHtml(msgs)}</div>
     </div>
@@ -1625,28 +1663,135 @@ function _authSpace() {
       <button class="btn dark" style="min-height:44px;padding:0 18px;border-radius:22px;flex-shrink:0" onclick="_sendSpaceMessage('${esc(spaceId)}')">→</button>
     </div>`;
   })();
-  const tabs = isAdmin ? ['Events','Chat','Ideen','Mitglieder','Einladen','Einstellungen'] : ['Events','Chat','Ideen','Mitglieder','Einladen'];
+
+  const eventsPanel = `<div style="padding-top:4px">
+    ${evtIds.length ? eventCards : '<div class="empty">Noch keine Events in diesem Space.</div>'}
+    <div style="height:12px"></div>
+    ${button('+ Space-Event erstellen', `startGroupEvent('${spaceId}')`, 'secondary full')}
+  </div>`;
+
+  const spaceTabList = ['Chat', 'Events'];
+  const activeIdx = spaceTabList.indexOf(S.spaceTab || 'Chat') >= 0 ? spaceTabList.indexOf(S.spaceTab || 'Chat') : 0;
+
+  const tabBar = `<div class="seg" style="margin-top:16px">${spaceTabList.map((t, i) =>
+    `<button class="${i === activeIdx ? 'active' : ''}" onclick="set({spaceTab:'${t}'},false)">${t}</button>`
+  ).join('')}</div>`;
 
   return `<div class="content">
-    <button class="back" onclick="set({tab:'Spaces',page:'home'})">← Spaces</button>
-    <div class="hero"><div class="eyebrow">DEIN SPACE ✳</div><h1>${esc(sp.name)}</h1>
-    <p class="sub">${memberNames.join(', ')}</p></div>
-    ${segment('spaceTab', tabs)}
-    <div style="margin-top:20px">
-      ${S.spaceTab === 'Chat'
-        ? chatSection
-        : S.spaceTab === 'Mitglieder'
-        ? memberSection
-        : S.spaceTab === 'Einladen'
-        ? inviteSection
-        : S.spaceTab === 'Einstellungen'
-        ? settingsSection
-        : S.spaceTab === 'Ideen' ? ideaSection
-        : evtIds.length ? eventCards : '<div class="empty">Noch keine Events in diesem Space.</div>'}
+    <button class="back" onclick="set({tab:'Spaces',page:'home'})">← Chats</button>
+    <div class="hero" style="cursor:pointer" onclick="set({page:'space-info'})">
+      <div class="eyebrow">DEIN SPACE ✳</div>
+      <h1 style="display:flex;align-items:center;gap:8px">${esc(sp.name)} <span style="font-size:16px;color:var(--muted);font-weight:400">›</span></h1>
+      <p class="sub">${memberNames.join(', ')}</p>
     </div>
-    ${S.spaceTab !== 'Chat' && S.spaceTab !== 'Einladen' && S.spaceTab !== 'Einstellungen'
-      ? button('+ Space-Event erstellen', `startGroupEvent('${spaceId}')`, 'secondary full')
-      : ''}
+    ${tabBar}
+    <div id="space-tab-container" style="overflow:hidden;margin-top:16px">
+      <div class="space-tab-panels" style="transform:translateX(-${activeIdx * 100}%)">
+        <div class="space-tab-panel">${chatPanel}</div>
+        <div class="space-tab-panel">${eventsPanel}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _authSpaceInfo() {
+  if (!_currentUser || !_userData || _userData._error) return spaces();
+  const spaceId = S.spaceId;
+  const sp      = (_userData.spaces || {})[spaceId];
+  if (!sp) return spaces();
+  const memberIds  = Object.keys(sp.members || {});
+  const adminIds   = Object.keys(sp.admins  || {});
+  const friendPs   = _userData.friendProfiles || {};
+  const myUid      = _userData.uid;
+  const isAdmin    = !!(sp.admins && sp.admins[myUid]);
+  const perm       = sp.invitePermission || 'admins_only';
+  const canInvite  = isAdmin || perm === 'all_members';
+  const friends    = _userData.friends || {};
+  const spaceIdeas = (S.spaceIdeas || []).filter(i => i.spaceId === spaceId);
+  const invitableFriends = Object.keys(friends).filter(uid => !(sp.members || {})[uid]);
+
+  const memberInfo = memberIds.map(uid => {
+    const p    = (uid === myUid) ? _userData.profile : friendPs[uid];
+    const name = (p && p.displayName) ? p.displayName : uid.slice(0, 8) + '…';
+    const admin = !!(sp.admins && sp.admins[uid]);
+    return { uid, name, admin };
+  });
+
+  const membersHtml = `<div class="space-info-section">MITGLIEDER</div>
+    <div class="stack">${memberInfo.map(m =>
+      `<div class="rowcard between" style="margin-bottom:8px">
+        <div><strong>${esc(m.name)}</strong>${m.admin ? `<span class="chip" style="font-size:10px;margin-left:6px;background:#d4f0dc">Admin</span>` : ''}</div>
+      </div>`
+    ).join('')}</div>`;
+
+  const inviteHtml = canInvite ? `<div class="space-info-section">FREUNDE EINLADEN</div>
+    ${invitableFriends.length
+      ? invitableFriends.map(uid => {
+          const p    = friendPs[uid];
+          const name = (p && p.displayName) ? p.displayName : uid.slice(0, 8) + '…';
+          return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--line)">
+            <span>${esc(name)}</span>
+            <button class="chip" onclick="_inviteFriendToSpace('${esc(uid)}','${esc(spaceId)}')">Einladen</button>
+          </div>`;
+        }).join('')
+      : `<div class="small" style="color:var(--muted);margin-bottom:8px">Alle deine Freunde sind bereits Mitglieder.</div>`
+    }
+    <div style="margin-top:12px">${button('🔗 Einladungslink generieren', `_generateSpaceLink('${esc(spaceId)}')`, 'secondary full')}</div>
+    <div id="space-link-box" style="display:none;margin-top:10px;padding:12px;background:var(--surface);border-radius:12px;font-size:13px;word-break:break-all"></div>` : '';
+
+  const ideasHtml = spaceIdeas.length ? `<div class="space-info-section">GETEILTE IDEEN</div>
+    <div class="stack">${spaceIdeas.map(idea =>
+      `<div class="rowcard" style="margin-bottom:10px">
+        <div class="eyebrow" style="font-size:10px">IDEE</div>
+        <strong style="font-size:15px">${esc(idea.actName)}</strong>
+        ${idea.actLocation ? `<div class="small" style="margin-top:2px">⌖ ${esc(idea.actLocation)}</div>` : ''}
+        ${idea.actPeriod ? `<div class="small" style="color:var(--muted)">${esc(idea.actPeriod)}</div>` : ''}
+        ${idea.savedAt ? `<div class="small" style="color:var(--muted)">Geteilt am ${esc(idea.savedAt)}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:10px">
+          ${idea.actId ? `<button class="chip" onclick="set({selected:'${esc(idea.actId)}',page:'activity'})">Aktivität öffnen →</button>` : ''}
+          <button class="chip" onclick="_openPlanForm('${esc(idea.actId || '')}')">Termin planen</button>
+        </div>
+      </div>`
+    ).join('')}</div>` : '';
+
+  const settingsHtml = isAdmin ? `<div class="space-info-section">EINSTELLUNGEN</div>
+    <div style="margin-bottom:14px">
+      <div class="small" style="color:var(--muted);margin-bottom:6px">Space-Name</div>
+      <div style="display:flex;gap:8px">
+        <input id="sp-name-input" class="field" value="${esc(sp.name)}" style="flex:1;margin:0">
+        <button class="chip" onclick="_spaceSettingRename('${esc(spaceId)}')">Speichern</button>
+      </div>
+    </div>
+    <div class="small" style="color:var(--muted);margin-bottom:6px">Einladen-Berechtigung</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="chip ${perm==='admins_only'?'on':''}" onclick="_spaceSettingPerm('${esc(spaceId)}','admins_only')">Nur Admins</button>
+      <button class="chip ${perm==='all_members'?'on':''}" onclick="_spaceSettingPerm('${esc(spaceId)}','all_members')">Alle Mitglieder</button>
+    </div>
+    <div class="small" style="color:var(--muted);margin-bottom:6px">Mitglieder verwalten</div>
+    <div class="stack">${memberInfo.map(m => {
+      const isSelf  = m.uid === myUid;
+      const isOnlyAdmin = m.admin && adminIds.length <= 1;
+      return `<div class="rowcard between" style="margin-bottom:8px">
+        <div><strong>${esc(m.name)}</strong>${m.admin ? `<span class="chip" style="font-size:10px;margin-left:6px;background:#d4f0dc">Admin</span>` : ''}</div>
+        ${isSelf ? '' : `<div style="display:flex;gap:6px">
+          ${m.admin
+            ? (isOnlyAdmin ? '' : `<button class="chip" onclick="_spaceAdminAction('revoke-admin','${esc(spaceId)}','${esc(m.uid)}')">Admin entfernen</button>`)
+            : `<button class="chip" onclick="_spaceAdminAction('grant-admin','${esc(spaceId)}','${esc(m.uid)}')">Zum Admin machen</button>`}
+          <button class="chip" style="color:#c0392b" onclick="_spaceAdminAction('remove-member','${esc(spaceId)}','${esc(m.uid)}')">Entfernen</button>
+        </div>`}
+      </div>`;
+    }).join('')}</div>` : '';
+
+  return `<div class="content">
+    <button class="back" onclick="set({page:'space'})">← ${esc(sp.name)}</button>
+    <div class="hero">
+      <div class="eyebrow">SPACE-INFO ✳</div>
+      <h1>${esc(sp.name)}</h1>
+    </div>
+    ${membersHtml}
+    ${inviteHtml}
+    ${ideasHtml}
+    ${settingsHtml}
   </div>`;
 }
 
@@ -2381,6 +2526,150 @@ function _connectSheet() {
 
 // ── Chat ──────────────────────────────────────────────────────────────────
 
+function _fmtChatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const today = now.toDateString();
+  const yesterday = new Date(now - 86400000).toDateString();
+  if (d.toDateString() === today) return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === yesterday) return 'Gestern';
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+}
+
+function _ensureChatPreview(type, id) {
+  const key = type + '_' + id;
+  if (_chatPreviewListeners[key]) return;
+  if (!_db) return;
+  const path = type === 'dm' ? 'dmMessages/' + id : 'spaceMessages/' + id;
+  const ref = _db.ref(path).limitToLast(1);
+  _chatPreviewListeners[key] = true;
+  ref.on('value', snap => {
+    if (snap.exists()) {
+      const val = snap.val();
+      const msgKey = Object.keys(val)[0];
+      _chatPreviews[key] = val[msgKey];
+    } else {
+      _chatPreviews[key] = null;
+    }
+    if (S.tab === 'Spaces' && S.page === 'home') render();
+  });
+}
+
+function _spaceSwipeInit(spaceId) {
+  const container = document.getElementById('space-tab-container');
+  if (!container || container._swipeInit) return;
+  container._swipeInit = true;
+  let startX = 0, startY = 0, dir = null;
+  const spaceTabList = ['Chat', 'Events'];
+  container.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dir = null;
+  }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (dir) return;
+    const dx = Math.abs(e.touches[0].clientX - startX);
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    if (dx > 8 || dy > 8) dir = dx > dy ? 'h' : 'v';
+  }, { passive: true });
+  container.addEventListener('touchend', e => {
+    if (dir !== 'h') return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) < 40) return;
+    const cur = spaceTabList.indexOf(S.spaceTab || 'Chat');
+    const next = dx < 0 ? Math.min(cur + 1, spaceTabList.length - 1) : Math.max(cur - 1, 0);
+    if (next !== cur) set({ spaceTab: spaceTabList[next] }, false);
+  }, { passive: true });
+}
+
+function _openShareToChatModal(actId) {
+  _shareChatModal = { actId: actId || S.selected };
+  render();
+}
+
+async function _sendActivityToChat(type, id, actId) {
+  if (!_currentUser || !_db || !actId) return;
+  const a = A.find(x => x.id === actId);
+  const msg = {
+    type: 'activity',
+    actId,
+    actName: a ? a.name : actId,
+    actLocation: a ? (a.location || a.address || '') : '',
+    actImg: a ? (a.img || '') : '',
+    text: '',
+    senderUid: _currentUser.uid,
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+  };
+  try {
+    const path = type === 'dm' ? 'dmMessages/' + id : 'spaceMessages/' + id;
+    await _db.ref(path).push(msg);
+    if (type === 'space') {
+      const spaceIdea = { id: Date.now(), actId, actName: msg.actName, actLocation: msg.actLocation, actPeriod: '', spaceId: id, savedAt: new Date().toISOString().slice(0, 10) };
+      S.spaceIdeas = [...(S.spaceIdeas || []), spaceIdea];
+    }
+    _shareChatModal = null;
+    _showToast('Geteilt!');
+    render();
+  } catch (e) {
+    _showToast('Fehler beim Teilen: ' + e.message, true);
+  }
+}
+
+function _shareChatModalHtml() {
+  if (!_shareChatModal) return '';
+  if (!_currentUser || !_userData) return '';
+  const { actId } = _shareChatModal;
+  const a = A.find(x => x.id === actId);
+  const myUid = _userData.uid;
+  const friendPs = _userData.friendProfiles || {};
+  const userDMs = _userData.userDMs || {};
+  const fbSpaces = _userData.spaces || {};
+  const userSpaces = _userData.userSpaces || {};
+
+  const dmItems = Object.keys(userDMs).map(dmId => {
+    const parts = dmId.split('_');
+    const partnerUid = parts[0] === myUid ? parts[1] : parts[0];
+    const fp = friendPs[partnerUid];
+    const name = (fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : partnerUid.slice(0, 8) + '…');
+    return `<button class="chat-list-row" style="margin-bottom:6px" onclick="_sendActivityToChat('dm','${esc(dmId)}','${esc(actId)}')">
+      <div class="chat-list-avatar" style="background:#65db70;color:#183b28;width:36px;height:36px;font-size:13px">${esc((name[0]||'?').toUpperCase())}</div>
+      <div style="flex:1"><div class="chat-list-name">${esc(name)}</div></div>
+      <span style="font-size:12px;color:var(--muted)">Senden →</span>
+    </button>`;
+  });
+
+  const spaceItems = Object.keys(userSpaces).map(spaceId => {
+    const sp = fbSpaces[spaceId];
+    if (!sp || !sp.name) return '';
+    const colIdx = spaceId.charCodeAt(0) % _spaceColors.length;
+    const [bg, fg] = _spaceColors[colIdx];
+    return `<button class="chat-list-row" style="margin-bottom:6px" onclick="_sendActivityToChat('space','${esc(spaceId)}','${esc(actId)}')">
+      <div class="chat-list-avatar" style="background:${bg};color:${fg};width:36px;height:36px;font-size:13px">${esc((sp.name[0]||'?').toUpperCase())}</div>
+      <div style="flex:1"><div class="chat-list-name">${esc(sp.name)}</div></div>
+      <span style="font-size:12px;color:var(--muted)">Senden →</span>
+    </button>`;
+  }).filter(Boolean);
+
+  const allItems = [...dmItems, ...spaceItems];
+  const listHtml = allItems.length
+    ? allItems.join('')
+    : `<div class="empty" style="padding:20px 0">Noch keine Chats oder Spaces.<br>Erstelle einen Space oder schreib einem Freund.</div>`;
+
+  return `<div style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:999" onclick="_shareChatModal=null;render()">
+    <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:70vh;overflow-y:auto;padding:20px 16px 32px;box-sizing:border-box" onclick="event.stopPropagation()">
+      <div class="between" style="margin-bottom:12px">
+        <div>
+          <div class="eyebrow" style="margin-bottom:2px">TEILEN ✳</div>
+          <div style="font-size:15px;font-weight:700">${a ? esc(a.name) : 'Aktivität'}</div>
+        </div>
+        <button class="iconbtn" onclick="_shareChatModal=null;render()">×</button>
+      </div>
+      ${listHtml}
+    </div>
+  </div>`;
+}
+
 function _listenDmMessages(dmId) {
   const key = 'dm_' + dmId;
   if (_chatListeners[key] || !_db || !dmId) return;
@@ -2424,6 +2713,25 @@ function _chatBubblesHtml(msgs) {
     const fp = profiles[m.senderUid];
     const name = isMine ? 'Du' : ((fp && fp.displayName) || (fp && fp.username ? '@' + fp.username : m.senderUid.slice(0, 8) + '…'));
     const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+    if (m.type === 'activity') {
+      const imgHtml = m.actImg ? `<img src="${esc(m.actImg)}" style="width:48px;height:48px;object-fit:cover;border-radius:10px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+      const locationHtml = m.actLocation ? `<div style="font-size:11px;color:var(--muted);margin-top:1px">⌖ ${esc(m.actLocation)}</div>` : '';
+      const textHtml = m.text ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(m.text)}</div>` : '';
+      const card = `<button class="chat-activity-card" onclick="${m.actId ? `set({selected:'${esc(m.actId)}',page:'activity'})` : ''}">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          ${imgHtml}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">📎 AKTIVITÄT</div>
+            <div style="font-size:14px;font-weight:700;line-height:1.3">${esc(m.actName || '')}</div>
+            ${locationHtml}${textHtml}
+          </div>
+        </div>
+      </button>`;
+      return `<div style="display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'}">
+        ${card}
+        <div class="chat-meta ${isMine ? '' : 'theirs'}">${esc(name)}${time ? ' · ' + time : ''}</div>
+      </div>`;
+    }
     return `<div style="display:flex;flex-direction:column;align-items:${isMine ? 'flex-end' : 'flex-start'}">
       <div class="chat-bubble ${isMine ? 'mine' : 'theirs'}">${esc(m.text)}</div>
       <div class="chat-meta ${isMine ? '' : 'theirs'}">${esc(name)}${time ? ' · ' + time : ''}</div>
