@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-vivo-test"
+    "default": "someday-3edba",
+    "emulator": "demo-vivo-test"
   }
 }
