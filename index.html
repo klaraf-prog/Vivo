@@ -26,7 +26,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 let A=[];let _activitiesLoaded=false;let _planModal=null;
-const store='someday-pwa-v1',initial={tab:'Spaces',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',calSub:'Übersicht',calDay:'',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
+const store='someday-pwa-v1',initial={tab:'Spaces',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',calSub:'Übersicht',calDay:'',cal3Day:0,layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
 let _lang=localStorage.getItem('someday-lang')||'de';
 const _i18n={
 de:{
@@ -1052,6 +1052,7 @@ window.render = function render() {
     + _planModalHtml()
     + _shareChatModalHtml();
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
+  if (S.tab === 'Calendar' && S.page === 'home' && S.calSub === 'Kalender' && S.calView === 'Week') setTimeout(_cal3ScrollToNow, 0);
   if (S.sheet === 'create' && D.step === 'poll') setTimeout(renderPollOptions, 0);
   setTimeout(_applyImageFallbacks, 50);
 };
@@ -1246,6 +1247,11 @@ function _homeTab() {
   return `<div class="content">${greeting}${attentionSection}${comingSection}${quickActions}</div>`;
 }
 
+function _cal3ScrollToNow() {
+  var el = document.getElementById('cal3-scroll');
+  if (el) { var h = new Date().getHours(); el.scrollTop = Math.max(0, (h - 9) * 52); }
+}
+
 function _authCalendar() {
   const isReal = !!(_currentUser && _userData && !_userData._error);
   const fbEntries  = isReal ? _fbCalEntries() : [];
@@ -1334,13 +1340,25 @@ function _authCalendar() {
   });
   const todayIso  = _today.toISOString().slice(0, 10);
 
+  // Mobile detection (used to switch between 3-day and 7-day view)
+  const isMobile = window.innerWidth < 640;
+
+  // 3-day navigation state (mobile only)
+  const cal3Day  = S.cal3Day || 0;
+  const start3   = new Date(Date.UTC(_today.getUTCFullYear(), _today.getUTCMonth(), _today.getUTCDate() + 3 * cal3Day));
+  const days3    = Array.from({length:3}, (_, i) => {
+    const d = new Date(start3); d.setUTCDate(start3.getUTCDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+  const label3   = days3[0].slice(5) + ' – ' + days3[2].slice(5);
+
   // Month label (shows month name when in month view, week range in week view)
   const monthLabel = (() => {
     const firstDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
     return firstDay.toLocaleDateString('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   })();
   const weekLabel = `${days[0].slice(5)} – ${days[6].slice(5)}`;
-  const navLabel = S.calView === 'Month' ? monthLabel : weekLabel;
+  const navLabel  = S.calView === 'Month' ? monthLabel : (isMobile ? label3 : weekLabel);
 
   // Calendar selector dropdown (replaces toggle chips row)
   const ownerKeys = Object.keys(owners);
@@ -1466,24 +1484,93 @@ function _authCalendar() {
     return grid + dayDetail;
   };
 
-  // Week/Month compact toggle inline
+  // Week/Month compact toggle inline (mobile: "3 Tage", desktop: "Woche")
+  const weekBtnLabel = isMobile ? '3 Tage' : 'Woche';
   const viewToggle = `<div style="display:flex;background:#f0f1ec;padding:3px;border-radius:11px;gap:2px">
-    <button onclick="set({calView:'Week',calDay:''})" style="border:0;background:${S.calView==='Week'?'white':'transparent'};border-radius:9px;padding:5px 11px;font-size:12px;font-weight:700;color:${S.calView==='Week'?'var(--dark)':'#69746c'};${S.calView==='Week'?'box-shadow:0 1px 4px #0000000d':''}">Woche</button>
+    <button onclick="set({calView:'Week',calDay:'',cal3Day:0})" style="border:0;background:${S.calView==='Week'?'white':'transparent'};border-radius:9px;padding:5px 11px;font-size:12px;font-weight:700;color:${S.calView==='Week'?'var(--dark)':'#69746c'};${S.calView==='Week'?'box-shadow:0 1px 4px #0000000d':''}">${weekBtnLabel}</button>
     <button onclick="set({calView:'Month',calDay:''})" style="border:0;background:${S.calView==='Month'?'white':'transparent'};border-radius:9px;padding:5px 11px;font-size:12px;font-weight:700;color:${S.calView==='Month'?'var(--dark)':'#69746c'};${S.calView==='Month'?'box-shadow:0 1px 4px #0000000d':''}">Monat</button>
   </div>`;
 
+  // ── 3-DAY VIEW (mobile) ───────────────────────────────────────────
+  const threeDayView = () => {
+    const SH = 52;
+    const CAL_H = 14 * SH;
+    const COL = 100 / 3;
+    const dayNames = _t('cal_days') || ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+    const headerCols = days3.map(d => {
+      const isToday = d === todayIso;
+      const dow = (new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7;
+      const numStyle = isToday
+        ? 'background:#238e46;color:white;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;margin:0 auto;font-size:14px;font-weight:800'
+        : 'font-size:14px;font-weight:600;color:var(--dark)';
+      return `<div style="text-align:center;padding:8px 2px;border-left:1px solid #eef0ea">
+        <div style="font-size:11px;font-weight:700;color:${isToday?'#238e46':'var(--muted)'};margin-bottom:2px">${dayNames[dow]}</div>
+        <div style="${numStyle}">${Number(d.slice(-2))}</div>
+      </div>`;
+    }).join('');
+
+    const col3Es = es.filter(e => days3.includes(e.date) && e.start >= 8 && e.start < 22);
+
+    const evHtml = col3Es.map(e => {
+      const ci = days3.indexOf(e.date);
+      const ov = col3Es.filter(f => f !== e && f.date === e.date && f.start < e.end && f.end > e.start);
+      const side = ov.length && e.start >= ov[0].start ? 1 : 0;
+      const wPct = ov.length ? COL / 2 : COL;
+      const lPct = ci * COL + (ov.length ? side * COL / 2 : 0);
+      const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+      const h = Math.max(28, (e.end - e.start) * SH - 2);
+      const st = e._fbStatus;
+      const evStyle = st === 'nein'
+        ? `background:transparent;border:2px dashed ${fg};color:${fg};opacity:0.45`
+        : st === 'vielleicht'
+          ? `background:${bg};color:${fg};opacity:0.65`
+          : `background:${bg};color:${fg}`;
+      return `<button onclick="openEvent('${esc(e.id)}')" style="position:absolute;border:0;border-left:3px solid ${fg};border-radius:4px;text-align:left;padding:3px 4px;overflow:hidden;line-height:1.3;left:calc(${lPct.toFixed(2)}% + 2px);width:calc(${wPct.toFixed(2)}% - 5px);top:${(e.start-8)*SH}px;height:${h}px;${evStyle}">
+        <div style="font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</div>
+        ${h >= 42 ? `<div style="font-size:9px;opacity:0.75;margin-top:1px">${formatHour(e.start)}</div>` : ''}
+      </button>`;
+    }).join('');
+
+    const timeHtml = Array.from({length:14}, (_,i) =>
+      `<div style="position:absolute;left:-36px;width:34px;top:${i*SH}px;font-size:10px;color:#839087;text-align:right;transform:translateY(-6px)">${i+8}:00</div>`
+    ).join('');
+
+    const colLines = [1,2].map(i =>
+      `<div style="position:absolute;top:0;bottom:0;left:${(i*COL).toFixed(2)}%;width:1px;background:#eef0ea"></div>`
+    ).join('');
+
+    return `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:white;user-select:none"
+      ontouchstart="window._cal3tx=event.touches[0].clientX"
+      ontouchend="(function(){var dx=event.changedTouches[0].clientX-(window._cal3tx||0);if(Math.abs(dx)>44){if(dx>0)set({cal3Day:(S.cal3Day||0)-1});else set({cal3Day:(S.cal3Day||0)+1})}})()">
+      <div style="display:grid;grid-template-columns:36px 1fr 1fr 1fr;background:white;border-bottom:1px solid #eef0ea;position:sticky;top:0;z-index:5">
+        <div></div>${headerCols}
+      </div>
+      <div id="cal3-scroll" style="overflow-y:auto;max-height:65dvh;overflow-x:hidden">
+        <div style="position:relative;height:${CAL_H}px;margin-left:36px;background:repeating-linear-gradient(to bottom,#fff 0,#fff ${SH-1}px,#eef0ea ${SH}px)">
+          ${colLines}${timeHtml}${evHtml}
+        </div>
+      </div>
+    </div>`;
+  };
+
+  // Mobile-aware nav actions
+  const prevClick  = isMobile && S.calView==='Week' ? `set({cal3Day:(S.cal3Day||0)-1})` : `set({week:S.week-1,calDay:''})`;
+  const nextClick  = isMobile && S.calView==='Week' ? `set({cal3Day:(S.cal3Day||0)+1})` : `set({week:S.week+1,calDay:''})`;
+  const todayClick = isMobile && S.calView==='Week' ? `set({cal3Day:0})` : `set({week:0,calDay:''})`;
+
   const gridView = () => `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="chip" style="padding:7px 10px;font-size:16px;line-height:1" onclick="set({week:S.week-1,calDay:''})">‹</button>
-      <button class="chip" style="padding:7px 10px;font-size:11px" onclick="set({week:0,calDay:''})">Heute</button>
+      <button class="chip" style="padding:7px 10px;font-size:16px;line-height:1" onclick="${prevClick}">‹</button>
+      <button class="chip" style="padding:7px 10px;font-size:11px" onclick="${todayClick}">Heute</button>
       <strong style="font-size:13px;flex:1;text-align:center">${esc(navLabel)}</strong>
-      <button class="chip" style="padding:7px 10px;font-size:16px;line-height:1" onclick="set({week:S.week+1,calDay:''})">›</button>
+      <button class="chip" style="padding:7px 10px;font-size:16px;line-height:1" onclick="${nextClick}">›</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
       ${calDropdown}
       ${viewToggle}
     </div>
-    ${S.calView === 'Week' ? weekView() : monthView()}
+    ${S.calView === 'Week' ? (isMobile ? threeDayView() : weekView()) : monthView()}
     ${inviteSection}`;
 
   const signedInNote = isReal
