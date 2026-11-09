@@ -123,5 +123,27 @@ exports.handler = async (event) => {
     await db.ref().update(spaceChatUpdates);
   }
 
+  // Write invite notifications for all verified invitees
+  const notifUpdates = {};
+  const title = (newEvent.emoji ? newEvent.emoji + ' ' : '') + (newEvent.title || 'Event');
+  const dateLabel = newEvent.date ? (newEvent.date + (newEvent.time ? ' · ' + newEvent.time : '')) : '';
+  for (const invUid of inviteUids) {
+    if (!updates[`invites/${invUid}/${eventId}`]) continue; // was not verified
+    const notifId = `notif_inv_${eventId}`;
+    notifUpdates[`notifications/${invUid}/${notifId}`] = {
+      type: 'invite',
+      eventId,
+      eventTitle: newEvent.title || '',
+      eventEmoji: newEvent.emoji || null,
+      message: `${name} hat dich zu „${title}" eingeladen`,
+      dateLabel,
+      createdAt: now,
+      readAt: null,
+    };
+  }
+  if (Object.keys(notifUpdates).length) {
+    await db.ref().update(notifUpdates);
+  }
+
   return json(201, { ok: true, eventId, inviteToken });
 };

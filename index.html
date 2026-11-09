@@ -317,6 +317,162 @@ let _chatPreviews  = {};  // { 'dm_$id' | 'space_$id' : lastMessage }
 let _chatPreviewListeners = {};
 let _shareChatModal = null;
 
+let _notifOpen      = false;  // is the notification overlay open?
+let _notifs         = null;   // null = not loaded yet, [] = loaded (empty), [{id,…}] = loaded
+let _notifLoading   = false;
+let _notifReminderTriggered = false; // only trigger reminder check once per session
+
+async function _loadNotifications() {
+  if (!_currentUser || _notifLoading) return;
+  _notifLoading = true;
+  try {
+    const token = await _currentUser.getIdToken();
+    // Load from Firebase RTDB directly via REST (no extra function needed)
+    const snap = await _db.ref(`notifications/${_currentUser.uid}`)
+      .orderByChild('createdAt').limitToLast(50).once('value');
+    const raw = snap.val() || {};
+    _notifs = Object.entries(raw)
+      .map(([id, n]) => ({ id, ...n }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    render();
+  } catch (e) {
+    console.warn('[someday] notifications load failed:', e.message);
+    _notifs = _notifs || [];
+  } finally {
+    _notifLoading = false;
+  }
+}
+
+async function _triggerReminderCheck() {
+  if (!_currentUser || _notifReminderTriggered) return;
+  _notifReminderTriggered = true;
+  try {
+    const token = await _currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/notify-reminders', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const { created } = await res.json();
+      if (created > 0) await _loadNotifications();
+    }
+  } catch (e) {
+    console.warn('[someday] reminder check failed:', e.message);
+  }
+}
+
+async function _openNotifications() {
+  _notifOpen = true;
+  render();
+  if (!_notifs) await _loadNotifications();
+}
+
+function _closeNotifications() {
+  _notifOpen = false;
+  render();
+}
+
+async function _openNotifItem(notifId, eventId) {
+  // Mark as read
+  if (_currentUser) {
+    try {
+      const token = await _currentUser.getIdToken();
+      await fetch('/.netlify/functions/notify-mark-read', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifId }),
+      });
+      if (_notifs) {
+        const n = _notifs.find(x => x.id === notifId);
+        if (n && !n.readAt) { n.readAt = Date.now(); }
+      }
+    } catch {}
+  }
+  _notifOpen = false;
+  // Navigate to the event
+  if (eventId) openEvent(eventId);
+  else render();
+}
+
+function _notifUnreadCount() {
+  if (!_notifs) return 0;
+  return _notifs.filter(n => !n.readAt).length;
+}
+
+const _notifTypeIcon = { invite: '📩', reminder: '⏰', poll_confirmed: '✅', event_changed: '✏️', event_cancelled: '❌' };
+const _notifTypeLabel = { invite: 'Einladung', reminder: 'Erinnerung', poll_confirmed: 'Termin bestätigt', event_changed: 'Eventänderung', event_cancelled: 'Event abgesagt' };
+
+function _notifRelTime(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff / 60000);
+  if (min < 2)  return 'Jetzt';
+  if (min < 60) return `Vor ${min} Min`;
+  const h = Math.floor(min / 60);
+  if (h < 24)   return `Vor ${h} Std`;
+  const d = Math.floor(h / 24);
+  return `Vor ${d} Tag${d > 1 ? 'en' : ''}`;
+}
+
+function _notifSheet() {
+  if (!_notifOpen) return '';
+  const unread = _notifUnreadCount();
+  const items = _notifs;
+
+  const headerHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div class="eyebrow">BENACHRICHTIGUNGEN ✳</div>
+        <h2 style="margin:4px 0 0;font-size:22px;letter-spacing:-.6px">
+          ${unread > 0 ? `<span style="color:#c0392b">${unread} neu</span>` : 'Alles gelesen'}
+        </h2>
+      </div>
+      <button class="iconbtn" onclick="_closeNotifications()" aria-label="Schließen" style="font-size:18px;flex-shrink:0">×</button>
+    </div>`;
+
+  let bodyHtml;
+  if (!items) {
+    bodyHtml = `<div style="text-align:center;padding:32px 0;color:var(--muted)">
+      <div style="font-size:32px;margin-bottom:12px">🔔</div>
+      <p style="margin:0">Benachrichtigungen werden geladen…</p>
+    </div>`;
+  } else if (!items.length) {
+    bodyHtml = `<div class="empty" style="padding:36px 20px;text-align:center">
+      <div style="font-size:36px;margin-bottom:12px">🔔</div>
+      <strong style="font-size:16px;display:block;margin-bottom:6px">Keine Benachrichtigungen</strong>
+      <p class="sub" style="margin:0;font-size:13px">Wenn du zu Events eingeladen wirst oder ein Event bald beginnt, erscheint es hier.</p>
+    </div>`;
+  } else {
+    bodyHtml = items.map(n => {
+      const isUnread = !n.readAt;
+      const icon = _notifTypeIcon[n.type] || '🔔';
+      const typeLabel = _notifTypeLabel[n.type] || n.type;
+      return `<button onclick="_openNotifItem('${esc(n.id)}','${esc(n.eventId||'')}')"
+        style="display:flex;align-items:flex-start;gap:12px;width:100%;background:${isUnread?'#f0faf2':'white'};border:1px solid ${isUnread?'#b7e8c3':'var(--line)'};border-radius:14px;padding:14px 15px;margin-bottom:9px;text-align:left;cursor:pointer">
+        <div style="font-size:22px;flex-shrink:0;margin-top:1px">${icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">
+            <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:${isUnread?'#27663d':'var(--muted)'}">${typeLabel}</span>
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap">${_notifRelTime(n.createdAt)}</span>
+          </div>
+          <div style="font-size:14px;font-weight:${isUnread?'700':'500'};line-height:1.4;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${esc(n.message || n.eventTitle || '')}
+          </div>
+          ${n.dateLabel ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(n.dateLabel)}</div>` : ''}
+        </div>
+        ${isUnread ? `<div style="width:8px;height:8px;border-radius:50%;background:#27963c;flex-shrink:0;margin-top:6px"></div>` : ''}
+      </button>`;
+    }).join('');
+  }
+
+  return `<div class="sheetbg" onclick="_closeNotifications()" style="z-index:50">
+    <div class="sheet" onclick="event.stopPropagation()" style="max-height:85dvh">
+      ${headerHtml}
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+
 function _initFirebaseAuth() {
   if (_fbAuth) return _fbAuth;
   try {
@@ -381,6 +537,14 @@ function _initFirebaseAuth() {
       }
       _authReady = true;
       render();
+      // Load notifications and trigger reminder check on login
+      if (user) {
+        _notifs = null;
+        _notifReminderTriggered = false;
+        _loadNotifications().then(() => _triggerReminderCheck());
+      } else {
+        _notifs = null;
+      }
       // Process pending deep-links (after login)
       if (user) {
         try {
@@ -719,8 +883,8 @@ async function _signUpFinish() {
 
 // Auth-aware header: show user avatar or default when signed in.
 const _header = () => {
-  const unread = (_pendingInvites ? _pendingInvites().length : 0) + _pendingSpaceInvites().length;
-  const bell = `<button class="iconbtn" onclick="nav('Spaces')" aria-label="Notifications${unread?' ('+unread+' pending)':''}" style="background:${unread?'#fce0e8':'#e4f8e1'}"><span class="bell-wrap">🔔${unread?`<span class="bell-badge">${unread}</span>`:''}</span></button>`;
+  const unread = _notifUnreadCount ? _notifUnreadCount() : 0;
+  const bell = `<button class="iconbtn" onclick="_openNotifications()" aria-label="Benachrichtigungen${unread?' ('+unread+' ungelesen)':''}" style="background:${unread?'#fce0e8':'#e4f8e1'}"><span class="bell-wrap">🔔${unread?`<span class="bell-badge">${unread}</span>`:''}</span></button>`;
   return `<header class="header"><button onclick="nav('Spaces')" style="border:0;background:none;padding:0" class="logo">someday<span style="color:#54d86b">.</span></button><div class="hrow">${bell}<button class="avatar" onclick="nav('Profile')" aria-label="Profile">${_avatarLetter()}</button></div></header>`;
 };
 
@@ -1155,7 +1319,8 @@ window.render = function render() {
     + (_pendingAddUid ? _addFriendSheet() : '')
     + (_pendingConnectToken ? _connectSheet() : '')
     + _planModalHtml()
-    + _shareChatModalHtml();
+    + _shareChatModalHtml()
+    + _notifSheet();
   if (S.map && S.tab === 'Discover' && S.page === 'home') setTimeout(initMap, 0);
   if (S.tab === 'Calendar' && S.page === 'home' && S.calSub === 'Kalender' && S.calView === 'Week') setTimeout(_cal3ScrollToNow, 0);
   if (S.sheet === 'create' && D.step === 'poll') setTimeout(renderPollOptions, 0);

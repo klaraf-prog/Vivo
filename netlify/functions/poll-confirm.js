@@ -99,5 +99,29 @@ exports.handler = async (event) => {
   }
 
   await db.ref().update(updates);
+
+  // Notify all winners (authenticated users who voted for this option)
+  const title = (ev.emoji ? ev.emoji + ' ' : '') + (ev.title || 'Event');
+  const dateLabel = date + (time ? ' · ' + time : '');
+  const notifId = `notif_poll_${eventId}`;
+  const notifUpdates = {};
+  for (const [voterUid, val] of Object.entries(winVotes)) {
+    if (voterUid.startsWith('a_')) continue; // skip anonymous voters
+    if (voterUid === uid) continue; // don't notify the creator
+    notifUpdates[`notifications/${voterUid}/${notifId}`] = {
+      type: 'poll_confirmed',
+      eventId,
+      eventTitle: ev.title || '',
+      eventEmoji: ev.emoji || null,
+      message: `Termin bestätigt: „${title}"`,
+      dateLabel,
+      createdAt: now,
+      readAt: null,
+    };
+  }
+  if (Object.keys(notifUpdates).length) {
+    await db.ref().update(notifUpdates);
+  }
+
   return json(200, { ok: true });
 };

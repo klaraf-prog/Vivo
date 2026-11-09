@@ -52,5 +52,33 @@ exports.handler = async (event) => {
   }
 
   await db.ref().update(updates);
+
+  // Notify all users who RSVPed (except the canceller) about the cancellation
+  const rsvps = ev.rsvps ? Object.values(ev.rsvps) : [];
+  const title = (ev.emoji ? ev.emoji + ' ' : '') + (ev.title || 'Event');
+  const notifNow = Date.now();
+  const notifUpdates = {};
+  const notifId = `notif_cancel_${eventId}`;
+  // Also notify people with invites (invites/$uid/$eventId exists)
+  const userEventsSnap = await db.ref(`userEvents`).once('value');
+  const allUserEvents = userEventsSnap.val() || {};
+  for (const [invUid, evMap] of Object.entries(allUserEvents)) {
+    if (invUid === uid) continue; // don't notify the canceller
+    if (!evMap[eventId]) continue;
+    notifUpdates[`notifications/${invUid}/${notifId}`] = {
+      type: 'event_cancelled',
+      eventId,
+      eventTitle: ev.title || '',
+      eventEmoji: ev.emoji || null,
+      message: `„${title}" wurde abgesagt`,
+      dateLabel: ev.date ? ev.date + (ev.time ? ' · ' + ev.time : '') : '',
+      createdAt: notifNow,
+      readAt: null,
+    };
+  }
+  if (Object.keys(notifUpdates).length) {
+    await db.ref().update(notifUpdates);
+  }
+
   return json(200, { ok: true, cancelledSpaces: linkedSpaceIds.length });
 };
