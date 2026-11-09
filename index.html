@@ -26,7 +26,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head><body><div id="app"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script>
 let A=[];let _activitiesLoaded=false;let _planModal=null;
-const store='someday-pwa-v1',initial={tab:'Spaces',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',calSub:'Übersicht',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
+const store='someday-pwa-v1',initial={tab:'Spaces',page:'home',category:'All',search:'',map:false,selected:'',space:'',spaceTab:'Ideas',profileTab:'Saved',saved:{},plans:[],week:0,calView:'Week',calSub:'Übersicht',calDay:'',layers:['Personal'],date:'',choices:[],mode:'quick',step:'choose',rsvp:'Going',providerView:'List',sheet:false,settings:false,connections:[],spaceIdeas:[],dmId:'',chatPartnerUid:''};let S={...initial,...JSON.parse(localStorage.getItem(store)||'{}')};let draft=[],D={},mapInstance=null,mapMarkers=[],mapFocus=null;const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),act=()=>A.find(a=>a.id===S.selected)||A[0],save=()=>localStorage.setItem(store,JSON.stringify(S));const set=(obj,scroll=true)=>{Object.assign(S,obj);save();render();if(scroll)window.scrollTo(0,0)};const nav=t=>{_planModal=null;set({tab:t,page:'home',sheet:false,settings:false})};
 let _lang=localStorage.getItem('someday-lang')||'de';
 const _i18n={
 de:{
@@ -1271,11 +1271,10 @@ function _authCalendar() {
       owners[e.owner] = _spaceColors[Object.keys(owners).length % _spaceColors.length];
   });
 
-  // Sub-view toggle: Übersicht | Kalender
   const calSub = S.calSub || 'Übersicht';
-  const subToggle = `<div class="switch" style="margin:12px 0 16px">
-    <button class="${calSub==='Übersicht'?'on':''}" onclick="set({calSub:'Übersicht'})">Übersicht</button>
-    <button class="${calSub==='Kalender'?'on':''}" onclick="set({calSub:'Kalender'})">Kalender</button>
+  const subToggle = `<div style="display:flex;background:#e9eee7;border-radius:11px;padding:3px;margin:10px 0 14px;width:fit-content">
+    <button onclick="set({calSub:'Übersicht'})" style="border:0;background:${calSub==='Übersicht'?'white':'transparent'};border-radius:9px;padding:7px 16px;font-size:13px;font-weight:750;color:${calSub==='Übersicht'?'var(--dark)':'#617168'};${calSub==='Übersicht'?'box-shadow:0 1px 4px #0000000d':''}">Übersicht</button>
+    <button onclick="set({calSub:'Kalender'})" style="border:0;background:${calSub==='Kalender'?'white':'transparent'};border-radius:9px;padding:7px 16px;font-size:13px;font-weight:750;color:${calSub==='Kalender'?'var(--dark)':'#617168'};${calSub==='Kalender'?'box-shadow:0 1px 4px #0000000d':''}">Kalender</button>
   </div>`;
 
   // ── ÜBERSICHT (agenda) ─────────────────────────────────────────
@@ -1284,45 +1283,36 @@ function _authCalendar() {
     const confirmed = fbEntries
       .filter(e => (e._fbStatus === 'dabei' || e._fbStatus === 'created') && e.date >= todayStr)
       .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.start - b.start);
-
-    // Group by date
     const byDate = {};
     confirmed.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
     const dateGroups = Object.keys(byDate).sort();
 
-    const quoteBlock = `<div style="background:#1a2e22;border-radius:14px;padding:14px 16px;margin-bottom:20px">
-      <div class="eyebrow" style="color:#54d86b;font-size:10px;margin-bottom:4px">SOMEDAY ✳</div>
-      <p style="margin:0;font-size:13px;color:#b7cbbd;line-height:1.5;font-style:italic">${esc(_getDailyQuote())}</p>
+    const quoteBlock = `<div style="display:flex;align-items:center;gap:10px;background:#1a2e22;border-radius:12px;padding:10px 14px;margin-bottom:16px">
+      <span style="color:#54d86b;font-size:16px;flex-shrink:0">✳</span>
+      <p style="margin:0;font-size:12px;color:#b7cbbd;line-height:1.4;font-style:italic;flex:1">${esc(_getDailyQuote())}</p>
     </div>`;
 
     if (!isReal) {
-      return quoteBlock + `<div class="empty" style="padding:32px 0;text-align:center">
-        <div style="font-size:28px;margin-bottom:8px">📅</div>
-        <div style="color:#888;font-size:14px">Melde dich an, um deine Events zu sehen.</div>
-      </div>`;
+      return quoteBlock + `<p style="color:#888;font-size:14px;text-align:center;padding:20px 0">Melde dich an, um deine Events zu sehen.</p>`;
     }
 
     const agendaHtml = dateGroups.length === 0
-      ? `<div class="empty" style="padding:32px 0;text-align:center">
-          <div style="font-size:32px;margin-bottom:8px">✳</div>
-          <div style="font-size:15px;font-weight:600;margin-bottom:6px">Nichts geplant</div>
-          <div style="color:#888;font-size:13px">Noch keine bestätigten Events in der Zukunft.<br>Schau mal in deine Einladungen!</div>
-        </div>`
+      ? `<p style="color:#888;font-size:14px;text-align:center;padding:16px 0">Keine bestätigten Events – schau mal in deine Einladungen!</p>`
       : dateGroups.map(d => {
           const dt = new Date(d + 'T00:00:00Z');
           const dayLabel = dt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
           const cards = byDate[d].map(e => {
             const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
-            return `<button class="home-upcoming" onclick="openEvent('${esc(e.id)}')" style="border-left:3px solid ${fg};padding-left:12px;text-align:left;width:100%;margin-bottom:6px">
-              <div class="between">
-                <strong style="font-size:14px">${esc(e.title)}</strong>
-                ${e.owner && e.owner !== 'Personal' ? `<span style="font-size:10px;background:${bg};color:${fg};border-radius:20px;padding:2px 7px">${esc(e.owner)}</span>` : ''}
+            return `<button onclick="openEvent('${esc(e.id)}')" style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--line);border-left:3px solid ${fg};border-radius:12px;padding:10px 12px;margin-bottom:7px;text-align:left;width:100%;color:var(--dark)">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</div>
+                ${e.start ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${formatHour(e.start)}${e.owner && e.owner !== 'Personal' ? ' · ' + esc(e.owner) : ''}</div>` : ''}
               </div>
-              ${e.start ? `<div class="small" style="margin-top:3px">${formatHour(e.start)}</div>` : ''}
+              ${e.owner && e.owner !== 'Personal' ? `<span style="width:8px;height:8px;border-radius:50%;background:${fg};flex-shrink:0"></span>` : ''}
             </button>`;
           }).join('');
-          return `<div style="margin-bottom:18px">
-            <div class="eyebrow" style="font-size:10px;margin-bottom:8px;color:#54d86b">${esc(dayLabel.toUpperCase())}</div>
+          return `<div style="margin-bottom:14px">
+            <div style="font-size:10px;font-weight:800;letter-spacing:1px;color:#54d86b;text-transform:uppercase;margin-bottom:6px">${esc(dayLabel)}</div>
             ${cards}
           </div>`;
         }).join('');
@@ -1334,18 +1324,43 @@ function _authCalendar() {
   const layers    = S.layers.filter(l => l in owners);
   const visLayers = layers.length ? layers : Object.keys(owners);
   const es        = allEntries.filter(e => visLayers.includes(e.owner));
-  const _today = new Date();
-  const _dow   = (_today.getUTCDay() + 6) % 7;
-  const _mon   = new Date(Date.UTC(_today.getUTCFullYear(), _today.getUTCMonth(), _today.getUTCDate() - _dow));
-  const start  = new Date(Date.UTC(_mon.getUTCFullYear(), _mon.getUTCMonth(), _mon.getUTCDate() + 7 * S.week));
-  const days   = Array.from({length:7}, (_, i) => {
+  const _today    = new Date();
+  const _dow      = (_today.getUTCDay() + 6) % 7;
+  const _mon      = new Date(Date.UTC(_today.getUTCFullYear(), _today.getUTCMonth(), _today.getUTCDate() - _dow));
+  const start     = new Date(Date.UTC(_mon.getUTCFullYear(), _mon.getUTCMonth(), _mon.getUTCDate() + 7 * S.week));
+  const days      = Array.from({length:7}, (_, i) => {
     const d = new Date(start); d.setUTCDate(start.getUTCDate() + i);
     return d.toISOString().slice(0, 10);
   });
-  const label = `${days[0].slice(5)} – ${days[6].slice(5)} · ${start.getUTCFullYear()}`;
-  const toggleChip = t =>
-    `<button class="${S.layers.includes(t)?'on':''}" onclick="S.layers=S.layers.includes('${t}')?S.layers.filter(x=>x!=='${t}'):[...S.layers,'${t}'];save();render()">` +
-    `<span style="color:${(owners[t]||[])[1]||'#333'}">●</span> ${esc(t)}</button>`;
+  const todayIso  = _today.toISOString().slice(0, 10);
+
+  // Month label (shows month name when in month view, week range in week view)
+  const monthLabel = (() => {
+    const firstDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    return firstDay.toLocaleDateString('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  })();
+  const weekLabel = `${days[0].slice(5)} – ${days[6].slice(5)}`;
+  const navLabel = S.calView === 'Month' ? monthLabel : weekLabel;
+
+  // Calendar selector dropdown (replaces toggle chips row)
+  const ownerKeys = Object.keys(owners);
+  const calDropdown = ownerKeys.length > 1 ? `<div style="position:relative;display:inline-block" id="cal-filter-wrap">
+    <button onclick="(function(){var d=document.getElementById('cal-filter-dd');d.style.display=d.style.display==='block'?'none':'block';event.stopPropagation()})()" style="display:flex;align-items:center;gap:5px;border:1px solid #dfe5dd;background:white;border-radius:30px;padding:7px 12px;font-size:12px;font-weight:700;color:var(--dark)">
+      <span>Kalender</span><span style="font-size:10px;background:#e3f7e0;color:#27663d;border-radius:10px;padding:1px 6px">${visLayers.length}</span><span style="font-size:9px;color:#888">▾</span>
+    </button>
+    <div id="cal-filter-dd" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:white;border:1px solid #e0e5dc;border-radius:14px;padding:6px;min-width:160px;z-index:50;box-shadow:0 4px 20px #0000001a">
+      ${ownerKeys.map(t => {
+        const [, fg] = owners[t] || ['#f0f0f0','#333'];
+        const on = visLayers.includes(t);
+        return `<button onclick="(function(){S.layers=S.layers.includes('${t}')?S.layers.filter(x=>x!=='${t}'):[...S.layers,'${t}'];save();render()})()" style="display:flex;align-items:center;gap:8px;width:100%;border:0;background:${on?'#f3fdf2':'transparent'};border-radius:10px;padding:9px 10px;font-size:13px;font-weight:650;color:var(--dark);text-align:left">
+          <span style="width:10px;height:10px;border-radius:50%;background:${fg};flex-shrink:0"></span>
+          <span style="flex:1">${esc(t)}</span>
+          ${on?'<span style="color:#54d86b;font-size:14px">✓</span>':''}
+        </button>`;
+      }).join('')}
+    </div>
+  </div>` : '';
+
   const pendInvites = _pendingInvites();
   const inviteSection = pendInvites.length ? `
     <h2 class="section" style="color:#c0392b">${_t('cal_pending')} (${pendInvites.length})</h2>
@@ -1360,8 +1375,8 @@ function _authCalendar() {
           ).join('')}
         </div></div></div>`).join('')}
     </div>` : '';
-  const SLOT_H = 50;
 
+  const SLOT_H = 50;
   const _eventStyle = (e, bg, fg) => {
     if (e._fbStatus === 'nein') return `background:transparent;border:2px dashed ${fg};color:${fg};opacity:0.45`;
     if (e._fbStatus === 'vielleicht') return `background:${bg};border-color:${fg};color:${fg};opacity:0.6`;
@@ -1370,7 +1385,7 @@ function _authCalendar() {
 
   const weekView = () => `<div class="calendar-scroll"><div class="calendar">
     <div class="cal-head">${days.map((d,i) =>
-      `<button class="cal-day" onclick="openCreate('personal','','${d}')">${(_t('cal_days')||['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])[i]}<br>${Number(d.slice(-2))}</button>`
+      `<button class="cal-day" onclick="openCreate('personal','','${d}')">${(_t('cal_days')||['Mo','Di','Mi','Do','Fr','Sa','So'])[i]}<br>${Number(d.slice(-2))}</button>`
     ).join('')}</div>
     ${Array.from({length:14},(_,i) => `<div class="cal-time" style="top:${i*SLOT_H}px">${i+8}:00</div>`).join('')}
     ${Array.from({length:7}, (_,i) => `<div class="cal-line" style="left:${i*100/7}%"></div>`).join('')}
@@ -1387,6 +1402,7 @@ function _authCalendar() {
         ${esc(e.title)}<br>${formatHour(e.start)}</button>`;
     }).join('')}
   </div></div>`;
+
   const monthView = () => {
     const firstDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
     const offset   = (firstDay.getUTCDay() + 6) % 7;
@@ -1394,36 +1410,69 @@ function _authCalendar() {
     const cells    = Array.from({length: offset + lastDay}, (_, i) =>
       i < offset ? '' : new Date(Date.UTC(firstDay.getUTCFullYear(), firstDay.getUTCMonth(), i-offset+1)).toISOString().slice(0,10)
     );
-    return `<div class="monthgrid">
-      ${(_t('cal_days_short')||['M','T','W','T','F','S','S']).map(d => `<div class="small" style="text-align:center">${d}</div>`).join('')}
-      ${cells.map(d => `<div class="monthcell" onclick="${d ? `openCreate('personal','','${d}')` : ''}">
-        ${d ? Number(d.slice(-2)) : ''}
-        ${es.filter(e => e.date === d).slice(0,3).map(e => {
-          const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
-          const isMaybe = e._fbStatus === 'vielleicht';
-          const isPending = e._firebase && !e._fbStatus;
-          const style = isPending
-            ? `border:1px dashed ${fg};color:${fg};background:transparent`
-            : isMaybe
-              ? `background:${bg};color:${fg};opacity:0.6`
-              : `background:${bg};color:${fg}`;
-          return `<div class="monthlabel" onclick="event.stopPropagation();openEvent('${e.id}')"
-            style="${style}">${esc(e.title)}</div>`;
-        }).join('')}
-      </div>`).join('')}
+    const selDay = S.calDay || '';
+    const selEvents = selDay ? es.filter(e => e.date === selDay).sort((a,b) => a.start - b.start) : [];
+
+    const grid = `<div class="monthgrid">
+      ${(_t('cal_days_short')||['M','D','M','D','F','S','S']).map(d => `<div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:4px 0">${d}</div>`).join('')}
+      ${cells.map(d => {
+        const dayEs = d ? es.filter(e => e.date === d) : [];
+        const isToday = d === todayIso;
+        const isSel   = d === selDay;
+        return `<div onclick="${d ? `set({calDay:'${d}' === S.calDay ? '' : '${d}'})` : ''}" style="min-height:52px;background:${isSel?'#e3f7e0':isToday?'#f5fff4':'white'};border:1px solid ${isSel?'#59d66a':isToday?'#b2eab8':'#eef0ea'};border-radius:6px;padding:4px;cursor:${d?'pointer':'default'};transition:background .15s">
+          <div style="font-size:12px;font-weight:${isToday?'800':'500'};color:${isToday?'#238e46':isSel?'#1f7a3a':'var(--dark)'};margin-bottom:3px">${d ? Number(d.slice(-2)) : ''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:2px">
+            ${dayEs.slice(0,4).map(e => {
+              const [, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+              const isMaybe = e._fbStatus === 'vielleicht';
+              const isPending = e._firebase && !e._fbStatus;
+              return `<span style="width:7px;height:7px;border-radius:50%;background:${isPending?'transparent':'rgba('+parseInt(fg.slice(1,3),16)+','+parseInt(fg.slice(3,5),16)+','+parseInt(fg.slice(5,7),16)+','+(isMaybe?'0.5':'1')+')' };${isPending?'border:1px dashed '+fg+';':''}flex-shrink:0"></span>`;
+            }).join('')}
+            ${dayEs.length > 4 ? `<span style="font-size:8px;color:var(--muted)">+${dayEs.length-4}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
+
+    const dayDetail = selDay ? `<div style="margin-top:12px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">${new Date(selDay+'T00:00:00Z').toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long',timeZone:'UTC'})}</div>
+      ${selEvents.length === 0
+        ? `<div style="text-align:center;padding:14px;color:#888;font-size:13px">Keine Termine</div>`
+        : selEvents.map(e => {
+            const [bg, fg] = owners[e.owner] || ['#f0f0f0','#333'];
+            const isMaybe = e._fbStatus === 'vielleicht';
+            const isPending = e._firebase && !e._fbStatus;
+            const leftBorder = isPending ? `2px dashed ${fg}` : `3px solid ${fg}`;
+            return `<button onclick="openEvent('${esc(e.id)}')" style="display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);border-left:${leftBorder};border-radius:12px;background:${isMaybe?bg:'white'};padding:10px 12px;margin-bottom:7px;text-align:left;color:var(--dark);${isMaybe?'opacity:0.75':''}">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.title)}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">${e.start ? formatHour(e.start) : ''}${e.owner && e.owner !== 'Personal' ? ' · '+esc(e.owner) : ''}${isMaybe?' · Maybe':''}${isPending?' · Einladung':''}</div>
+              </div>
+            </button>`;
+          }).join('')
+      }
+    </div>` : '';
+
+    return grid + dayDetail;
   };
 
+  // Week/Month compact toggle inline
+  const viewToggle = `<div style="display:flex;background:#f0f1ec;padding:3px;border-radius:11px;gap:2px">
+    <button onclick="set({calView:'Week',calDay:''})" style="border:0;background:${S.calView==='Week'?'white':'transparent'};border-radius:9px;padding:5px 11px;font-size:12px;font-weight:700;color:${S.calView==='Week'?'var(--dark)':'#69746c'};${S.calView==='Week'?'box-shadow:0 1px 4px #0000000d':''}">Woche</button>
+    <button onclick="set({calView:'Month',calDay:''})" style="border:0;background:${S.calView==='Month'?'white':'transparent'};border-radius:9px;padding:5px 11px;font-size:12px;font-weight:700;color:${S.calView==='Month'?'var(--dark)':'#69746c'};${S.calView==='Month'?'box-shadow:0 1px 4px #0000000d':''}">Monat</button>
+  </div>`;
+
   const gridView = () => `
-    <div class="toggle">${Object.keys(owners).map(toggleChip).join('')}</div>
-    <div class="between" style="margin:12px 0">
-      <button class="chip" onclick="set({week:S.week-1})">←</button>
-      <button class="chip" onclick="set({week:0})" style="font-size:11px">${_t('cal_today')}</button>
-      <strong style="font-size:12px">${label}</strong>
-      <button class="chip" onclick="set({week:S.week+1})">→</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="chip" style="padding:7px 10px;font-size:16px;line-height:1" onclick="set({week:S.week-1,calDay:''})">‹</button>
+      <button class="chip" style="padding:7px 10px;font-size:11px" onclick="set({week:0,calDay:''})">Heute</button>
+      <strong style="font-size:13px;flex:1;text-align:center">${esc(navLabel)}</strong>
+      <button class="chip" style="padding:7px 10px;font-size:16px;line-height:1" onclick="set({week:S.week+1,calDay:''})">›</button>
     </div>
-    ${segment('calView',['Week','Month'])}
-    <div style="height:10px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
+      ${calDropdown}
+      ${viewToggle}
+    </div>
     ${S.calView === 'Week' ? weekView() : monthView()}
     ${inviteSection}`;
 
@@ -1431,8 +1480,8 @@ function _authCalendar() {
     ? `<p class="footnote">${_t('cal_footnote')}</p>`
     : `<p class="footnote">${_t('cal_demo')}</p>`;
 
-  return `<div class="content">
-    <div class="between" style="margin-bottom:0"><h1 class="headline">${_t('cal_title')}</h1>${button(_t('cal_new_event'), "openCreate('personal')", 'secondary')}</div>
+  return `<div class="content" onclick="(function(e){if(!e.target.closest('#cal-filter-wrap')){var d=document.getElementById('cal-filter-dd');if(d)d.style.display='none'}})(event)">
+    <div class="between" style="margin-bottom:0"><h1 class="headline">${_t('cal_title')}</h1></div>
     ${subToggle}
     ${calSub === 'Übersicht' ? overviewView() : gridView()}
     ${signedInNote}
