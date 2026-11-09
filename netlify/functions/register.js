@@ -67,19 +67,29 @@ exports.handler = async (event) => {
   }
 
   // Write user profile and private data as a single multi-path update.
+  // Read existing profile first so Google-OAuth users don't lose their data.
   // If this fails, release the handle so the user can retry.
   const now = Date.now();
+  let existingProfile = {};
+  try {
+    const snap = await db.ref(`users/${uid}`).once('value');
+    existingProfile = snap.val() || {};
+  } catch { /* non-fatal: proceed with empty base */ }
+
   try {
     await db.ref('/').update({
       [`users/${uid}`]: {
+        ...existingProfile,
         displayName: displayName.trim(),
         displayNameLower: displayName.trim().toLowerCase(),
         handle: normalizedHandle,
-        createdAt: now,
+        username: normalizedHandle,
+        createdAt: existingProfile.createdAt || now,
         updatedAt: now,
         registrationComplete: true,
       },
       [`userPrivate/${uid}/birthdate`]: birthdate,
+      [`usernames/${normalizedHandle}`]: uid,
     });
   } catch (profileErr) {
     console.error('[someday:register] profile write error:', profileErr.message);

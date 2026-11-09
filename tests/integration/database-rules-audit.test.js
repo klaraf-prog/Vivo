@@ -543,3 +543,87 @@ describe('inviteTokens', () => {
   test('nobody can write inviteTokens', async () =>
     assertFails(asAdmin().ref('inviteTokens/tok1').set('uid1')));
 });
+
+// ── handles (read: auth != null; write: false — server-only via Admin SDK) ───
+
+describe('handles', () => {
+  beforeEach(async () => {
+    await seed('handles/klara', 'uid1');
+  });
+
+  test('authenticated user can read handles collection', async () =>
+    assertSucceeds(asUser('uid1').ref('handles').once('value')));
+
+  test('authenticated user can read a specific handle', async () =>
+    assertSucceeds(asUser('uid2').ref('handles/klara').once('value')));
+
+  test('unauthenticated cannot read handles', async () =>
+    assertFails(asAnon().ref('handles').once('value')));
+
+  test('unauthenticated cannot read a specific handle', async () =>
+    assertFails(asAnon().ref('handles/klara').once('value')));
+
+  // write: false — only Admin SDK (server) can claim handles
+  test('authenticated user cannot claim a handle from client', async () =>
+    assertFails(asUser('uid2').ref('handles/newhandle').set('uid2')));
+
+  test('authenticated user cannot overwrite an existing handle', async () =>
+    assertFails(asUser('uid2').ref('handles/klara').set('uid2')));
+
+  test('even handle owner cannot write their handle from client', async () =>
+    assertFails(asUser('uid1').ref('handles/klara').set('uid1')));
+
+  test('nobody can delete a handle from client', async () =>
+    assertFails(asUser('uid1').ref('handles/klara').remove()));
+
+  // Escalation: cannot gain any extra access by reading handles
+  test('reading handles does not grant write access', async () => {
+    await asUser('uid1').ref('handles').once('value');
+    await assertFails(asUser('uid1').ref('handles/newhandle').set('uid1'));
+  });
+});
+
+// ── userPrivate (read: own uid only; write: false — server-only) ─────────────
+
+describe('userPrivate', () => {
+  beforeEach(async () => {
+    await seed('userPrivate/uid1/birthdate', '1995-06-15');
+    await seed('userPrivate/uid2/birthdate', '1990-01-01');
+  });
+
+  test('user can read own private data', async () =>
+    assertSucceeds(asUser('uid1').ref('userPrivate/uid1').once('value')));
+
+  test('user can read own birthdate specifically', async () =>
+    assertSucceeds(asUser('uid1').ref('userPrivate/uid1/birthdate').once('value')));
+
+  test('user cannot read another user\'s private data', async () =>
+    assertFails(asUser('uid1').ref('userPrivate/uid2').once('value')));
+
+  test('user cannot read another user\'s birthdate', async () =>
+    assertFails(asUser('uid1').ref('userPrivate/uid2/birthdate').once('value')));
+
+  test('unauthenticated cannot read any userPrivate data', async () =>
+    assertFails(asAnon().ref('userPrivate/uid1').once('value')));
+
+  test('unauthenticated cannot read birthdate', async () =>
+    assertFails(asAnon().ref('userPrivate/uid1/birthdate').once('value')));
+
+  // write: false — only Admin SDK can write private data
+  test('user cannot write own private data from client', async () =>
+    assertFails(asUser('uid1').ref('userPrivate/uid1/birthdate').set('2000-01-01')));
+
+  test('user cannot write another user\'s private data', async () =>
+    assertFails(asUser('uid2').ref('userPrivate/uid1/birthdate').set('2000-01-01')));
+
+  test('admin-role user cannot write userPrivate from client either', async () =>
+    assertFails(asAdmin().ref('userPrivate/uid1/birthdate').set('2000-01-01')));
+
+  // Privacy: birthdate must NOT appear in public users path
+  test('birthdate is not in public users profile', async () => {
+    await seed('users/uid1', { displayName: 'Alice', handle: 'alice', registrationComplete: true });
+    const snap = await asUser('uid1').ref('users/uid1').once('value');
+    const profile = snap.val();
+    expect(profile).not.toHaveProperty('birthdate');
+  });
+});

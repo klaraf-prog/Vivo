@@ -51,6 +51,8 @@ beforeEach(() => {
     return { transaction: mockTransaction, once: mockOnce, remove: mockRemove };
   });
   mockUpdate.mockResolvedValue();
+  // Default: existing profile read returns null (new user)
+  mockOnce.mockResolvedValue({ val: () => null });
 
   process.env.FIREBASE_SERVICE_ACCOUNT_JSON = FAKE_SA_JSON;
   process.env.FIREBASE_RTDB_URL             = 'https://someday-test.firebaseio.com';
@@ -173,18 +175,21 @@ test('R9 successful registration returns 200 with handle', async () => {
   expect(body.uid).toBe('u42');
 });
 
-test('R9b successful registration writes profile + userPrivate', async () => {
+test('R9b successful registration writes profile + userPrivate + usernames index', async () => {
   mockVerifyIdToken.mockResolvedValue({ uid: 'u42' });
   mockTransaction.mockImplementation(async (updateFn) => {
     updateFn(null); return { committed: true, snapshot: null };
   });
+  mockOnce.mockResolvedValue({ val: () => null }); // no existing profile
   const { handler } = load();
   await handler(makeEvent({ displayName: 'Klara Faiss', handle: 'klara', birthdate: '1995-06-15' }));
   expect(mockUpdate).toHaveBeenCalledTimes(1);
   const updateArg = mockUpdate.mock.calls[0][0];
   expect(updateArg).toHaveProperty('users/u42');
   expect(updateArg).toHaveProperty('userPrivate/u42/birthdate', '1995-06-15');
+  expect(updateArg).toHaveProperty('usernames/klara', 'u42');
   expect(updateArg['users/u42'].handle).toBe('klara');
+  expect(updateArg['users/u42'].username).toBe('klara');
   expect(updateArg['users/u42'].registrationComplete).toBe(true);
   // Birthdate must NOT be in the public user profile
   expect(updateArg['users/u42']).not.toHaveProperty('birthdate');
