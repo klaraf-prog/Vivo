@@ -110,6 +110,7 @@ exports.handler = async (event) => {
     if (voterUid === uid) continue; // don't notify the creator
     notifUpdates[`notifications/${voterUid}/${notifId}`] = {
       type: 'poll_confirmed',
+      source: 'personal',
       eventId,
       eventTitle: ev.title || '',
       eventEmoji: ev.emoji || null,

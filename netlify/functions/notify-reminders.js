@@ -76,6 +76,7 @@ exports.handler = async (event) => {
     const dateLabel = ev.date + (ev.time ? ' · ' + ev.time : '');
     writes[`notifications/${uid}/${notifId}`] = {
       type: 'reminder',
+      source: 'personal',
       eventId,
       eventTitle: ev.title || '',
       eventEmoji: ev.emoji || null,

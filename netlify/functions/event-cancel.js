@@ -67,6 +67,7 @@ exports.handler = async (event) => {
     if (!evMap[eventId]) continue;
     notifUpdates[`notifications/${invUid}/${notifId}`] = {
       type: 'event_cancelled',
+      source: 'personal',
       eventId,
       eventTitle: ev.title || '',
       eventEmoji: ev.emoji || null,

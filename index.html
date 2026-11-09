@@ -321,6 +321,7 @@ let _notifOpen      = false;  // is the notification overlay open?
 let _notifs         = null;   // null = not loaded yet, [] = loaded (empty), [{id,…}] = loaded
 let _notifLoading   = false;
 let _notifReminderTriggered = false; // only trigger reminder check once per session
+let _notifFilter    = 'all';  // 'all' | 'pending' | 'unread'
 
 async function _loadNotifications() {
   if (!_currentUser || _notifLoading) return;
@@ -369,6 +370,7 @@ async function _openNotifications() {
 
 function _closeNotifications() {
   _notifOpen = false;
+  _notifFilter = 'all';
   render();
 }
 
@@ -399,6 +401,12 @@ function _notifUnreadCount() {
   return _notifs.filter(n => !n.readAt).length;
 }
 
+function _isNotifPending(n) {
+  if (n.type === 'invite') return !(_userData?.userEvents?.[n.eventId]);
+  if (n.type === 'reminder') return !(_userData?.userEvents?.[n.eventId]) || _userData?.userEvents?.[n.eventId] === 'invited';
+  return false;
+}
+
 const _notifTypeIcon = { invite: '📩', reminder: '⏰', poll_confirmed: '✅', event_changed: '✏️', event_cancelled: '❌' };
 const _notifTypeLabel = { invite: 'Einladung', reminder: 'Erinnerung', poll_confirmed: 'Termin bestätigt', event_changed: 'Eventänderung', event_cancelled: 'Event abgesagt' };
 
@@ -414,13 +422,14 @@ function _notifRelTime(ts) {
   return `Vor ${d} Tag${d > 1 ? 'en' : ''}`;
 }
 
+function _setNotifFilter(f) { _notifFilter = f; render(); }
+
 function _notifSheet() {
   if (!_notifOpen) return '';
   const unread = _notifUnreadCount();
-  const items = _notifs;
 
   const headerHtml = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
         <div class="eyebrow">BENACHRICHTIGUNGEN ✳</div>
         <h2 style="margin:4px 0 0;font-size:22px;letter-spacing:-.6px">
@@ -430,44 +439,70 @@ function _notifSheet() {
       <button class="iconbtn" onclick="_closeNotifications()" aria-label="Schließen" style="font-size:18px;flex-shrink:0">×</button>
     </div>`;
 
+  const filters = [
+    { key: 'all',     label: 'Alle' },
+    { key: 'pending', label: 'Noch offen' },
+    { key: 'unread',  label: 'Ungelesen' },
+  ];
+  const filterHtml = `<div style="display:flex;gap:8px;margin-bottom:18px;overflow-x:auto;padding-bottom:2px">
+    ${filters.map(f => {
+      const active = _notifFilter === f.key;
+      return `<button onclick="_setNotifFilter('${f.key}')"
+        style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1.5px solid ${active?'#27963c':'var(--line)'};background:${active?'#27963c':'white'};color:${active?'white':'var(--dark)'};font-size:13px;font-weight:${active?'700':'500'};cursor:pointer">${f.label}</button>`;
+    }).join('')}
+  </div>`;
+
+  let visibleItems = _notifs;
   let bodyHtml;
-  if (!items) {
+  if (!visibleItems) {
     bodyHtml = `<div style="text-align:center;padding:32px 0;color:var(--muted)">
       <div style="font-size:32px;margin-bottom:12px">🔔</div>
       <p style="margin:0">Benachrichtigungen werden geladen…</p>
     </div>`;
-  } else if (!items.length) {
-    bodyHtml = `<div class="empty" style="padding:36px 20px;text-align:center">
-      <div style="font-size:36px;margin-bottom:12px">🔔</div>
-      <strong style="font-size:16px;display:block;margin-bottom:6px">Keine Benachrichtigungen</strong>
-      <p class="sub" style="margin:0;font-size:13px">Wenn du zu Events eingeladen wirst oder ein Event bald beginnt, erscheint es hier.</p>
-    </div>`;
   } else {
-    bodyHtml = items.map(n => {
-      const isUnread = !n.readAt;
-      const icon = _notifTypeIcon[n.type] || '🔔';
-      const typeLabel = _notifTypeLabel[n.type] || n.type;
-      return `<button onclick="_openNotifItem('${esc(n.id)}','${esc(n.eventId||'')}')"
-        style="display:flex;align-items:flex-start;gap:12px;width:100%;background:${isUnread?'#f0faf2':'white'};border:1px solid ${isUnread?'#b7e8c3':'var(--line)'};border-radius:14px;padding:14px 15px;margin-bottom:9px;text-align:left;cursor:pointer">
-        <div style="font-size:22px;flex-shrink:0;margin-top:1px">${icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">
-            <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:${isUnread?'#27663d':'var(--muted)'}">${typeLabel}</span>
-            <span style="font-size:11px;color:var(--muted);white-space:nowrap">${_notifRelTime(n.createdAt)}</span>
+    if (_notifFilter === 'pending') visibleItems = visibleItems.filter(_isNotifPending);
+    else if (_notifFilter === 'unread') visibleItems = visibleItems.filter(n => !n.readAt);
+
+    if (!visibleItems.length) {
+      const emptyMsg = _notifFilter === 'pending'
+        ? 'Keine offenen Einladungen oder Abstimmungen.'
+        : _notifFilter === 'unread'
+          ? 'Alles gelesen.'
+          : 'Wenn du zu Events eingeladen wirst oder ein Event bald beginnt, erscheint es hier.';
+      bodyHtml = `<div class="empty" style="padding:36px 20px;text-align:center">
+        <div style="font-size:36px;margin-bottom:12px">🔔</div>
+        <strong style="font-size:16px;display:block;margin-bottom:6px">Keine Benachrichtigungen</strong>
+        <p class="sub" style="margin:0;font-size:13px">${emptyMsg}</p>
+      </div>`;
+    } else {
+      bodyHtml = visibleItems.map(n => {
+        const isUnread = !n.readAt;
+        const isPending = _isNotifPending(n);
+        const icon = _notifTypeIcon[n.type] || '🔔';
+        const typeLabel = _notifTypeLabel[n.type] || n.type;
+        return `<button onclick="_openNotifItem('${esc(n.id)}','${esc(n.eventId||'')}')"
+          style="display:flex;align-items:flex-start;gap:12px;width:100%;background:${isUnread?'#f0faf2':'white'};border:1px solid ${isUnread?'#b7e8c3':'var(--line)'};border-radius:14px;padding:14px 15px;margin-bottom:9px;text-align:left;cursor:pointer">
+          <div style="font-size:22px;flex-shrink:0;margin-top:1px">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">
+              <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:${isUnread?'#27663d':'var(--muted)'}">${typeLabel}${isPending?' · <span style="color:#d35400">offen</span>':''}</span>
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap">${_notifRelTime(n.createdAt)}</span>
+            </div>
+            <div style="font-size:14px;font-weight:${isUnread?'700':'500'};line-height:1.4;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${esc(n.message || n.eventTitle || '')}
+            </div>
+            ${n.dateLabel ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(n.dateLabel)}</div>` : ''}
           </div>
-          <div style="font-size:14px;font-weight:${isUnread?'700':'500'};line-height:1.4;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${esc(n.message || n.eventTitle || '')}
-          </div>
-          ${n.dateLabel ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${esc(n.dateLabel)}</div>` : ''}
-        </div>
-        ${isUnread ? `<div style="width:8px;height:8px;border-radius:50%;background:#27963c;flex-shrink:0;margin-top:6px"></div>` : ''}
-      </button>`;
-    }).join('');
+          ${isUnread ? `<div style="width:8px;height:8px;border-radius:50%;background:#27963c;flex-shrink:0;margin-top:6px"></div>` : ''}
+        </button>`;
+      }).join('');
+    }
   }
 
   return `<div class="sheetbg" onclick="_closeNotifications()" style="z-index:50">
     <div class="sheet" onclick="event.stopPropagation()" style="max-height:85dvh">
       ${headerHtml}
+      ${filterHtml}
       ${bodyHtml}
     </div>
   </div>`;

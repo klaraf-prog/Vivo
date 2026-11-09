@@ -168,6 +168,7 @@ describe('notify-reminders', () => {
     const notifKey = Object.keys(written)[0];
     expect(notifKey).toMatch(/^notifications\/u1\//);
     expect(written[notifKey].type).toBe('reminder');
+    expect(written[notifKey].source).toBe('personal');
     expect(written[notifKey].eventId).toBe('ev1');
     expect(written[notifKey].readAt).toBeNull();
   });

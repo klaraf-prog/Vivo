@@ -132,6 +132,7 @@ exports.handler = async (event) => {
     const notifId = `notif_inv_${eventId}`;
     notifUpdates[`notifications/${invUid}/${notifId}`] = {
       type: 'invite',
+      source: 'personal',
       eventId,
       eventTitle: newEvent.title || '',
       eventEmoji: newEvent.emoji || null,
