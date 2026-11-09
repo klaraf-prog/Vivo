@@ -12,6 +12,18 @@
         ".write": "auth != null && (!data.exists() || data.val() === auth.uid)"
       }
     },
+    "handles": {
+      ".read": "auth != null",
+      "$handle": {
+        ".write": false
+      }
+    },
+    "userPrivate": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": false
+      }
+    },
     "events": {
       "$eventId": {
         ".read": "auth != null && (data.child('createdBy').val() === auth.uid || root.child('invites').child(auth.uid).child($eventId).val() === true || root.child('userEvents').child(auth.uid).child($eventId).val() !== null || auth.token.grantedEvent === $eventId)",

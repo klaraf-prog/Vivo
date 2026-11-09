@@ -562,9 +562,59 @@ function _avatarLetter() {
 
 // Sign-in / sign-up form for the Profile tab (shown when not authenticated).
 if (!('_authMode' in window)) window._authMode = 'signin';
+// Temporary registration data persisted across the 2-step signup flow (in-memory only).
+if (!('_regData' in window)) window._regData = {};
+// Handle-check state for real-time availability feedback.
+let _handleCheckTimer = null;
+let _handleStatus = ''; // '' | 'checking' | 'available' | 'taken' | 'invalid'
+const HANDLE_RE_CLIENT = /^[a-z0-9_]{2,30}$/;
+
+function _onHandleInput() {
+  const val = ($('auth-handle') || {}).value || '';
+  const normalized = val.toLowerCase().replace(/\s/g, '');
+  const badge = $('handle-badge');
+  if (!normalized) { _handleStatus = ''; if (badge) badge.textContent = ''; return; }
+  if (!HANDLE_RE_CLIENT.test(normalized)) {
+    _handleStatus = 'invalid';
+    if (badge) { badge.textContent = 'Nur a–z, 0–9, _  |  2–30 Zeichen'; badge.style.color = '#c0392b'; }
+    return;
+  }
+  _handleStatus = 'checking';
+  if (badge) { badge.textContent = '…'; badge.style.color = '#888'; }
+  clearTimeout(_handleCheckTimer);
+  _handleCheckTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`/.netlify/functions/handle-check?handle=${encodeURIComponent(normalized)}`);
+      const data = await res.json();
+      const b = $('handle-badge');
+      if (data.available) {
+        _handleStatus = 'available';
+        if (b) { b.textContent = '@' + normalized + ' ✓'; b.style.color = '#27663d'; }
+      } else {
+        _handleStatus = 'taken';
+        if (b) { b.textContent = '@' + normalized + ' ist vergeben'; b.style.color = '#c0392b'; }
+      }
+    } catch { _handleStatus = ''; }
+  }, 420);
+}
 
 function _signInForm() {
   const mode = window._authMode || 'signin';
+
+  if (mode === 'signup-step2') {
+    const today = new Date().toISOString().slice(0, 10);
+    return `<div class="mutedbox" style="margin-bottom:20px">
+      <div class="eyebrow">SOMEDAY ✳</div>
+      <h2 style="margin:8px 0 4px">Fast fertig!</h2>
+      <p class="sub" style="margin:0 0 20px">Damit wir dir passende Erlebnisse zeigen können, brauchen wir noch dein Geburtsdatum. Es ist privat und wird nicht angezeigt.</p>
+      <label style="font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">Geburtsdatum</label>
+      <input id="auth-bday" class="field" type="date" max="${today}" autocomplete="bday" style="margin-bottom:10px">
+      <div id="auth-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
+      ${button('Konto erstellen →', '_signUpFinish()', 'full')}
+      <button onclick="window._authMode='signup';_regData={};render()" style="border:0;background:none;padding:8px 0 0;width:100%;color:var(--muted);font-size:13px;cursor:pointer;text-align:center">← Zurück</button>
+    </div>`;
+  }
+
   return `<div class="mutedbox" style="margin-bottom:20px">
     <div class="eyebrow">SOMEDAY ✳</div>
     <h2 style="margin:8px 0 4px">Your corner of someday.</h2>
@@ -574,41 +624,96 @@ function _signInForm() {
     </button>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div style="flex:1;height:1px;background:#e6eae3"></div><span class="small">or</span><div style="flex:1;height:1px;background:#e6eae3"></div></div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button class="chip${mode==='signin'?' on':''}" onclick="window._authMode='signin';render()">Sign in</button>
-      <button class="chip${mode==='signup'?' on':''}" onclick="window._authMode='signup';render()">Create account</button>
+      <button class="chip${mode==='signin'?' on':''}" onclick="window._authMode='signin';_regData={};render()">Sign in</button>
+      <button class="chip${mode==='signup'?' on':''}" onclick="window._authMode='signup';_regData={};render()">Konto erstellen</button>
     </div>
     ${mode === 'signup' ? `
-    <input id="auth-name" class="field" type="text" placeholder="Your name" autocomplete="name" style="margin-bottom:10px">` : ''}
-    <input id="auth-email" class="field" type="email" placeholder="your@email.com" autocomplete="email" style="margin-bottom:10px">
-    <input id="auth-pw" class="field" type="password" placeholder="Password${mode==='signup'?' (min 6 chars)':''}" autocomplete="${mode==='signup'?'new-password':'current-password'}" style="margin-bottom:10px">
+    <input id="auth-name" class="field" type="text" placeholder="Dein Name" autocomplete="name" style="margin-bottom:10px">
+    <div style="position:relative;margin-bottom:4px">
+      <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none">@</span>
+      <input id="auth-handle" class="field" type="text" placeholder="deinhandle" autocomplete="off"
+        style="padding-left:28px"
+        oninput="_onHandleInput()"
+        autocapitalize="none" autocorrect="off" spellcheck="false">
+    </div>
+    <div id="handle-badge" style="font-size:12px;min-height:18px;margin-bottom:8px;padding-left:2px"></div>
+    ` : ''}
+    <input id="auth-email" class="field" type="email" placeholder="deine@email.de" autocomplete="email" style="margin-bottom:10px">
+    <input id="auth-pw" class="field" type="password" placeholder="Passwort${mode==='signup'?' (mind. 6 Zeichen)':''}" autocomplete="${mode==='signup'?'new-password':'current-password'}" style="margin-bottom:10px">
     <div id="auth-err" style="color:#c0392b;font-size:13px;margin-bottom:8px"></div>
     ${mode === 'signup'
-      ? button('Create account →', '_signUp()', 'full') + `<p class="footnote" style="margin-top:14px;text-align:center;line-height:1.7">Wenn du ein Konto erstellst, werden deine Daten zur Bereitstellung des Dienstes gemäß unserer <button onclick="nav('Privacy')" style="border:0;background:none;padding:0;color:#277c42;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer">Datenschutzerklärung</button> verarbeitet.</p>`
-      : button('Sign in →', '_signIn()', 'full')}
+      ? button('Weiter →', '_signUpStep1()', 'full') + `<p class="footnote" style="margin-top:14px;text-align:center;line-height:1.7">Wenn du ein Konto erstellst, werden deine Daten zur Bereitstellung des Dienstes gemäß unserer <button onclick="nav('Privacy')" style="border:0;background:none;padding:0;color:#277c42;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer">Datenschutzerklärung</button> verarbeitet.</p>`
+      : button('Anmelden →', '_signIn()', 'full')}
   </div>`;
 }
 
-async function _signUp() {
-  const name  = ($('auth-name')  || {}).value || '';
-  const email = ($('auth-email') || {}).value || '';
-  const pw    = ($('auth-pw')    || {}).value || '';
-  const errEl = $('auth-err');
-  if (!name.trim()) { if (errEl) errEl.textContent = 'Please enter your name.'; return; }
-  if (!email || !pw) { if (errEl) errEl.textContent = 'Please enter email and password.'; return; }
-  if (pw.length < 6) { if (errEl) errEl.textContent = 'Password must be at least 6 characters.'; return; }
+function _signUpStep1() {
+  const name   = ($('auth-name')   || {}).value || '';
+  const handle = ($('auth-handle') || {}).value || '';
+  const email  = ($('auth-email')  || {}).value || '';
+  const pw     = ($('auth-pw')     || {}).value || '';
+  const errEl  = $('auth-err');
+  if (!name.trim())  { if (errEl) errEl.textContent = 'Bitte gib deinen Namen ein.'; return; }
+  const normalizedHandle = handle.toLowerCase().replace(/\s/g, '');
+  if (!HANDLE_RE_CLIENT.test(normalizedHandle)) {
+    if (errEl) errEl.textContent = 'Handle: 2–30 Zeichen, nur a–z, 0–9 und _.'; return;
+  }
+  if (_handleStatus === 'taken') { if (errEl) errEl.textContent = '@' + normalizedHandle + ' ist bereits vergeben.'; return; }
+  if (!email)  { if (errEl) errEl.textContent = 'Bitte gib deine E-Mail-Adresse ein.'; return; }
+  if (!pw || pw.length < 6) { if (errEl) errEl.textContent = 'Passwort muss mindestens 6 Zeichen haben.'; return; }
   if (errEl) errEl.textContent = '';
+  window._regData = { name: name.trim(), handle: normalizedHandle, email, pw };
+  window._authMode = 'signup-step2';
+  _handleStatus = '';
+  render();
+}
+
+async function _signUpFinish() {
+  const bd    = ($('auth-bday') || {}).value || '';
+  const errEl = $('auth-err');
+  if (!bd) { if (errEl) errEl.textContent = 'Bitte gib dein Geburtsdatum ein.'; return; }
+  if (bd >= new Date().toISOString().slice(0, 10)) {
+    if (errEl) errEl.textContent = 'Das Geburtsdatum darf nicht in der Zukunft liegen.'; return;
+  }
+  const { name, handle, email, pw } = window._regData || {};
+  if (!name || !handle || !email || !pw) {
+    window._authMode = 'signup'; window._regData = {}; render(); return;
+  }
+  if (errEl) errEl.textContent = '';
+  const btn = document.querySelector('[onclick="_signUpFinish()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Wird erstellt…'; }
+  let cred = null;
   try {
     const auth = _initFirebaseAuth();
-    const cred = await auth.createUserWithEmailAndPassword(email, pw);
+    cred = await auth.createUserWithEmailAndPassword(email, pw);
     const token = await cred.user.getIdToken();
-    await fetch('/.netlify/functions/user-profile', {
+    const res = await fetch('/.netlify/functions/register', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ displayName: name.trim() }),
+      body: JSON.stringify({ handle, displayName: name, birthdate: bd }),
     });
+    const data = await res.json();
+    if (!res.ok) {
+      // Clean up the Firebase Auth user so the user can retry cleanly.
+      try { await cred.user.delete(); } catch {}
+      cred = null;
+      const msg = res.status === 409
+        ? '@' + handle + ' ist bereits vergeben. Bitte wähle einen anderen Handle.'
+        : (data.error || 'Registrierung fehlgeschlagen. Bitte erneut versuchen.');
+      if (res.status === 409) { window._authMode = 'signup'; window._regData = {}; }
+      const errEl2 = $('auth-err');
+      if (errEl2) errEl2.textContent = msg;
+      if (btn) { btn.disabled = false; btn.textContent = 'Konto erstellen →'; }
+      return;
+    }
+    // Success: Firebase Auth onAuthStateChanged will fire and render the app.
+    window._regData = {};
+    window._authMode = 'signin';
   } catch (e) {
+    if (cred) { try { await cred.user.delete(); } catch {} }
     const errEl2 = $('auth-err');
-    if (errEl2) errEl2.textContent = e.message || 'Sign-up failed.';
+    if (errEl2) errEl2.textContent = e.message || 'Registrierung fehlgeschlagen.';
+    if (btn) { btn.disabled = false; btn.textContent = 'Konto erstellen →'; }
   }
 }
 
@@ -1726,12 +1831,21 @@ function _authSpaces() {
   ` : '';
 
   if (!items.length) {
+    const hasFriends = _userData && Object.keys(_userData.friends || {}).length > 0;
+    const welcomeBlock = !hasFriends
+      ? `<div style="background:#1a2e22;border-radius:14px;padding:20px 16px;margin-bottom:20px">
+          <div style="color:#54d86b;font-size:17px;font-weight:700;margin-bottom:8px">Willkommen bei Someday. ✳</div>
+          <p style="color:#b7cbbd;font-size:14px;margin:0 0 16px;line-height:1.5">Hier landen deine Gespräche und geteilten Pläne. Fang damit an, Freunde zu finden.</p>
+          <button class="btn full dark" onclick="set({tab:'Profile',profileTab:'Friends'})">Freunde finden</button>
+        </div>
+        <p style="text-align:center;color:var(--muted);font-size:12px;margin:0 0 24px">Du kannst auch jetzt schon <button onclick="nav('Discover')" style="border:0;background:none;padding:0;color:#277c42;font-size:12px;font-weight:600;cursor:pointer">Aktivitäten entdecken</button>.</p>`
+      : `<div class="empty">Noch keine Chats oder Spaces.<br>Schreib einem Freund oder erstelle einen Space.</div>
+         <div style="height:12px"></div>
+         ${button('+ Space erstellen', '_openSpaceCreate()', 'full')}`;
     return `<div class="content">
       <div class="hero"><div class="eyebrow">DEINE LEUTE ✳</div><h1>Chats.</h1></div>
       ${invSection}
-      <div class="empty">Noch keine Chats oder Spaces.<br>Erstelle einen Space oder schreib einem Freund.</div>
-      <div style="height:12px"></div>
-      ${button('+ Space erstellen', '_openSpaceCreate()', 'full')}
+      ${welcomeBlock}
     </div>`;
   }
 
