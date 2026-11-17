@@ -125,7 +125,7 @@ exports.handler = async (event) => {
 
   // Write invite notifications for all verified invitees
   const notifUpdates = {};
-  const title = (newEvent.emoji ? newEvent.emoji + ' ' : '') + (newEvent.title || 'Event');
+  const notifTitle = (newEvent.emoji ? newEvent.emoji + ' ' : '') + (newEvent.title || 'Event');
   const dateLabel = newEvent.date ? (newEvent.date + (newEvent.time ? ' · ' + newEvent.time : '')) : '';
   for (const invUid of inviteUids) {
     if (!updates[`invites/${invUid}/${eventId}`]) continue; // was not verified
@@ -136,7 +136,7 @@ exports.handler = async (event) => {
       eventId,
       eventTitle: newEvent.title || '',
       eventEmoji: newEvent.emoji || null,
-      message: `${name} hat dich zu „${title}" eingeladen`,
+      message: `${name} hat dich zu „${notifTitle}" eingeladen`,
       dateLabel,
       createdAt: now,
       readAt: null,
