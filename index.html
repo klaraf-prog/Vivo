@@ -322,19 +322,22 @@ let _notifs         = null;   // null = not loaded yet, [] = loaded (empty), [{i
 let _notifLoading   = false;
 let _notifReminderTriggered = false; // only trigger reminder check once per session
 let _notifFilter    = 'all';  // 'all' | 'pending' | 'unread'
+let _refreshedForEventId = null;  // guard: event ID we last triggered a refresh for
 
 async function _loadNotifications() {
   if (!_currentUser || _notifLoading) return;
   _notifLoading = true;
   try {
     const token = await _currentUser.getIdToken();
-    // Load from Firebase RTDB directly via REST (no extra function needed)
-    const snap = await _db.ref(`notifications/${_currentUser.uid}`)
-      .orderByChild('createdAt').limitToLast(50).once('value');
-    const raw = snap.val() || {};
-    _notifs = Object.entries(raw)
-      .map(([id, n]) => ({ id, ...n }))
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const res = await fetch('/.netlify/functions/notify-list', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const { notifs } = await res.json();
+      _notifs = notifs;
+    } else {
+      _notifs = _notifs || [];
+    }
     render();
   } catch (e) {
     console.warn('[someday] notifications load failed:', e.message);
@@ -2380,26 +2383,14 @@ function _authEventPage() {
   const guestEv = (_guestEventData && _guestEventData.id === id) ? _guestEventData : null;
   let ev = authEv || guestEv;
 
-  // If the user is a space member but hasn't RSVPed yet, event data may not be in _userData.events.
-  // Check if the event belongs to one of their spaces, then lazy-load it.
-  if (!ev && _userData && !_userData._error && _db) {
-    let isSpaceEvent = false;
-    if (_userData.spaceEvents) {
-      for (const evts of Object.values(_userData.spaceEvents)) {
-        if (evts && evts[id]) { isSpaceEvent = true; break; }
-      }
+  // If event not in _userData, it may have been created after the last load.
+  // Trigger one background refresh; show a loading state while waiting.
+  if (!ev && _userData && !_userData._error) {
+    if (_refreshedForEventId !== id) {
+      _refreshedForEventId = id;
+      _refreshUserData();
     }
-    if (isSpaceEvent) {
-      _db.ref('events/' + id).once('value').then(snap => {
-        const val = snap.val();
-        if (val) {
-          if (!_userData.events) _userData.events = {};
-          _userData.events[id] = val;
-          render();
-        }
-      }).catch(() => {});
-      return `<div class="content" style="padding-top:40px;text-align:center"><p style="color:var(--muted)">Lade Event …</p></div>`;
-    }
+    return `<div class="content" style="padding-top:40px;text-align:center"><p style="color:var(--muted)">Lade Event …</p></div>`;
   }
 
   if (!ev) return eventPage();

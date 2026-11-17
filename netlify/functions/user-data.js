@@ -36,15 +36,22 @@ exports.handler = async (event) => {
   const spaceInvites   = spaceInvitesSnap.val()   || {};
   const userDMs        = userDMsSnap.val()        || {};
 
-  // Stage 2: resolve references
-  const eventIds  = [...new Set([...Object.keys(userEvents), ...Object.keys(invites)])];
   const spaceIds  = Object.keys(userSpaces);
   const friendIds = Object.keys(friends);
 
-  const [eventSnaps, spaceSnaps, spaceEventSnaps, friendSnaps] = await Promise.all([
+  // Stage 1.5: fetch spaceEvents indices so their event IDs are included in Stage 2
+  const spaceEventSnaps = await Promise.all(spaceIds.map(id => db.ref(`spaceEvents/${id}`).once('value')));
+  const spaceEvtIds = new Set();
+  spaceIds.forEach((id, i) => {
+    Object.keys(spaceEventSnaps[i].val() || {}).forEach(evId => spaceEvtIds.add(evId));
+  });
+
+  // Stage 2: resolve references (eventIds now includes space-event IDs)
+  const eventIds  = [...new Set([...Object.keys(userEvents), ...Object.keys(invites), ...spaceEvtIds])];
+
+  const [eventSnaps, spaceSnaps, friendSnaps] = await Promise.all([
     Promise.all(eventIds.map(id  => db.ref(`events/${id}`).once('value'))),
     Promise.all(spaceIds.map(id  => db.ref(`spaces/${id}`).once('value'))),
-    Promise.all(spaceIds.map(id  => db.ref(`spaceEvents/${id}`).once('value'))),
     Promise.all(friendIds.map(id => db.ref(`users/${id}`).once('value'))),
   ]);
 

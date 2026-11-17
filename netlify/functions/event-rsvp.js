@@ -39,7 +39,15 @@ exports.handler = async (event) => {
       db.ref(`userEvents/${uid}/${eventId}`).once('value'),
     ]);
     if (!inviteSnap.exists() && !existingRsvpSnap.exists()) {
-      return json(403, { error: 'Access denied: not invited to this event' });
+      // Last resort: allow if the event appears in any space the user is a member of
+      const userSpacesSnap = await db.ref(`userSpaces/${uid}`).once('value');
+      const memberSpaceIds = Object.keys(userSpacesSnap.val() || {});
+      const spEvSnaps = await Promise.all(
+        memberSpaceIds.map(spId => db.ref(`spaceEvents/${spId}/${eventId}`).once('value'))
+      );
+      if (!spEvSnaps.some(s => s.exists())) {
+        return json(403, { error: 'Access denied: not invited to this event' });
+      }
     }
   }
 
